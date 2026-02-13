@@ -1,0 +1,5 @@
+name: "NewProject"
+assets: "Assets"
+scenes: "Assets/Scenes"
+shaders: "Assets/Shaders"
+models: "Assets/Models"

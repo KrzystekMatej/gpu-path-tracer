@@ -6,7 +6,7 @@
     { "name": "windows-x64-debug-vcpkg", "configurePreset": "windows-x64-debug-vcpkg" },
     { "name": "windows-x64-release-vcpkg", "configurePreset": "windows-x64-release-vcpkg" },
     { "name": "linux-x64-debug-vcpkg", "configurePreset": "linux-x64-debug-vcpkg" },
-    { "name": "linux-x64-release-vcpkg", "configurePreset": "linux-x64-release-vcpkg" },
+    { "name": "linux-x64-release-vcpkg", "configurePreset": "linux-x64-release-vcpkg" }
   ],
   "configurePresets": [
     {

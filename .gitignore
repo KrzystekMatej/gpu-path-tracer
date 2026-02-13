@@ -1,16 +1,16 @@
 Build/
 .vs/
 
-External/*
-!External/glad/
-!External/glad/**
-!External/imgui/
-!External/imgui/**
+/External/*
+!/External/glad/
+!/External/glad/**
+!/External/imgui/
+!/External/imgui/**
 
 
-Assets/*
-!Assets/Shaders/
-!Assets/Shaders/**
+/Assets/*
+!/Assets/Shaders/
+!/Assets/Shaders/**
 
 CMakeCache.txt
 CMakeFiles/

@@ -1,14 +1,8 @@
-add_library(core_cuda_kernels STATIC)
+add_library(core_cuda_kernels INTERFACE) # STATIC later
 
-target_sources(core_cuda_kernels PRIVATE
-    "Source/CudaHello.cu"
-)
-
-target_include_directories(core_cuda_kernels PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/Include"
-)
-
-target_link_libraries(core_cuda_kernels PUBLIC CUDA::cudart)
+#target_sources(core_cuda_kernels PRIVATE ...)
+target_include_directories(core_cuda_kernels INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Include")# PUBLIC later
+target_link_libraries(core_cuda_kernels INTERFACE CUDA::cudart) # PUBLIC later
 
 set_target_properties(core_cuda_kernels PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
@@ -17,13 +11,11 @@ set_target_properties(core_cuda_kernels PROPERTIES
 add_library(core STATIC)
 
 target_sources(core PRIVATE
-    "Source/TestCore.cpp"
+    "Source/App/Application.cpp"
+    "Source/Window/Window.cpp"
 )
 
-target_include_directories(core PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/Include"
-)
-
+target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include")
 target_link_libraries(core PUBLIC core_cuda_kernels)
 
 foreach(dep_name IN LISTS CORE_DEPENDENCIES)
