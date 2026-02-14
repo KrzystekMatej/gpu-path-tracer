@@ -4,31 +4,47 @@
 namespace Core
 {
 	Application::Application(std::unique_ptr<AppClient> client, Window window, Project project)
-		: m_Client(std::move(client)), m_Window(std::move(window)), m_Project(std::move(project)) {}
+		: m_Client(std::move(client)), m_Window(std::move(window)), m_Renderer(m_Window.GetContext()), m_Project(std::move(project))
+	{ 
+		m_Renderer.Initialize();
+	}
 
-	std::expected<Application, Error> Application::Create
+	std::expected<std::unique_ptr<Application>, Error> Application::Create
 	(
 		std::unique_ptr<AppClient> client, 
 		WindowAttributes windowAttributes, 
 		const std::filesystem::path& projectConfigPath
 	)
 	{
-		auto window = Window::Create(std::move(windowAttributes));
-		if (!window) {
-			return std::unexpected(window.error());
-		}
-		
+		if (!glfwInit())
+			return std::unexpected(Error("Failed to initialize GLFW!"));
+
+		auto windowResult = Window::Create(std::move(windowAttributes));
+		if (!windowResult)
+			return std::unexpected(windowResult.error());
+
+		Window window = std::move(windowResult.value());
+
+		window.GetContext().MakeCurrent();
+
+		if (!gladLoadGL(glfwGetProcAddress))
+			return std::unexpected(Error("Failed to initialize GLAD!"));
+
+		window.GetContext().SetSwapInterval(1);
+
 		Project project = Project::Load(projectConfigPath);
 
-		return Application(std::move(client), std::move(window.value()), std::move(project));
+		return std::unique_ptr<Application>(new Application(std::move(client), std::move(window), std::move(project)));
 	}
 
+	
 	void Application::PrintInfo() const
 	{
-		spdlog::info("OpenGL Version: {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
-		spdlog::info("Vendor: {}", reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
-		spdlog::info("Renderer: {}", reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
-		spdlog::info("GLSL: {}", reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION)));
+		GLVersion version = m_Window.GetContext().GetVersion();
+		spdlog::info("OpenGL Version: {}.{}", version.Major, version.Minor);
+		spdlog::info("Vendor: {}", version.Vendor);
+		spdlog::info("Renderer: {}", version.Renderer);
+		spdlog::info("GLSL: {}", version.GLSL);
 
 		int major, minor, revision;
 		glfwGetVersion(&major, &minor, &revision);
@@ -40,9 +56,14 @@ namespace Core
 		while (m_Window.IsOpen())
 		{
 			m_Window.PollEvents();
+
+			m_Renderer.BeginFrame();
+			m_Renderer.Clear(0.1f, 0.1f, 0.1f, 1.0f);
+
 			m_Client->Update();
-			m_Window.Clear();
 			m_Client->Render();
+			m_Renderer.EndFrame();
+
 			m_Window.SwapBuffers();
 		}
 	}
