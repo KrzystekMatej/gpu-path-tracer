@@ -17,6 +17,7 @@ target_sources(core PRIVATE
     "Source/Window/GLFWCallbacks.cpp"
     "Source/Render/Renderer.cpp"
     "Source/Events/EventDispatcher.cpp"
+    "Source/Assets/AssetStorage.cpp"
 )
 
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include")

@@ -3,6 +3,7 @@ set(CORE_DEPENDENCIES
     YAML_CPP
     GLM
     ENTT
+    XXHASH
     TINYOBJLOADER
     FREEIMAGE
     OPENGL
@@ -51,6 +52,13 @@ set(DEP_ENTT_FIND_PACKAGE_NAME EnTT)
 set(DEP_ENTT_GIT_REPOSITORY https://github.com/skypjack/entt.git)
 set(DEP_ENTT_GIT_TAG v3.16.0)
 set(DEP_ENTT_TARGET EnTT::EnTT)
+
+# ---- xxHash ----
+set(DEP_XXHASH_NAME xxHash)
+set(DEP_XXHASH_FIND_PACKAGE_NAME xxHash)
+set(DEP_XXHASH_GIT_REPOSITORY https://github.com/Cyan4973/xxHash.git)
+set(DEP_XXHASH_GIT_TAG v0.8.3)
+set(DEP_XXHASH_TARGET xxHash::xxhash)
 
 # ---- FreeImage ----
 set(DEP_FREEIMAGE_NAME FreeImage)
