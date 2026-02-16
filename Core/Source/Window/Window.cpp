@@ -1,5 +1,5 @@
-#include <glad/gl.h>
 #include "Window/Window.hpp"
+#include "Window/GLFWCallbacks.hpp"
 
 namespace Core
 {
@@ -13,11 +13,11 @@ namespace Core
 		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 		glfwWindowHint(GLFW_SAMPLES, 8);
 
-		GLFWwindow* windowHandle = glfwCreateWindow(windowAttributes.Width, windowAttributes.Height, windowAttributes.Title.c_str(), nullptr, nullptr);
+		GLFWwindow* windowHandle = glfwCreateWindow(windowAttributes.width, windowAttributes.height, windowAttributes.title.c_str(), nullptr, nullptr);
 
 		if (!windowHandle) 
 			return std::unexpected(Error("Failed to create GLFW window handle!"));
-		glfwSetWindowSizeLimits(windowHandle, windowAttributes.MinWidth, windowAttributes.MinHeight, GLFW_DONT_CARE, GLFW_DONT_CARE);
+		glfwSetWindowSizeLimits(windowHandle, windowAttributes.minWidth, windowAttributes.minHeight, GLFW_DONT_CARE, GLFW_DONT_CARE);
 
 		GLFWcursor* cursor = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
 
@@ -34,6 +34,12 @@ namespace Core
 		return Window(windowHandle, std::move(windowAttributes), std::move(graphicsContext).value());
 	}
 
+	void Window::InitCallbacks()
+	{
+		glfwSetWindowUserPointer(m_Handle, this);
+		SetGLFWCallbacks(m_Handle);
+	}
+
 	void Window::PollEvents() const
     {
         glfwPollEvents();
@@ -43,6 +49,11 @@ namespace Core
     {
         return !glfwWindowShouldClose(m_Handle);
     }
+
+	void Window::Close() const
+	{
+		glfwSetWindowShouldClose(m_Handle, GLFW_TRUE);
+	}
 
     void Window::SwapBuffers() const
     {

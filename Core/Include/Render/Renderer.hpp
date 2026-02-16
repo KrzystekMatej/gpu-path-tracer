@@ -6,6 +6,11 @@ namespace Core
 	class Renderer
     {
     public:
+		Renderer(const Renderer&) = delete;
+		Renderer& operator=(const Renderer&) = delete;
+		Renderer(Renderer&&) noexcept = default;
+		Renderer& operator=(Renderer&&) noexcept = default;
+
         Renderer(const GraphicsContext& context);
         void Initialize();
         void BeginFrame();

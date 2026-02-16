@@ -13,7 +13,11 @@ add_library(core STATIC)
 target_sources(core PRIVATE
     "Source/App/Application.cpp"
     "Source/Window/Window.cpp"
- "Source/Window/GraphicsContext.cpp" "Source/Render/Renderer.cpp")
+    "Source/Window/GraphicsContext.cpp" 
+    "Source/Window/GLFWCallbacks.cpp"
+    "Source/Render/Renderer.cpp"
+    "Source/Events/EventDispatcher.cpp"
+)
 
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include")
 target_link_libraries(core PUBLIC core_cuda_kernels)

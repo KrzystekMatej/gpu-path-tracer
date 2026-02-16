@@ -6,20 +6,20 @@ namespace Core
 {
 	struct WindowAttributes
 	{
-		std::string Title;
-		uint32_t Width;
-		uint32_t Height;
-		uint32_t MinWidth;
-		uint32_t MinHeight;
+		std::string title;
+		uint32_t width;
+		uint32_t height;
+		uint32_t minWidth;
+		uint32_t minHeight;
 
 		static WindowAttributes DefaultAttributes()
 		{
 			return {
-				.Title = "Scene Viewer",
-				.Width = 1280,
-				.Height = 720,
-				.MinWidth = 960,
-				.MinHeight = 540,
+				.title = "Scene Viewer",
+				.width = 1280,
+				.height = 720,
+				.minWidth = 960,
+				.minHeight = 540,
 			};
 		}
 	};

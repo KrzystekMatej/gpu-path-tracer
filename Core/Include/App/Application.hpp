@@ -12,6 +12,11 @@ namespace Core
 	class Application
 	{
 	public:
+		Application(const Application&) = delete;
+		Application& operator=(const Application&) = delete;
+		Application(Application&&) = delete;
+		Application& operator=(Application&&) = delete;	
+
 		static std::expected<std::unique_ptr<Application>, Error> Create
 		(
 			std::unique_ptr<AppClient> client, 
@@ -20,6 +25,7 @@ namespace Core
 		);
 
 		void PrintInfo() const;
+		void OnEvent(const Event& event);
 		void Run();
 	private:
 		Application(std::unique_ptr<AppClient> client, Window window, Project project);

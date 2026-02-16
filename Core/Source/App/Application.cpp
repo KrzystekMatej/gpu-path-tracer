@@ -1,5 +1,6 @@
 #include <glad/gl.h>
 #include "App/Application.hpp"
+#include "App/AppContext.hpp"
 
 namespace Core
 {
@@ -7,6 +8,8 @@ namespace Core
 		: m_Client(std::move(client)), m_Window(std::move(window)), m_Renderer(m_Window.GetContext()), m_Project(std::move(project))
 	{ 
 		m_Renderer.Initialize();
+		m_Window.InitCallbacks();
+		m_Window.SetEventCallback([this](const Event& event) { OnEvent(event); });
 	}
 
 	std::expected<std::unique_ptr<Application>, Error> Application::Create
@@ -26,10 +29,8 @@ namespace Core
 		Window window = std::move(windowResult.value());
 
 		window.GetContext().MakeCurrent();
-
 		if (!gladLoadGL(glfwGetProcAddress))
 			return std::unexpected(Error("Failed to initialize GLAD!"));
-
 		window.GetContext().SetSwapInterval(1);
 
 		Project project = Project::Load(projectConfigPath);
@@ -51,6 +52,12 @@ namespace Core
 		spdlog::info("GLFW Version: {}.{}.{}", major, minor, revision);
 	}
 
+
+	void Application::OnEvent(const Event& event)
+	{
+		m_Client->OnEvent(AppContext(m_Window, m_Renderer, m_Project), event);
+	}
+
 	void Application::Run()
 	{
 		while (m_Window.IsOpen())
@@ -60,8 +67,9 @@ namespace Core
 			m_Renderer.BeginFrame();
 			m_Renderer.Clear(0.1f, 0.1f, 0.1f, 1.0f);
 
-			m_Client->Update();
-			m_Client->Render();
+			AppContext context(m_Window, m_Renderer, m_Project);
+			m_Client->Update(context);
+			m_Client->Render(context);
 			m_Renderer.EndFrame();
 
 			m_Window.SwapBuffers();
