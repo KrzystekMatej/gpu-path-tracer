@@ -5,7 +5,7 @@
 #include "Error/Error.hpp"
 #include "AppClient.hpp"
 #include "Project/Project.hpp"
-#include "Render/Renderer.hpp"
+#include "Graphics/Gl/Renderer.hpp"
 
 namespace Core
 {
@@ -32,7 +32,7 @@ namespace Core
 
 		std::unique_ptr<AppClient> m_Client;
 		Window m_Window;
-		Renderer m_Renderer;
+		Graphics::Gl::Renderer m_Renderer;
 
 		Project m_Project;
 	};

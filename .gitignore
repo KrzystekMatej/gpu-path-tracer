@@ -6,6 +6,8 @@ Build/
 !/External/glad/**
 !/External/imgui/
 !/External/imgui/**
+!/External/mikktspace/
+!/External/mikktspace/**
 
 
 /Assets/*

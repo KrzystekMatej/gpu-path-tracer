@@ -1,17 +1,17 @@
 #pragma once
 #include "Window/Window.hpp"
-#include "Render/Renderer.hpp"
+#include "Graphics/Gl/Renderer.hpp"
 #include "Project/Project.hpp"
 
 namespace Core
 {
 	struct AppContext
 	{
-		AppContext(Window& windowRef, Renderer& rendererRef, Project& projectRef)
+		AppContext(Window& windowRef, Graphics::Gl::Renderer& rendererRef, Project& projectRef)
 			: window(windowRef), renderer(rendererRef), project(projectRef) {}
 
 		Window& window;
-		Renderer& renderer;
+		Graphics::Gl::Renderer& renderer;
 		Project& project;
 	};
 }

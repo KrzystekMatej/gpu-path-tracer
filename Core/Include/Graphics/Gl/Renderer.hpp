@@ -1,7 +1,7 @@
 #pragma once
 #include "Window/GraphicsContext.hpp"
 
-namespace Core
+namespace Core::Graphics::Gl
 {
 	class Renderer
     {

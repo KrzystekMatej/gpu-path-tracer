@@ -1,7 +1,7 @@
 #include <glad/gl.h>
-#include "Render/Renderer.hpp"
+#include "Graphics/Gl/Renderer.hpp"
 
-namespace Core
+namespace Core::Graphics::Gl
 {
     Renderer::Renderer(const GraphicsContext& context)
 		: m_Context(context) {}

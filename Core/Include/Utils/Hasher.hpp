@@ -18,6 +18,30 @@ namespace Core::Utils
             XXH3_freeState(state);
         }
 
+        Hasher(const Hasher&) = delete;
+        Hasher& operator=(const Hasher&) = delete;
+
+        Hasher(Hasher&& other) noexcept : state(other.state)
+        {
+            other.state = nullptr;
+        }
+
+        Hasher& operator=(Hasher&& other) noexcept
+        {
+            if (this != &other)
+            {
+                XXH3_freeState(state);
+                state = other.state;
+                other.state = nullptr;
+            }
+            return *this;
+        }
+
+        void Reset()
+        {
+            XXH3_64bits_reset(state);
+        }
+
 		void Update(std::span<const std::byte> data)
 		{
 			XXH3_64bits_update(state, data.data(), data.size());

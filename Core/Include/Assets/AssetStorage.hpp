@@ -7,6 +7,7 @@
 #include <expected>
 #include <memory>
 #include "Error/Error.hpp"
+#include "Utils/Hasher.hpp"
 
 namespace Core::Assets
 {
@@ -20,7 +21,8 @@ namespace Core::Assets
 		Scene,
 	};
 
-	struct Asset {
+	struct Asset 
+	{
 		virtual ~Asset() = default;
 		virtual AssetType GetType() const = 0;
 	};
@@ -29,24 +31,28 @@ namespace Core::Assets
 	struct SubkeyIndex { uint32_t value; };
 	struct SubkeyName  { std::string_view name; };
 
-	using AssetSubkey = std::variant<
+	using AssetSubkey = std::variant
+	<
 		SubkeyNone,
 		SubkeyIndex,
 		SubkeyName
 	>;
 
-	struct SourcePath {
+	struct SourcePath 
+	{
 		std::string_view path;
 	};
 
-	struct SourcePixel {
+	struct SourcePixel 
+	{
 		uint32_t externalFormat;
 		uint32_t pixelType;
 		uint32_t internalFormat;
 		std::span<const std::byte> data;
 	};
 
-	using AssetSource = std::variant<
+	using AssetSource = std::variant
+	<
 		SourcePath,
 		SourcePixel
 	>;
@@ -97,7 +103,7 @@ namespace Core::Assets
 			{
 				return std::unexpected("Asset not found");
 			}
-			return static_cast<const T&>(it->second);
+			return static_cast<const T&>(*it->second);
 		}
 
 		template<AssetDerived T>
@@ -127,7 +133,13 @@ namespace Core::Assets
 			return m_Storage.erase(handle.m_Id) > 0;
 		}
 	private:
-		uint64_t MakeAssetId(const AssetKey& key) const;
+		uint64_t MakeAssetId(const AssetKey& key);
+		
+		void HashAssetType(AssetType type);
+		void HashAssetSource(const AssetSource& source);
+		void HashAssetSubkey(const AssetSubkey& subkey);
+
 		std::unordered_map<uint64_t, std::unique_ptr<Asset>> m_Storage;
+		Utils::Hasher m_Hasher;
 	};
 }

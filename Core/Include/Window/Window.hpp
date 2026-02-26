@@ -1,7 +1,6 @@
 #pragma once
 #include <expected>
 #include <glfw/glfw3.h>
-#include <glm/vec2.hpp>
 #include <memory>
 #include <string>
 #include "Error/Error.hpp"

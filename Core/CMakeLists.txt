@@ -15,9 +15,12 @@ target_sources(core PRIVATE
     "Source/Window/Window.cpp"
     "Source/Window/GraphicsContext.cpp" 
     "Source/Window/GLFWCallbacks.cpp"
-    "Source/Render/Renderer.cpp"
+    "Source/Graphics/Gl/Renderer.cpp"
     "Source/Events/EventDispatcher.cpp"
     "Source/Assets/AssetStorage.cpp"
+    "Source/Assets/IO/ObjLoader.cpp"
+    "Source/Assets/IO/MeshBuilder.cpp"
+    "Source/External/TinyObjLoader.cpp"
 )
 
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include")

@@ -10,6 +10,7 @@ set(CORE_DEPENDENCIES
     GLAD
     GLFW
     IMGUI
+    MIKKTSPACE
 )
 
 set(APP_DEPENDENCIES
@@ -90,3 +91,8 @@ set(DEP_GLFW_GIT_TAG 3.4)
 set(DEP_IMGUI_NAME imgui)
 set(DEP_IMGUI_FIND_PACKAGE_NAME imgui)
 set(DEP_IMGUI_TARGET imgui::imgui)
+
+# ---- MikkTSpace ----
+set(DEP_MIKKTSPACE_NAME mikktspace)
+set(DEP_MIKKTSPACE_FIND_PACKAGE_NAME mikktspace)
+set(DEP_MIKKTSPACE_TARGET mikktspace)
