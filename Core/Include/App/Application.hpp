@@ -17,12 +17,10 @@ namespace Core
 		Application(Application&&) = delete;
 		Application& operator=(Application&&) = delete;	
 
-		static std::expected<std::unique_ptr<Application>, Error> Create
-		(
+		static std::expected<std::unique_ptr<Application>, Error> Create(
 			std::unique_ptr<AppClient> client, 
 			WindowAttributes windowAttributes, 
-			const std::filesystem::path& projectConfigPath
-		);
+			const std::filesystem::path& projectConfigPath);
 
 		void PrintInfo() const;
 		void OnEvent(const Event& event);

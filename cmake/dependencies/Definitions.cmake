@@ -5,12 +5,12 @@ set(CORE_DEPENDENCIES
     ENTT
     XXHASH
     TINYOBJLOADER
-    FREEIMAGE
     OPENGL
     GLAD
     GLFW
     IMGUI
     MIKKTSPACE
+    OPENIMAGEIO
 )
 
 set(APP_DEPENDENCIES
@@ -61,14 +61,6 @@ set(DEP_XXHASH_GIT_REPOSITORY https://github.com/Cyan4973/xxHash.git)
 set(DEP_XXHASH_GIT_TAG v0.8.3)
 set(DEP_XXHASH_TARGET xxHash::xxhash)
 
-# ---- FreeImage ----
-set(DEP_FREEIMAGE_NAME FreeImage)
-set(DEP_FREEIMAGE_FIND_PACKAGE_NAME freeimage)
-set(DEP_FREEIMAGE_TARGET freeimage::FreeImage)
-set(DEP_FREEIMAGE_PKG_CONFIG_NAME freeimage)
-set(DEP_FREEIMAGE_FIND_PATH_HEADER FreeImage.h)
-set(DEP_FREEIMAGE_FIND_LIBRARY_NAME freeimage)
-
 # ---- OpenGL ----
 set(DEP_OPENGL_NAME OpenGL)
 set(DEP_OPENGL_FIND_PACKAGE_NAME OpenGL)
@@ -96,3 +88,9 @@ set(DEP_IMGUI_TARGET imgui::imgui)
 set(DEP_MIKKTSPACE_NAME mikktspace)
 set(DEP_MIKKTSPACE_FIND_PACKAGE_NAME mikktspace)
 set(DEP_MIKKTSPACE_TARGET mikktspace)
+
+# ---- OpenImageIO ----
+set(DEP_OPENIMAGEIO_NAME OpenImageIO)
+set(DEP_OPENIMAGEIO_FIND_PACKAGE_NAME OpenImageIO)
+set(DEP_OPENIMAGEIO_TARGET OpenImageIO::OpenImageIO)
+set(DEP_OPENIMAGEIO_PKG_CONFIG_NAME OpenImageIO)

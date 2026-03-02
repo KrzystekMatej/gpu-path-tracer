@@ -5,7 +5,7 @@
 #include "Graphics/ShadingModel.hpp"
 #include "Graphics/Vertex.hpp"
 
-namespace Core::Assets::IO
+namespace Core::IO
 {
 	struct ParsedMesh
 	{

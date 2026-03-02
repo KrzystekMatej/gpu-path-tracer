@@ -3,8 +3,12 @@
 #include <glm/glm.hpp>
 #include "AssetStorage.hpp"
 #include "Graphics/MaterialDefaults.hpp"
-#include "Graphics/Cpu/Resources.hpp"
-#include "Graphics/Gl/Resources.hpp"
+#include "Graphics/Cpu/Resources/Mesh.hpp"
+#include "Graphics/Cpu/Resources/Texture.hpp"
+#include "Graphics/Cpu/Resources/EnvironmentMap.hpp"
+#include "Graphics/Gl/Resources/EnvironmentMap.hpp"
+#include "Graphics/Gl/Resources/Mesh.hpp"
+#include "Graphics/Gl/Resources/Texture.hpp"
 #include "Graphics/Cuda/Resources.hpp"
 
 namespace Core::Assets

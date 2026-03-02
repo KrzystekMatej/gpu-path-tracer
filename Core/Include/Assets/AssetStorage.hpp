@@ -31,12 +31,10 @@ namespace Core::Assets
 	struct SubkeyIndex { uint32_t value; };
 	struct SubkeyName  { std::string_view name; };
 
-	using AssetSubkey = std::variant
-	<
+	using AssetSubkey = std::variant<
 		SubkeyNone,
 		SubkeyIndex,
-		SubkeyName
-	>;
+		SubkeyName>;
 
 	struct SourcePath 
 	{
@@ -51,11 +49,9 @@ namespace Core::Assets
 		std::span<const std::byte> data;
 	};
 
-	using AssetSource = std::variant
-	<
+	using AssetSource = std::variant<
 		SourcePath,
-		SourcePixel
-	>;
+		SourcePixel>;
 
 	struct AssetKey
 	{

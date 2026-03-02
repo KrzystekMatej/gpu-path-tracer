@@ -7,7 +7,8 @@ namespace Core
     class CursorPositionEvent : public Event
     {
     public:
-        CursorPositionEvent(double x, double y) : Event(EventType::CursorPosition), m_Position(x, y) {}
+        CursorPositionEvent(double x, double y)
+            : Event(EventType::CursorPosition), m_Position(x, y) {}
 
         glm::vec2 GetPosition() const { return m_Position; }
     private:

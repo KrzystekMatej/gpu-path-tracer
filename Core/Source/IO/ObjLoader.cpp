@@ -1,10 +1,11 @@
-#include "Assets/IO/ObjLoader.hpp"
+#include "IO/ObjLoader.hpp"
+#include "Utils/Math/TangentSpace.hpp"
 #include <map>
 #include <unordered_map>
 #include <format>
 #include <tiny_obj_loader.h>
 
-namespace Core::Assets::IO
+namespace Core::IO
 {
 	namespace
 	{
@@ -51,7 +52,7 @@ namespace Core::Assets::IO
 		const std::string TorranceShaderValue = "torrance";
 	}
 
-	std::expected<ParsedModel, Error> Load(const std::filesystem::path& path)
+	std::expected<ParsedModel, Error> LoadObj(const std::filesystem::path& path)
 	{
 		tinyobj::ObjReaderConfig readerConfig;
 		readerConfig.mtl_search_path = "./";
@@ -64,9 +65,9 @@ namespace Core::Assets::IO
 		{
 		  if (!reader.Error().empty())
 		  {
-			  return std::unexpected(Error(std::format("TinyObjReader: {}", reader.Error())));
+			  return std::unexpected(Error("TinyObjReader failed, error: {}, file path: {}", path.string(), reader.Error()));
 		  }
-		  return std::unexpected(Error(std::format("TinyObjReader failed to load obj '{}'", path.string())));
+		  return std::unexpected(Error("TinyObjReader failed, error: unknown, file path: {}", path.string()));
 		}
 
 		auto& attrib = reader.GetAttrib();
@@ -101,7 +102,7 @@ namespace Core::Assets::IO
 						vertex.normal.y = attrib.normals[3 * size_t(idx.normal_index) + 1];
 						vertex.normal.z = attrib.normals[3 * size_t(idx.normal_index) + 2];
 					}
-					else return std::unexpected(Error("Mesh loading failed: normal data is required but not found!"));
+					else return std::unexpected(Error("Mesh loading failed, error: normal data is required but not found, file path: {}", path.string()));
 
 					vertex.normal = glm::normalize(vertex.normal);
 
@@ -110,7 +111,7 @@ namespace Core::Assets::IO
 						vertex.uv.x = attrib.texcoords[2 * size_t(idx.texcoord_index) + 0];
 						vertex.uv.y = attrib.texcoords[2 * size_t(idx.texcoord_index) + 1];
 					}
-					else return std::unexpected(Error("Mesh loading failed: uv data is required but not found!"));
+					else return std::unexpected(Error("Mesh loading failed, error: uv data is required but not found, file path: {}", path.string()));
 
 					ObjIndexKey key
 					{
@@ -131,6 +132,8 @@ namespace Core::Assets::IO
 
 			for (auto& [mat_id, builder] : submeshes)
 			{
+				Utils::Math::GenerateTangentSpace(builder.vertices, builder.indices);
+
 				meshes.push_back(ParsedMesh
 				{
 					.index = static_cast<uint32_t>(meshes.size()),

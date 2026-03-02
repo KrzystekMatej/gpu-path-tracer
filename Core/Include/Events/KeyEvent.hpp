@@ -6,7 +6,8 @@ namespace Core
     class KeyEvent : public Event
     {
     public:
-        KeyEvent(int key, int scancode, int action, int mods) : Event(EventType::Key), m_Key(key), m_Scancode(scancode), m_Action(action), m_Mods(mods) {}
+        KeyEvent(int key, int scancode, int action, int mods)
+            : Event(EventType::Key), m_Key(key), m_Scancode(scancode), m_Action(action), m_Mods(mods) {}
 
         int GetKey() const { return m_Key; }
         int GetScanCode() const { return m_Scancode; }
