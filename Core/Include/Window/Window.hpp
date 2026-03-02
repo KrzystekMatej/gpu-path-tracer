@@ -3,7 +3,7 @@
 #include <glfw/glfw3.h>
 #include <memory>
 #include <string>
-#include "Error/Error.hpp"
+#include "Utils/Error/Error.hpp"
 #include "Window/WindowAttributes.hpp"
 #include "Window/GraphicsContext.hpp"
 #include "Events/Event.hpp"
@@ -21,7 +21,7 @@ namespace Core
 		Window(Window&&) noexcept = default;
 		Window& operator=(Window&&) noexcept = default;
 
-		static std::expected<Window, Error> Create(WindowAttributes windowAttributes);
+		static std::expected<Window, Utils::Error> Create(WindowAttributes windowAttributes);
 
 		uint32_t GetWidth() const { return m_Attributes.width; }
 		uint32_t GetHeight() const { return m_Attributes.height; }

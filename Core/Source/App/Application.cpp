@@ -12,7 +12,7 @@ namespace Core
 		m_Window.SetEventCallback([this](const Event& event) { OnEvent(event); });
 	}
 
-	std::expected<std::unique_ptr<Application>, Error> Application::Create
+	std::expected<std::unique_ptr<Application>, Utils::Error> Application::Create
 	(
 		std::unique_ptr<AppClient> client, 
 		WindowAttributes windowAttributes, 
@@ -20,7 +20,7 @@ namespace Core
 	)
 	{
 		if (!glfwInit())
-			return std::unexpected(Error("Failed to initialize GLFW!"));
+			return std::unexpected(Utils::Error("Failed to initialize GLFW!"));
 
 		auto windowResult = Window::Create(std::move(windowAttributes));
 		if (!windowResult)
@@ -30,7 +30,7 @@ namespace Core
 
 		window.GetContext().MakeCurrent();
 		if (!gladLoadGL(glfwGetProcAddress))
-			return std::unexpected(Error("Failed to initialize GLAD!"));
+			return std::unexpected(Utils::Error("Failed to initialize GLAD!"));
 		window.GetContext().SetSwapInterval(1);
 
 		Project project = Project::Load(projectConfigPath);

@@ -5,7 +5,7 @@ namespace Core::Graphics::Gl
 {
 	namespace
 	{
-		std::expected<uint32_t, Error> GetInternalFormat(const PixelFormat& format)
+		std::expected<uint32_t, Utils::Error> GetInternalFormat(const PixelFormat& format)
 		{
 			if (format.layout == ChannelLayout::R && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::UInt8)
 				return GL_R8;
@@ -28,7 +28,7 @@ namespace Core::Graphics::Gl
 			if (format.layout == ChannelLayout::RGBA && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::Float32)
 				return GL_RGBA32F;
 
-			return std::unexpected(Error(
+			return std::unexpected(Utils::Error(
 					"Unsupported pixel format: layout {}, color space {}", 
 					static_cast<uint32_t>(format.layout),
 					static_cast<uint32_t>(format.colorSpace)));
@@ -74,7 +74,7 @@ namespace Core::Graphics::Gl
 
 
 
-	std::expected<Texture, Error> Texture::Create2D(const IO::Image& image)
+	std::expected<Texture, Utils::Error> Texture::Create2D(const IO::Image& image)
 	{
 		uint32_t target = GL_TEXTURE_2D;
 		auto internalFormatResult = GetInternalFormat(image.format);
@@ -110,11 +110,11 @@ namespace Core::Graphics::Gl
 		return Texture(id, target);
 	}
 
-	std::expected<Texture, Error> Texture::Create2DFromMipmaps(const IO::ImageMipChain& mipChain)
+	std::expected<Texture, Utils::Error> Texture::Create2DFromMipmaps(const IO::ImageMipChain& mipChain)
 	{
 		const auto& mipMaps = mipChain.mipMaps;
 		if (mipMaps.empty())
-			return std::unexpected(Error("Mipmap list cannot be empty"));
+			return std::unexpected(Utils::Error("Mipmap list cannot be empty"));
 
 		uint32_t target = GL_TEXTURE_2D;
 		auto internalFormatResult = GetInternalFormat(mipChain.format);
@@ -154,7 +154,7 @@ namespace Core::Graphics::Gl
 		return Texture(id, target);
 	}
 
-	std::expected<Texture, Error> Texture::CreateCubemap(const IO::Cubemap& cubemap)
+	std::expected<Texture, Utils::Error> Texture::CreateCubemap(const IO::Cubemap& cubemap)
 	{
 		uint32_t target = GL_TEXTURE_CUBE_MAP;
 		auto internalFormatResult = GetInternalFormat(cubemap.format);
@@ -204,11 +204,11 @@ namespace Core::Graphics::Gl
 		return Texture(id, target);
 	}
 
-	std::expected<Texture, Error> Texture::CreateCubemapFromMipmaps(const IO::CubemapMipChain& mipChain)
+	std::expected<Texture, Utils::Error> Texture::CreateCubemapFromMipmaps(const IO::CubemapMipChain& mipChain)
 	{
 		const auto& mipMaps = mipChain.mipMaps;
 		if (mipMaps.empty())
-			return std::unexpected(Error("Mipmap list cannot be empty"));
+			return std::unexpected(Utils::Error("Mipmap list cannot be empty"));
 
 		uint32_t target = GL_TEXTURE_CUBE_MAP;
 		auto internalFormatResult = GetInternalFormat(mipChain.format);

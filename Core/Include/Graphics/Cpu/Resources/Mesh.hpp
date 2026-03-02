@@ -2,7 +2,6 @@
 #include <vector>
 #include <expected>
 #include "Graphics/Vertex.hpp"
-#include "Error/Error.hpp"
 #include "IO/Model.hpp"
 
 namespace Core::Graphics::Cpu

@@ -6,10 +6,10 @@ namespace Core
 	GraphicsContext::GraphicsContext(GLFWwindow* windowHandle)
 		: m_WindowHandle(windowHandle) {}
 
-	std::expected<GraphicsContext, Error> GraphicsContext::Create(GLFWwindow* windowHandle)
+	std::expected<GraphicsContext, Utils::Error> GraphicsContext::Create(GLFWwindow* windowHandle)
 	{
 		if (!windowHandle)
-			return std::unexpected(Error("Invalid window handle provided for graphics context creation!"));
+			return std::unexpected(Utils::Error("Invalid window handle provided for graphics context creation!"));
 		
 		return GraphicsContext(windowHandle);
 	}

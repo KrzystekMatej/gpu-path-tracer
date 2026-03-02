@@ -4,7 +4,7 @@
 
 namespace Core::Graphics::Gl
 {
-	std::expected<Mesh, Error> Mesh::Create(const IO::ParsedMesh& parsedMesh)
+	std::expected<Mesh, Utils::Error> Mesh::Create(const IO::ParsedMesh& parsedMesh)
 	{
 		uint32_t vertexArray;
 		glGenVertexArrays(1, &vertexArray);

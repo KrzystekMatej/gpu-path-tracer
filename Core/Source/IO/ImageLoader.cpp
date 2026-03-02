@@ -7,13 +7,13 @@
 
 namespace Core::IO
 {
-	std::expected<Image, Error> LoadImage(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
+	std::expected<Image, Utils::Error> LoadImage(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
 	{
 		std::unique_ptr<OIIO::ImageInput> imageInput = OIIO::ImageInput::open(path);
 
 		if (!imageInput)
 		{
-			return std::unexpected(Error("{}, file path: {}", OIIO::geterror(), path.string()));
+			return std::unexpected(Utils::Error("{}, file path: {}", OIIO::geterror(), path.string()));
 		}
 
 		const OIIO::ImageSpec& spec = imageInput->spec();
@@ -36,7 +36,7 @@ namespace Core::IO
 				format.layout = Graphics::ChannelLayout::RGBA;
 				break;
 			default:
-				return std::unexpected(Error("Unsupported number of channels: {}, file path: {}", spec.nchannels, path.string()));
+				return std::unexpected(Utils::Error("Unsupported number of channels: {}, file path: {}", spec.nchannels, path.string()));
 		}
 
 		switch (spec.format.basetype)
@@ -51,7 +51,7 @@ namespace Core::IO
 				format.componentType = Graphics::ComponentType::Float32;
 				break;
 			default:
-				return std::unexpected(Error("Unsupported pixel type: {}, file path: {}", spec.format.c_str(), path.string()));
+				return std::unexpected(Utils::Error("Unsupported pixel type: {}, file path: {}", spec.format.c_str(), path.string()));
 		}
 
 		std::vector<uint8_t> pixels(width * height * channels * spec.format.size());
@@ -68,7 +68,7 @@ namespace Core::IO
 		};
 	}
 
-	std::expected<ImageMipChain, Error> LoadImageMipChainFromFiles(const std::vector<std::filesystem::path>& mipPaths, Graphics::ColorSpace colorSpace)
+	std::expected<ImageMipChain, Utils::Error> LoadImageMipChainFromFiles(const std::vector<std::filesystem::path>& mipPaths, Graphics::ColorSpace colorSpace)
 	{
 		uint32_t width = 1;
 		uint32_t height = 1;
@@ -80,7 +80,7 @@ namespace Core::IO
 			auto imageResult = LoadImage(path, colorSpace);
 			if (!imageResult)
 			{
-				return std::unexpected(Error(
+				return std::unexpected(Utils::Error(
 						"Failed to load mip level {}, error: {}, file path: {}",
 						i,
 						imageResult.error().Message(),
@@ -101,7 +101,7 @@ namespace Core::IO
 				height = std::max(1u, height / 2);
 				if (image.width != width || image.height != height)
 				{
-					return std::unexpected(Error(
+					return std::unexpected(Utils::Error(
 							"Invalid mip level {}, expected dimensions {}x{}, but got {}x{}, file path: {}",
 							i,
 							width,
@@ -113,7 +113,7 @@ namespace Core::IO
 
 				if (mipChain.format != image.format)
 				{
-					return std::unexpected(Error(
+					return std::unexpected(Utils::Error(
 						"Invalid mip level {}, pixel format mismatch, file path: {}",
 						i,
 						path.string()));
@@ -131,13 +131,13 @@ namespace Core::IO
 	}
 
 
-	std::expected<ImageMipChain, Error> LoadImageMipChainFromFolder(const std::filesystem::path& folderPath, Graphics::ColorSpace colorSpace)
+	std::expected<ImageMipChain, Utils::Error> LoadImageMipChainFromFolder(const std::filesystem::path& folderPath, Graphics::ColorSpace colorSpace)
 	{
 		if (!std::filesystem::exists(folderPath))
-			return std::unexpected(Error("Path {} does not exist", folderPath.string()));
+			return std::unexpected(Utils::Error("Path {} does not exist", folderPath.string()));
 
 		if (!std::filesystem::is_directory(folderPath))
-			return std::unexpected(Error("Path {} is not a directory", folderPath.string()));
+			return std::unexpected(Utils::Error("Path {} is not a directory", folderPath.string()));
 
 		std::vector<std::pair<uint32_t, std::filesystem::path>> mipPaths;
 		std::string extension = "";
@@ -154,7 +154,7 @@ namespace Core::IO
 
 			if (fileExtension.empty())
 			{
-				return std::unexpected(Error(
+				return std::unexpected(Utils::Error(
 						"File {} in mip chain folder does not have an extension, "
 						"expected all files to have the same extension {}, folder path: {}",
 						entry.path().string(),
@@ -168,7 +168,7 @@ namespace Core::IO
 			}
 			else if (entry.path().extension() != extension)
 			{
-				return std::unexpected(Error(
+				return std::unexpected(Utils::Error(
 						"Inconsistent file extensions in mip chain folder, "
 						"expected all files to have the same extension {}, "
 						"but found file with extension {}, folder path: {}",
@@ -191,7 +191,7 @@ namespace Core::IO
 
 		if (!ok)
 		{
-			return std::unexpected(Error(
+			return std::unexpected(Utils::Error(
 					"Invalid mip chain folder structure, expected files named m0, m1...mN with no gaps, folder path: {}",
 					folderPath.string()));
 		}
@@ -216,7 +216,7 @@ namespace Core::IO
 		return -1;
 	}
 
-	std::expected<Cubemap, Error> LoadCubemapFromFiles(const std::array<std::filesystem::path, 6>& facePaths, Graphics::ColorSpace colorSpace)
+	std::expected<Cubemap, Utils::Error> LoadCubemapFromFiles(const std::array<std::filesystem::path, 6>& facePaths, Graphics::ColorSpace colorSpace)
 	{
 		Cubemap result{};
 		bool initialized = false;
@@ -228,7 +228,7 @@ namespace Core::IO
 			auto imageResult = LoadImage(path, colorSpace);
 			if (!imageResult)
 			{
-				return std::unexpected(Error(
+				return std::unexpected(Utils::Error(
 					"Failed to load cubemap face {}, error: {}, file path: {}",
 					std::string(cubemapFaceNames[i]),
 					imageResult.error().Message(),
@@ -239,7 +239,7 @@ namespace Core::IO
 
 			if (img.width != img.height)
 			{
-				return std::unexpected(Error(
+				return std::unexpected(Utils::Error(
 					"Cubemap face {} is not square, got {}x{}, file path: {}",
 					std::string(cubemapFaceNames[i]),
 					img.width,
@@ -257,7 +257,7 @@ namespace Core::IO
 			{
 				if (img.width != result.size || img.height != result.size)
 				{
-					return std::unexpected(Error(
+					return std::unexpected(Utils::Error(
 						"Cubemap face {} has invalid dimensions, expected {}x{}, but got {}x{}, file path: {}",
 						std::string(cubemapFaceNames[i]),
 						result.size,
@@ -269,7 +269,7 @@ namespace Core::IO
 
 				if (img.format != result.format)
 				{
-					return std::unexpected(Error(
+					return std::unexpected(Utils::Error(
 						"Cubemap face {} pixel format mismatch, file path: {}",
 						std::string(cubemapFaceNames[i]),
 						path.string()));
@@ -282,13 +282,13 @@ namespace Core::IO
 		return result;
 	}
 
-	std::expected<Cubemap, Error> LoadCubemapFromFolder(const std::filesystem::path& folderPath, Graphics::ColorSpace colorSpace, const std::string& prefix)
+	std::expected<Cubemap, Utils::Error> LoadCubemapFromFolder(const std::filesystem::path& folderPath, Graphics::ColorSpace colorSpace, const std::string& prefix)
 	{
 		if (!std::filesystem::exists(folderPath))
-			return std::unexpected(Error("Path {} does not exist", folderPath.string()));
+			return std::unexpected(Utils::Error("Path {} does not exist", folderPath.string()));
 
 		if (!std::filesystem::is_directory(folderPath))
-			return std::unexpected(Error("Path {} is not a directory", folderPath.string()));
+			return std::unexpected(Utils::Error("Path {} is not a directory", folderPath.string()));
 
 		std::unordered_map<std::string, std::filesystem::path> stemToPath;
 		stemToPath.reserve(64);
@@ -315,7 +315,7 @@ namespace Core::IO
 			auto it = stemToPath.find(expectedStem);
 			if (it == stemToPath.end())
 			{
-				return std::unexpected(Error(
+				return std::unexpected(Utils::Error(
 					"Missing cubemap face file {}, expected stem {}, folder path: {}",
 					std::string(cubemapFaceNames[i]),
 					expectedStem,
@@ -329,7 +329,7 @@ namespace Core::IO
 				extension = ext;
 			else if (ext != extension)
 			{
-				return std::unexpected(Error(
+				return std::unexpected(Utils::Error(
 					"Inconsistent cubemap face extensions, expected {}, but got {}, file path: {}",
 					extension,
 					ext,
@@ -342,13 +342,13 @@ namespace Core::IO
 		return LoadCubemapFromFiles(facePaths, colorSpace);
 	}
 
-	std::expected<CubemapMipChain, Error> LoadCubemapMipChainFromFolder(const std::filesystem::path& folderPath, Graphics::ColorSpace colorSpace)
+	std::expected<CubemapMipChain, Utils::Error> LoadCubemapMipChainFromFolder(const std::filesystem::path& folderPath, Graphics::ColorSpace colorSpace)
 	{
 		if (!std::filesystem::exists(folderPath))
-			return std::unexpected(Error("Path {} does not exist", folderPath.string()));
+			return std::unexpected(Utils::Error("Path {} does not exist", folderPath.string()));
 
 		if (!std::filesystem::is_directory(folderPath))
-			return std::unexpected(Error("Path {} is not a directory", folderPath.string()));
+			return std::unexpected(Utils::Error("Path {} is not a directory", folderPath.string()));
 
 		struct LevelEntry
 		{
@@ -373,7 +373,7 @@ namespace Core::IO
 				extension = ext;
 			else if (ext != extension)
 			{
-				return std::unexpected(Error(
+				return std::unexpected(Utils::Error(
 					"Inconsistent file extensions in cubemap mip chain folder, expected {}, but found {}, file path: {}",
 					extension,
 					ext,
@@ -402,7 +402,7 @@ namespace Core::IO
 			auto& e = levels[level];
 			if (e.present[faceIndex])
 			{
-				return std::unexpected(Error(
+				return std::unexpected(Utils::Error(
 					"Duplicate cubemap mip face m{}_{} in folder, file path: {}",
 					level,
 					std::string(faceName),
@@ -415,7 +415,7 @@ namespace Core::IO
 
 		if (levels.empty())
 		{
-			return std::unexpected(Error(
+			return std::unexpected(Utils::Error(
 				"No cubemap mip files found in folder, expected m0_px..mN_nz, folder path: {}",
 				folderPath.string()));
 		}
@@ -433,7 +433,7 @@ namespace Core::IO
 
 		if (!contiguous)
 		{
-			return std::unexpected(Error(
+			return std::unexpected(Utils::Error(
 				"Invalid cubemap mip chain folder structure, expected levels m0..mN with no gaps, folder path: {}",
 				folderPath.string()));
 		}
@@ -445,7 +445,7 @@ namespace Core::IO
 			{
 				if (!e.present[f])
 				{
-					return std::unexpected(Error(
+					return std::unexpected(Utils::Error(
 						"Missing cubemap mip face m{}_{} in folder, folder path: {}",
 						level,
 						std::string(cubemapFaceNames[f]),
@@ -465,7 +465,7 @@ namespace Core::IO
 			auto cubemapResult = LoadCubemapFromFiles(e.faces, colorSpace);
 			if (!cubemapResult)
 			{
-				return std::unexpected(Error(
+				return std::unexpected(Utils::Error(
 					"Failed to load cubemap mip level {}, error: {}, folder path: {}",
 					level,
 					cubemapResult.error().Message(),
@@ -485,7 +485,7 @@ namespace Core::IO
 
 				if (cm.size != expectedSize)
 				{
-					return std::unexpected(Error(
+					return std::unexpected(Utils::Error(
 						"Invalid cubemap mip level {}, expected size {}, but got {}, folder path: {}",
 						level,
 						expectedSize,
@@ -495,7 +495,7 @@ namespace Core::IO
 
 				if (cm.format != chain.format)
 				{
-					return std::unexpected(Error(
+					return std::unexpected(Utils::Error(
 						"Invalid cubemap mip level {}, pixel format mismatch, folder path: {}",
 						level,
 						folderPath.string()));

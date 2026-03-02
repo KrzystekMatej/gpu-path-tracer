@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <glm/glm.hpp>
-#include "AssetStorage.hpp"
+#include "Assets/Storage.hpp"
 #include "Graphics/MaterialDefaults.hpp"
 #include "Graphics/Cpu/Resources/Mesh.hpp"
 #include "Graphics/Cpu/Resources/Texture.hpp"

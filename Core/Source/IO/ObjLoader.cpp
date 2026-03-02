@@ -52,7 +52,7 @@ namespace Core::IO
 		const std::string TorranceShaderValue = "torrance";
 	}
 
-	std::expected<ParsedModel, Error> LoadObj(const std::filesystem::path& path)
+	std::expected<ParsedModel, Utils::Error> LoadObj(const std::filesystem::path& path)
 	{
 		tinyobj::ObjReaderConfig readerConfig;
 		readerConfig.mtl_search_path = "./";
@@ -65,9 +65,9 @@ namespace Core::IO
 		{
 		  if (!reader.Error().empty())
 		  {
-			  return std::unexpected(Error("TinyObjReader failed, error: {}, file path: {}", path.string(), reader.Error()));
+			  return std::unexpected(Utils::Error("TinyObjReader failed, error: {}, file path: {}", path.string(), reader.Error()));
 		  }
-		  return std::unexpected(Error("TinyObjReader failed, error: unknown, file path: {}", path.string()));
+		  return std::unexpected(Utils::Error("TinyObjReader failed, error: unknown, file path: {}", path.string()));
 		}
 
 		auto& attrib = reader.GetAttrib();
@@ -102,7 +102,7 @@ namespace Core::IO
 						vertex.normal.y = attrib.normals[3 * size_t(idx.normal_index) + 1];
 						vertex.normal.z = attrib.normals[3 * size_t(idx.normal_index) + 2];
 					}
-					else return std::unexpected(Error("Mesh loading failed, error: normal data is required but not found, file path: {}", path.string()));
+					else return std::unexpected(Utils::Error("Mesh loading failed, error: normal data is required but not found, file path: {}", path.string()));
 
 					vertex.normal = glm::normalize(vertex.normal);
 
@@ -111,7 +111,7 @@ namespace Core::IO
 						vertex.uv.x = attrib.texcoords[2 * size_t(idx.texcoord_index) + 0];
 						vertex.uv.y = attrib.texcoords[2 * size_t(idx.texcoord_index) + 1];
 					}
-					else return std::unexpected(Error("Mesh loading failed, error: uv data is required but not found, file path: {}", path.string()));
+					else return std::unexpected(Utils::Error("Mesh loading failed, error: uv data is required but not found, file path: {}", path.string()));
 
 					ObjIndexKey key
 					{

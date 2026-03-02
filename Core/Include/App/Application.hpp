@@ -2,7 +2,7 @@
 #include <filesystem>
 #include <expected>
 #include "Window/Window.hpp"
-#include "Error/Error.hpp"
+#include "Utils/Error/Error.hpp"
 #include "AppClient.hpp"
 #include "Project/Project.hpp"
 #include "Graphics/Gl/Renderer.hpp"
@@ -17,7 +17,7 @@ namespace Core
 		Application(Application&&) = delete;
 		Application& operator=(Application&&) = delete;	
 
-		static std::expected<std::unique_ptr<Application>, Error> Create(
+		static std::expected<std::unique_ptr<Application>, Utils::Error> Create(
 			std::unique_ptr<AppClient> client, 
 			WindowAttributes windowAttributes, 
 			const std::filesystem::path& projectConfigPath);

@@ -1,7 +1,7 @@
 #pragma once
 #include <expected>
 #include "GLFW/glfw3.h"
-#include "Error/Error.hpp"
+#include "Utils/Error/Error.hpp"
 
 namespace Core
 {
@@ -22,7 +22,7 @@ namespace Core
 		GraphicsContext(GraphicsContext&&) noexcept = default;
 		GraphicsContext& operator=(GraphicsContext&&) noexcept = default;
 
-		static std::expected<GraphicsContext, Error> Create(GLFWwindow* windowHandle);
+		static std::expected<GraphicsContext, Utils::Error> Create(GLFWwindow* windowHandle);
 		void MakeCurrent() const;
 		void Detach() const;
 		void SetSwapInterval(int interval) const;

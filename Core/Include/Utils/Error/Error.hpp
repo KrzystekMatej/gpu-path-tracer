@@ -5,7 +5,7 @@
 #include <format>
 #include <utility>
 
-namespace Core
+namespace Core::Utils
 {
 	class Error
 	{

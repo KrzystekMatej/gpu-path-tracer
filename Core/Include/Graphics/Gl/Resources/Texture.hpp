@@ -1,6 +1,6 @@
 #pragma once
 #include <expected>
-#include "Error/Error.hpp"
+#include "Utils/Error/Error.hpp"
 #include "IO/Image.hpp"
 
 namespace Core::Graphics::Gl
@@ -27,10 +27,10 @@ namespace Core::Graphics::Gl
 			return *this;
 		}
 
-		std::expected<Texture, Error> Create2D(const IO::Image& image);
-		std::expected<Texture, Error> Create2DFromMipmaps(const IO::ImageMipChain& mipMaps);
-		std::expected<Texture, Error> CreateCubemap(const IO::Cubemap& cubemap);
-		std::expected<Texture, Error> CreateCubemapFromMipmaps(const IO::CubemapMipChain& mipMaps);
+		std::expected<Texture, Utils::Error> Create2D(const IO::Image& image);
+		std::expected<Texture, Utils::Error> Create2DFromMipmaps(const IO::ImageMipChain& mipMaps);
+		std::expected<Texture, Utils::Error> CreateCubemap(const IO::Cubemap& cubemap);
+		std::expected<Texture, Utils::Error> CreateCubemapFromMipmaps(const IO::CubemapMipChain& mipMaps);
 
 		~Texture();
 		void Bind() const;

@@ -1,6 +1,6 @@
 #pragma once
 #include <expected>
-#include "Error/Error.hpp"
+#include "Utils/Error/Error.hpp"
 #include "IO/Model.hpp"
 
 namespace Core::Graphics::Gl
@@ -33,7 +33,7 @@ namespace Core::Graphics::Gl
 			return *this;
 		}
 
-		static std::expected<Mesh, Error> Create(const IO::ParsedMesh& parsedMesh);
+		static std::expected<Mesh, Utils::Error> Create(const IO::ParsedMesh& parsedMesh);
 
 		~Mesh();
 		void Bind() const;
