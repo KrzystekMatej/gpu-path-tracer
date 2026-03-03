@@ -13,7 +13,7 @@ namespace Core::Graphics::Cpu
 		Texture(Texture&&) noexcept = default;
 		Texture& operator=(Texture&&) noexcept = default;
 
-		Texture Create(IO::Image image)
+		static Texture Create(IO::Image image)
 		{
 			return Texture(image.width, image.height, image.format, std::move(image.data));
 		}

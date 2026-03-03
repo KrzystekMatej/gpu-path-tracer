@@ -6,6 +6,7 @@
 #include "AppClient.hpp"
 #include "Project/Project.hpp"
 #include "Graphics/Gl/Renderer.hpp"
+#include "Assets/Manager.hpp"
 
 namespace Core
 {
@@ -26,11 +27,12 @@ namespace Core
 		void OnEvent(const Event& event);
 		void Run();
 	private:
-		Application(std::unique_ptr<AppClient> client, Window window, Project project);
+		Application(std::unique_ptr<AppClient> client, Window window, Assets::Manager assetManager, Project project);
 
 		std::unique_ptr<AppClient> m_Client;
 		Window m_Window;
 		Graphics::Gl::Renderer m_Renderer;
+		Assets::Manager m_AssetManager;
 
 		Project m_Project;
 	};

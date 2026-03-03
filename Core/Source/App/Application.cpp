@@ -4,8 +4,12 @@
 
 namespace Core
 {
-	Application::Application(std::unique_ptr<AppClient> client, Window window, Project project)
-		: m_Client(std::move(client)), m_Window(std::move(window)), m_Renderer(m_Window.GetContext()), m_Project(std::move(project))
+	Application::Application(std::unique_ptr<AppClient> client, Window window, Assets::Manager assetManager, Project project)
+		: m_Client(std::move(client)), 
+		m_Window(std::move(window)), 
+		m_Renderer(m_Window.GetContext()), 
+		m_AssetManager(std::move(assetManager)), 
+		m_Project(std::move(project))
 	{ 
 		m_Renderer.Initialize();
 		m_Window.InitCallbacks();
@@ -33,9 +37,13 @@ namespace Core
 			return std::unexpected(Utils::Error("Failed to initialize GLAD!"));
 		window.GetContext().SetSwapInterval(1);
 
+		auto assetManagerResult = Assets::Manager::Create();
+		if (!assetManagerResult)
+			return std::unexpected(assetManagerResult.error());
+
 		Project project = Project::Load(projectConfigPath);
 
-		return std::unique_ptr<Application>(new Application(std::move(client), std::move(window), std::move(project)));
+		return std::unique_ptr<Application>(new Application(std::move(client), std::move(window), std::move(assetManagerResult.value()), std::move(project)));
 	}
 
 	

@@ -205,7 +205,7 @@ namespace Core::IO
 		return LoadImageMipChainFromFiles(sortedMipPaths, colorSpace);
 	}
 
-	constexpr std::string_view cubemapFaceNames[] = { "px", "nx", "py", "ny", "pz", "nz" };
+	constexpr std::array<std::string_view, 6> cubemapFaceNames = {"px", "nx", "py", "ny", "pz", "nz"};
 
 	static int FaceIndexFromName(std::string_view name)
 	{

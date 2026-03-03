@@ -21,14 +21,14 @@ namespace Core::Assets
 	concept AssetDerived = std::derived_from<T, Asset>;
 
 	template<AssetDerived T>
-	struct AssetHandle
+	struct Handle
 	{
-		friend constexpr bool operator==(AssetHandle lhs, AssetHandle rhs)
+		friend constexpr bool operator==(Handle lhs, Handle rhs)
 		{
 			return lhs.m_Id == rhs.m_Id;
 		}
 	private:
-		explicit constexpr AssetHandle(AssetId id) : m_Id(id) {}
+		explicit constexpr Handle(AssetId id) : m_Id(id) {}
 		friend class Storage;
 
 		AssetId m_Id;
@@ -37,25 +37,35 @@ namespace Core::Assets
 	class Storage
 	{
 	public:
+		Storage() = default;
 		Storage(const Storage&) = delete;
 		Storage& operator=(const Storage&) = delete;
 		Storage(Storage&&) noexcept = default;
 		Storage& operator=(Storage&&) noexcept = default;
 			
 		template<AssetDerived T>
-		bool Exists(const AssetHandle<T>& handle) const
+		bool Exists(const Handle<T>& handle) const
 		{
 			return m_Storage.find(handle.m_Id) != m_Storage.end();
 		}
 
 		template<AssetDerived T>
-		std::expected<const T&, Utils::Error> Get(const AssetHandle<T>& handle) const
+		std::expected<Handle<T>, Utils::Error> GetHandleByKey(const Key& key) const
+		{
+			AssetId id = MakeAssetId(key);
+			if (!m_Storage.contains(id))
+				return std::unexpected(Utils::Error("Asset not found"));
+
+			return Handle<T>(id);
+		}
+
+		template<AssetDerived T>
+		std::expected<const T&, Utils::Error> Get(const Handle<T>& handle) const
 		{
 			auto it = m_Storage.find(handle.m_Id);
 			if (it == m_Storage.end())
-			{
-				return std::unexpected("Asset not found");
-			}
+				return std::unexpected(Utils::Error("Asset not found"));
+
 			return static_cast<const T&>(*it->second);
 		}
 
@@ -63,25 +73,23 @@ namespace Core::Assets
 		std::expected<const T&, Utils::Error> GetByKey(const Key& key) const
 		{
 			AssetId id = MakeAssetId(key);
-			return Get<T>(AssetHandle<T>(id));
+			return Get<T>(Handle<T>(id));
 		}
 
 		template<AssetDerived T>
-		std::expected<AssetHandle<T>, Utils::Error> Add(const Key& key, T&& asset)
+		std::expected<Handle<T>, Utils::Error> Add(const Key& key, T&& asset)
 		{
 			AssetId id = MakeAssetId(key);
 
 			if (m_Storage.contains(id))
-			{
-				return std::unexpected("Asset already exists");
-			}
+				return std::unexpected(Utils::Error("Asset already exists"));
 
 			m_Storage.emplace(id, std::make_unique<T>(std::forward<T>(asset)));
-			return AssetHandle<T>(id);
+			return Handle<T>(id);
 		}
 
 		template<AssetDerived T>
-		bool Remove(const AssetHandle<T>& handle)
+		bool Remove(const Handle<T>& handle)
 		{
 			return m_Storage.erase(handle.m_Id) > 0;
 		}

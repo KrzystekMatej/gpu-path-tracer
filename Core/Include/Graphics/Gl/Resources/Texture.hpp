@@ -10,10 +10,11 @@ namespace Core::Graphics::Gl
 	public:
 		Texture(const Texture&) = delete;
 		Texture& operator=(const Texture&) = delete;
-		Texture(Texture&&) noexcept
+		Texture(Texture&& other) noexcept
+			: m_Id(other.m_Id), m_Target(other.m_Target)
 		{
-			m_Id = 0;
-			m_Target = 0;
+			other.m_Id = 0;
+			other.m_Target = 0;
 		}
 		Texture& operator=(Texture&& other) noexcept
 		{
@@ -27,10 +28,10 @@ namespace Core::Graphics::Gl
 			return *this;
 		}
 
-		std::expected<Texture, Utils::Error> Create2D(const IO::Image& image);
-		std::expected<Texture, Utils::Error> Create2DFromMipmaps(const IO::ImageMipChain& mipMaps);
-		std::expected<Texture, Utils::Error> CreateCubemap(const IO::Cubemap& cubemap);
-		std::expected<Texture, Utils::Error> CreateCubemapFromMipmaps(const IO::CubemapMipChain& mipMaps);
+		static std::expected<Texture, Utils::Error> Create2D(const IO::Image& image);
+		static std::expected<Texture, Utils::Error> Create2DFromMipmaps(const IO::ImageMipChain& mipMaps);
+		static std::expected<Texture, Utils::Error> CreateCubemap(const IO::Cubemap& cubemap);
+		static std::expected<Texture, Utils::Error> CreateCubemapFromMipmaps(const IO::CubemapMipChain& mipMaps);
 
 		~Texture();
 		void Bind() const;

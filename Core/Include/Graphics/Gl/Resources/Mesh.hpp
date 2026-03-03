@@ -10,12 +10,16 @@ namespace Core::Graphics::Gl
 	public:
 		Mesh(const Mesh&) = delete;
 		Mesh& operator=(const Mesh&) = delete;
-		Mesh(Mesh&&) noexcept
+		Mesh(Mesh&& other) noexcept
+			: m_VertexArray(other.m_VertexArray),
+			  m_VertexBuffer(other.m_VertexBuffer),
+			  m_IndexBuffer(other.m_IndexBuffer),
+			  m_VertexCount(other.m_VertexCount)
 		{
-			m_VertexArray = 0;
-			m_VertexBuffer = 0;
-			m_IndexBuffer = 0;
-			m_VertexCount = 0;
+			other.m_VertexArray = 0;
+			other.m_VertexBuffer = 0;
+			other.m_IndexBuffer = 0;
+			other.m_VertexCount = 0;
 		}
 		Mesh& operator=(Mesh&& other) noexcept
 		{

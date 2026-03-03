@@ -15,6 +15,11 @@ namespace Core::Assets
 {
 	struct Texture : public Asset
 	{
+		Texture() = default;
+		Texture(Graphics::Cpu::Texture cpu, Graphics::Gl::Texture gl, Graphics::Cuda::Texture cuda)
+			: cpu(std::move(cpu)), gl(std::move(gl)), cuda(std::move(cuda)) {}
+		AssetType GetType() const override { return AssetType::Texture; }
+
 		Graphics::Cpu::Texture cpu;
 		Graphics::Gl::Texture gl;
 		Graphics::Cuda::Texture cuda;
@@ -22,12 +27,23 @@ namespace Core::Assets
 
 	struct Mesh : public Asset
 	{
+		Mesh() = default;
+		Mesh(Graphics::Cpu::Mesh cpu, Graphics::Gl::Mesh gl)
+			: cpu(std::move(cpu)), gl(std::move(gl)) {}
+		AssetType GetType() const override { return AssetType::Mesh; }
+
 		Graphics::Cpu::Mesh cpu;
 		Graphics::Gl::Mesh gl;
 	};
 
 	struct EnvironmentMap : public Asset
 	{
+		EnvironmentMap() = default;
+		EnvironmentMap(Graphics::Cpu::EnvironmentMap cpu, Graphics::Gl::EnvironmentMap gl, Graphics::Cuda::EnvironmentMap cuda)
+			: cpu(std::move(cpu)), gl(std::move(gl)), cuda(std::move(cuda)) {}
+
+		AssetType GetType() const override { return AssetType::EnvironmentMap; }
+
 		Graphics::Cpu::EnvironmentMap cpu;
 		Graphics::Gl::EnvironmentMap gl;
 		Graphics::Cuda::EnvironmentMap cuda;
@@ -35,22 +51,35 @@ namespace Core::Assets
 
 	struct Material : public Asset
 	{
+		Material() = default;
+		Material(
+			Graphics::ShadingModel shader, 
+			Handle<Texture> albedo, 
+			Handle<Texture> roughness, 
+			Handle<Texture> metallic, 
+			Handle<Texture> ao, 
+			Handle<Texture> normal)
+			: shader(shader), albedo(albedo), roughness(roughness), metallic(metallic), ao(ao), normal(normal) {}
+		AssetType GetType() const override { return AssetType::Material; }
+
 		Graphics::ShadingModel shader;
-		AssetHandle<Texture> albedo;
-		AssetHandle<Texture> roughness;
-		AssetHandle<Texture> metallic;
-		AssetHandle<Texture> ao;
-		AssetHandle<Texture> normal;
+		Handle<Texture> albedo;
+		Handle<Texture> roughness;
+		Handle<Texture> metallic;
+		Handle<Texture> ao;
+		Handle<Texture> normal;
 	};
 
 	struct ModelPart
 	{
-		AssetHandle<Mesh> mesh;
-		AssetHandle<Material> material;
+		Handle<Mesh> mesh;
+		Handle<Material> material;
 	};
 
 	struct Model : public Asset
 	{
+		AssetType GetType() const override { return AssetType::Model; }
+
 		std::vector<ModelPart> parts;
 	};
 }

@@ -2,10 +2,11 @@
 #include <unordered_map>
 #include <variant>
 #include <string_view>
-#include <span>
+#include <array>
 #include <concepts>
 #include <expected>
 #include <memory>
+#include <span>
 
 namespace Core::Assets
 {
@@ -16,6 +17,7 @@ namespace Core::Assets
 		Model,
 		Shader,
 		Material,
+		EnvironmentMap,
 		Scene,
 	};
 
@@ -35,7 +37,7 @@ namespace Core::Assets
 		uint32_t externalFormat;
 		uint32_t pixelType;
 		uint32_t internalFormat;
-		std::span<const std::byte> data;
+		std::span<const uint8_t> data;
 	};
 
 	using Source = std::variant<SourcePath, SourcePixel>;
