@@ -1,55 +1,51 @@
 #pragma once
-#include <unordered_map>
-#include <variant>
+#include <cstdint>
 #include <string_view>
-#include <array>
-#include <concepts>
-#include <expected>
-#include <memory>
+#include <variant>
 #include <span>
 
 namespace Core::Assets
 {
-	enum class AssetType
-	{
-		Texture,
-		Mesh,
-		Model,
-		Shader,
-		Material,
-		EnvironmentMap,
-		Scene,
-	};
+    enum class AssetType
+    {
+        Texture,
+        Mesh,
+        Model,
+        Shader,
+        Material,
+        EnvironmentMap,
+        Scene,
+    };
 
-	struct SubkeyNone {};
-	struct SubkeyIndex { uint32_t value; };
-	struct SubkeyName  { std::string_view name; };
+    struct SubkeyNone {};
+    struct SubkeyIndex { uint32_t value; };
+    struct SubkeyName  { std::string_view name; };
 
-	using Subkey = std::variant<SubkeyNone, SubkeyIndex, SubkeyName>;
+    using Subkey = std::variant<SubkeyNone, SubkeyIndex, SubkeyName>;
 
-	struct SourcePath 
-	{
-		std::string_view path;
-	};
+    struct SourcePath
+    {
+        std::string_view path;
+    };
 
-	struct SourcePixel 
-	{
-		uint32_t externalFormat;
-		uint32_t pixelType;
-		uint32_t internalFormat;
-		std::span<const uint8_t> data;
-	};
+    struct SourcePixel
+    {
+        uint32_t externalFormat;
+        uint32_t pixelType;
+        uint32_t internalFormat;
+        std::span<const uint8_t> data;
+    };
 
-	using Source = std::variant<SourcePath, SourcePixel>;
+    using Source = std::variant<SourcePath, SourcePixel>;
 
-	struct Key
-	{
-		Source source;
-		Subkey subkey;
-		AssetType type;
-	};
+    struct Key
+    {
+        Source source;
+        Subkey subkey;
+        AssetType type;
+    };
 
-	using AssetId = uint64_t;
+    using AssetId = uint64_t;
 
-	AssetId MakeAssetId(const Key& key);
+    AssetId MakeAssetId(const Key& key);
 }

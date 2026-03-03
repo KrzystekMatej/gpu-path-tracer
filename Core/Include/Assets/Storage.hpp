@@ -1,99 +1,89 @@
 #pragma once
-#include <unordered_map>
-#include <variant>
-#include <string_view>
-#include <span>
-#include <concepts>
 #include <expected>
+#include <functional>
 #include <memory>
+#include <unordered_map>
+
+#include "Assets/Asset.hpp"
+#include "Assets/Handle.hpp"
 #include "Assets/Key.hpp"
 #include "Utils/Error/Error.hpp"
 
 namespace Core::Assets
 {
-	struct Asset 
-	{
-		virtual ~Asset() = default;
-		virtual AssetType GetType() const = 0;
-	};
+    class Storage
+    {
+    public:
+        Storage() = default;
+        Storage(const Storage&) = delete;
+        Storage& operator=(const Storage&) = delete;
+        Storage(Storage&&) noexcept = default;
+        Storage& operator=(Storage&&) noexcept = default;
 
-	template<typename T>
-	concept AssetDerived = std::derived_from<T, Asset>;
+        template<Asset T>
+        bool Exists(Handle<T> handle) const
+        {
+            return m_Storage.contains(handle.m_Id);
+        }
 
-	template<AssetDerived T>
-	struct Handle
-	{
-		friend constexpr bool operator==(Handle lhs, Handle rhs)
-		{
-			return lhs.m_Id == rhs.m_Id;
-		}
-	private:
-		explicit constexpr Handle(AssetId id) : m_Id(id) {}
-		friend class Storage;
+        template<Asset T>
+        std::expected<Handle<T>, Utils::Error> GetHandleByKey(const Source& source, const Subkey& subkey) const
+        {
+            const AssetId id = MakeAssetId(Key{ source, subkey, T::Type });
+            if (!m_Storage.contains(id))
+                return std::unexpected(Utils::Error("Asset not found"));
 
-		AssetId m_Id;
-	};
+            return Handle<T>(id);
+        }
 
-	class Storage
-	{
-	public:
-		Storage() = default;
-		Storage(const Storage&) = delete;
-		Storage& operator=(const Storage&) = delete;
-		Storage(Storage&&) noexcept = default;
-		Storage& operator=(Storage&&) noexcept = default;
-			
-		template<AssetDerived T>
-		bool Exists(const Handle<T>& handle) const
-		{
-			return m_Storage.find(handle.m_Id) != m_Storage.end();
-		}
+        template<Asset T>
+        std::expected<std::reference_wrapper<const T>, Utils::Error> Get(Handle<T> handle) const
+        {
+            auto it = m_Storage.find(handle.m_Id);
+            if (it == m_Storage.end())
+                return std::unexpected(Utils::Error("Asset not found"));
 
-		template<AssetDerived T>
-		std::expected<Handle<T>, Utils::Error> GetHandleByKey(const Key& key) const
-		{
-			AssetId id = MakeAssetId(key);
-			if (!m_Storage.contains(id))
-				return std::unexpected(Utils::Error("Asset not found"));
+            return std::cref(static_cast<const T&>(*it->second.value));
+        }
 
-			return Handle<T>(id);
-		}
+        template<Asset T>
+        std::expected<std::reference_wrapper<const T>, Utils::Error> GetByKey(const Source& source, const Subkey& subkey) const
+        {
+            const AssetId id = MakeAssetId(Key{ source, subkey, T::Type });
+            return Get<T>(Handle<T>(id));
+        }
 
-		template<AssetDerived T>
-		std::expected<const T&, Utils::Error> Get(const Handle<T>& handle) const
-		{
-			auto it = m_Storage.find(handle.m_Id);
-			if (it == m_Storage.end())
-				return std::unexpected(Utils::Error("Asset not found"));
+        template<Asset T>
+        std::expected<Handle<T>, Utils::Error> Emplace(const Source& source, const Subkey& subkey, T&& asset)
+        {
+            const AssetId id = MakeAssetId(Key{ source, subkey, T::Type });
 
-			return static_cast<const T&>(*it->second);
-		}
+            if (m_Storage.contains(id))
+                return std::unexpected(Utils::Error("Asset already exists"));
 
-		template<AssetDerived T>
-		std::expected<const T&, Utils::Error> GetByKey(const Key& key) const
-		{
-			AssetId id = MakeAssetId(key);
-			return Get<T>(Handle<T>(id));
-		}
+			Entry entry(std::make_unique<T>(std::forward<T>(asset)));
 
-		template<AssetDerived T>
-		std::expected<Handle<T>, Utils::Error> Add(const Key& key, T&& asset)
-		{
-			AssetId id = MakeAssetId(key);
+            m_Storage.emplace(id, std::move(entry));
+            return Handle<T>(id);
+        }
 
-			if (m_Storage.contains(id))
-				return std::unexpected(Utils::Error("Asset already exists"));
+        template<Asset T>
+        bool Remove(Handle<T> handle)
+        {
+            return m_Storage.erase(handle.m_Id) > 0;
+        }
 
-			m_Storage.emplace(id, std::make_unique<T>(std::forward<T>(asset)));
-			return Handle<T>(id);
-		}
+        void Clear()
+        {
+            m_Storage.clear();
+        }
 
-		template<AssetDerived T>
-		bool Remove(const Handle<T>& handle)
-		{
-			return m_Storage.erase(handle.m_Id) > 0;
-		}
-	private:
-		std::unordered_map<AssetId, std::unique_ptr<Asset>> m_Storage;
-	};
+    private:
+        struct Entry
+        {
+            std::unique_ptr<IAsset> value;
+        };
+
+        std::unordered_map<AssetId, Entry> m_Storage;
+    };
 }

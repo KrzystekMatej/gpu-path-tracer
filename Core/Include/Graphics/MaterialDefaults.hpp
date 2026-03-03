@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include "Graphics/ShadingModel.hpp"
 
 namespace Core::Graphics

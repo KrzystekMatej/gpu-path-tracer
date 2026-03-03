@@ -43,20 +43,14 @@ namespace Core::Assets
 			return static_cast<uint8_t>(std::lround(x * 255.0f));
 		}
 
-		Key MakePathKey(AssetType type, std::string_view path, Subkey subkey)
+		SourcePixel MakeSourcePixel(const Graphics::PixelFormat& format, std::span<const uint8_t> data)
 		{
-			return Key{ SourcePath{ path }, std::move(subkey), type };
-		}
-
-		Key MakePixelKey(const Graphics::PixelFormat& format, std::span<const uint8_t> data)
-		{
-			SourcePixel src{
+			return {
 				.externalFormat = static_cast<uint32_t>(format.layout),
 				.pixelType = static_cast<uint32_t>(format.componentType),
 				.internalFormat = static_cast<uint32_t>(format.colorSpace),
 				.data = data
 			};
-			return Key{ src, SubkeyNone{}, AssetType::Texture };
 		}
 
 		bool IsUint8Texture(const Graphics::PixelFormat& f)
@@ -86,17 +80,18 @@ namespace Core::Assets
 	std::expected<Manager, Utils::Error> Manager::Create()
 	{
 		Manager manager;
-		auto defaultMat = manager.ImportDefaultMaterial();
-		if (!defaultMat)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(defaultMat.error()), "Failed to import default material"));
+		auto defaultMaterial = manager.ImportDefaultMaterial();
+		if (!defaultMaterial)
+			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(defaultMaterial.error()), "Failed to import default material"));
 		return manager;
 	}
 
 	std::expected<Handle<Texture>, Utils::Error> Manager::ImportPixelTexture(const Graphics::PixelFormat& format, std::span<const uint8_t> data)
 	{
-		Key key = MakePixelKey(format, data);
+		Source source = MakeSourcePixel(format, data);
+		Subkey subkey = SubkeyNone{};
 
-		auto cached = m_Storage.GetHandleByKey<Texture>(key);
+		auto cached = m_Storage.GetHandleByKey<Texture>(source, subkey);
 		if (cached)
 			return cached.value();
 
@@ -116,7 +111,7 @@ namespace Core::Assets
 			std::move(glResult.value()),
 			Graphics::Cuda::Texture{});
 
-		auto handle = m_Storage.Add(key, std::move(asset));
+		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		if (!handle)
 			return std::unexpected(handle.error());
 
@@ -125,26 +120,29 @@ namespace Core::Assets
 
 	std::expected<Handle<Material>, Utils::Error> Manager::ImportDefaultMaterial()
 	{
-		std::string src = std::string(DefaultMaterialSource);
-		Key key = MakePathKey(AssetType::Material, src, SubkeyNone{});
+		Source source = SourcePath{ std::string(DefaultMaterialSource) };
+		Subkey subkey = SubkeyNone{};
 
-		auto cached = m_Storage.GetHandleByKey<Material>(key);
+		auto cached = m_Storage.GetHandleByKey<Material>(source, subkey);
 		if (cached)
 			return cached.value();
 
-		Graphics::PixelFormat rgbSrgb{
+		Graphics::PixelFormat rgbSrgb
+		{
 			.layout = Graphics::ChannelLayout::RGB,
 			.componentType = Graphics::ComponentType::UInt8,
 			.colorSpace = Graphics::ColorSpace::SRGB
 		};
 
-		Graphics::PixelFormat rLinear{
+		Graphics::PixelFormat rLinear
+		{
 			.layout = Graphics::ChannelLayout::R,
 			.componentType = Graphics::ComponentType::UInt8,
 			.colorSpace = Graphics::ColorSpace::Linear
 		};
 
-		Graphics::PixelFormat rgbLinear{
+		Graphics::PixelFormat rgbLinear
+		{
 			.layout = Graphics::ChannelLayout::RGB,
 			.componentType = Graphics::ComponentType::UInt8,
 			.colorSpace = Graphics::ColorSpace::Linear
@@ -178,7 +176,7 @@ namespace Core::Assets
 			ao.value(),
 			normal.value());
 
-		auto handle = m_Storage.Add(key, std::move(asset));
+		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		if (!handle)
 			return std::unexpected(handle.error());
 
@@ -188,13 +186,10 @@ namespace Core::Assets
 	std::expected<Handle<Texture>, Utils::Error> Manager::ImportTexture(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
 	{
 		std::string pathStr = NormalizePathString(path);
-		Key key = MakePathKey(
-			AssetType::Texture,
-			pathStr,
-			SubkeyIndex{ static_cast<uint32_t>(colorSpace) }
-		);
+		Source source = SourcePath{ pathStr };
+		Subkey subkey = SubkeyNone{};
 
-		auto cached = m_Storage.GetHandleByKey<Texture>(key);
+		auto cached = m_Storage.GetHandleByKey<Texture>(source, subkey);
 		if (cached)
 			return cached.value();
 
@@ -213,7 +208,7 @@ namespace Core::Assets
 			std::move(glResult.value()), 
 			Graphics::Cuda::Texture{});
 
-		auto handle = m_Storage.Add(key, std::move(asset));
+		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		if (!handle)
 			return std::unexpected(handle.error());
 
@@ -223,9 +218,10 @@ namespace Core::Assets
 	std::expected<Handle<Mesh>, Utils::Error> Manager::ImportMesh(const std::filesystem::path& path, IO::ParsedMesh mesh, uint32_t index)
 	{
 		std::string objStr = NormalizePathString(path);
-		Key key = MakePathKey(AssetType::Mesh, objStr, SubkeyIndex{ index });
+		Source source = SourcePath{ objStr };
+		Subkey subkey = SubkeyIndex{ index };
 
-		auto cached = m_Storage.GetHandleByKey<Mesh>(key);
+		auto cached = m_Storage.GetHandleByKey<Mesh>(source, subkey);
 		if (cached)
 			return cached.value();
 
@@ -235,7 +231,7 @@ namespace Core::Assets
 
 		Mesh asset(Graphics::Cpu::Mesh::Create(std::move(mesh)), std::move(glResult.value()));
 
-		auto handle = m_Storage.Add(key, std::move(asset));
+		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		if (!handle)
 			return std::unexpected(handle.error());
 
@@ -245,9 +241,10 @@ namespace Core::Assets
 	std::expected<Handle<Material>, Utils::Error> Manager::ImportMaterial(const std::filesystem::path& objPath, const IO::ParsedMaterial& material)
 	{
 		std::string objStr = NormalizePathString(objPath);
-		Key key = MakePathKey(AssetType::Material, objStr, SubkeyName{ material.name });
+		Source source = SourcePath{ objStr };
+		Subkey subkey = SubkeyName{ material.name };
 
-		auto cached = m_Storage.GetHandleByKey<Material>(key);
+		auto cached = m_Storage.GetHandleByKey<Material>(source, subkey);
 		if (cached)
 			return cached.value();
 
@@ -318,7 +315,7 @@ namespace Core::Assets
 			ao.value(),
 			normal.value());
 
-		auto handle = m_Storage.Add(key, std::move(asset));
+		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		if (!handle)
 			return std::unexpected(handle.error());
 
@@ -328,9 +325,10 @@ namespace Core::Assets
 	std::expected<Handle<Model>, Utils::Error> Manager::ImportObj(const std::filesystem::path& path)
 	{
 		std::string objStr = NormalizePathString(path);
-		Key key = MakePathKey(AssetType::Model, objStr, SubkeyNone{});
+		Source source = SourcePath{ objStr };
+		Subkey subkey = SubkeyNone{};
 
-		auto cached = m_Storage.GetHandleByKey<Model>(key);
+		auto cached = m_Storage.GetHandleByKey<Model>(source, subkey);
 		if (cached)
 			return cached.value();
 
@@ -376,7 +374,7 @@ namespace Core::Assets
 			});
 		}
 
-		auto handle = m_Storage.Add(key, std::move(model));
+		auto handle = m_Storage.Emplace(source, subkey, std::move(model));
 		if (!handle)
 			return std::unexpected(handle.error());
 
@@ -386,13 +384,10 @@ namespace Core::Assets
 	std::expected<Handle<EnvironmentMap>, Utils::Error> Manager::ImportEnvironmentMap(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
 	{
 		std::string dirStr = NormalizePathString(path);
-		Key key = MakePathKey(
-			AssetType::EnvironmentMap,
-			dirStr,
-			SubkeyIndex{ static_cast<uint32_t>(colorSpace) }
-		);
+		Source source = SourcePath{ dirStr };
+		Subkey subkey = SubkeyNone{};
 
-		auto cached = m_Storage.GetHandleByKey<EnvironmentMap>(key);
+		auto cached = m_Storage.GetHandleByKey<EnvironmentMap>(source, subkey);
 		if (cached)
 			return cached.value();
 
@@ -442,7 +437,7 @@ namespace Core::Assets
 			Graphics::Cuda::EnvironmentMap{}
 		);
 
-		auto handle = m_Storage.Add(key, std::move(asset));
+		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		if (!handle)
 			return std::unexpected(handle.error());
 
