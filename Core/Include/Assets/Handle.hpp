@@ -11,9 +11,9 @@ namespace Core::Assets
         friend bool operator==(Handle, Handle) = default;
 
     private:
-        explicit constexpr Handle(AssetId id) : m_Id(id) {}
+        explicit constexpr Handle(Utils::Guid id) : m_Id(id) {}
         friend class Storage;
 
-        AssetId m_Id;
+        Utils::Guid m_Id;
     };
 }

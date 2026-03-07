@@ -13,6 +13,8 @@ Build/
 /Assets/*
 !/Assets/Shaders/
 !/Assets/Shaders/**
+!/Assets/Scenes/
+!/Assets/Scenes/**
 
 CMakeCache.txt
 CMakeFiles/

@@ -1,6 +1,7 @@
 #pragma once
-
+#include <expected>
 #include "Project/ProjectConfig.hpp"
+#include "Utils/Error/Error.hpp"
 
 namespace Core
 {
@@ -10,13 +11,9 @@ namespace Core
 		explicit Project(std::filesystem::path rootDirectory,  ProjectConfig config)
 			: m_RootPath(std::move(rootDirectory)), m_Config(std::move(config)) {}
 
-		static Project Load(const std::filesystem::path& configFilePath)
-		{
-			ProjectConfig config = ProjectConfig::LoadFromYAML(configFilePath);
-			return Project(configFilePath.parent_path(), config);
-		}
+		static std::expected<Project, Utils::Error> Create(const std::filesystem::path& configFilePath);
 
-		const std::filesystem::path& GetRootDirectory() const
+		const std::filesystem::path& GetRootPath() const
 		{
 			return m_RootPath;
 		}
@@ -39,6 +36,11 @@ namespace Core
 		std::filesystem::path GetModelsPath() const
 		{
 			return m_RootPath / m_Config.ModelDirectory;
+		}
+
+		std::filesystem::path GetBackgroundsPath() const
+		{
+			return m_RootPath / m_Config.BackgroundDirectory;
 		}
 
 		const ProjectConfig& GetConfig() const { return m_Config; }

@@ -4,6 +4,7 @@
 #include "Assets/Types.hpp"
 #include "Assets/Storage.hpp"
 #include "IO/Model.hpp"
+#include "Utils/Path.hpp"
 
 namespace Core::Assets
 {
@@ -15,7 +16,7 @@ namespace Core::Assets
 		Manager(Manager&&) noexcept = default;
 		Manager& operator=(Manager&&) noexcept = default;
 
-		static std::expected<Manager, Utils::Error> Create();
+		static std::expected<Manager, Utils::Error> Create(std::filesystem::path assetsPath);
 
 		const Storage& GetStorage() const { return m_Storage; }
 
@@ -26,12 +27,13 @@ namespace Core::Assets
 	private:
 		Manager() = default;
 
-		std::expected<Handle<Mesh>, Utils::Error> ImportMesh(const std::filesystem::path& path, IO::ParsedMesh mesh, uint32_t index);
-		std::expected<Handle<Material>, Utils::Error> ImportMaterial(const std::filesystem::path& objPath, const IO::ParsedMaterial& material);
+		std::expected<Handle<Mesh>, Utils::Error> ImportMesh(const Utils::Path::ResolvedPath& objPath, IO::ParsedMesh mesh, uint32_t index);
+		std::expected<Handle<Material>, Utils::Error> ImportMaterial(const Utils::Path::ResolvedPath& objPath, const IO::ParsedMaterial& material);
 
 		std::expected<Handle<Material>, Utils::Error> ImportDefaultMaterial();
 		std::expected<Handle<Texture>, Utils::Error> ImportPixelTexture(const Graphics::PixelFormat& format, std::span<const uint8_t> data);
 
 		Storage m_Storage;
+		std::filesystem::path m_AssetsPath;
 	};
 }

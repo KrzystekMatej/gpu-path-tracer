@@ -14,6 +14,7 @@ namespace Core
         std::filesystem::path SceneDirectory = "Assets/Scenes";
         std::filesystem::path ShaderDirectory = "Assets/Shaders";
         std::filesystem::path ModelDirectory = "Assets/Models";
+		std::filesystem::path BackgroundDirectory = "Assets/Backgrounds";
 
         static ProjectConfig LoadFromYAML(const std::filesystem::path& configPath)
         {
@@ -34,6 +35,9 @@ namespace Core
 
             if (config["models"])
                 result.ModelDirectory = config["models"].as<std::string>();
+
+            if (config["backgrounds"])
+				result.BackgroundDirectory = config["backgrounds"].as<std::string>();
 
             return result;
         }

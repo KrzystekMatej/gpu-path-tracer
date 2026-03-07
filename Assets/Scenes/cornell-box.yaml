@@ -1,0 +1,26 @@
+scripts:
+    - phase: Awake
+      name: AwakeCameraController
+    - phase: Update
+      name: UpdateCameraController
+scene:
+    - components:
+        - type: Transform
+          position: [0.0, 0.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/CornellBox/cornell-box.obj
+    - components:
+        - type: Transform
+          position: [40.0, -940.0, 250.0]
+          view-at: [0.0, 0.0, 250.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Camera
+          fovy: 40.0
+          near-plane: 0.1
+          far-plane: 1000.0
+        - type: CameraController
+          speed: 100.0
+          sensitivity: 0.1
+  

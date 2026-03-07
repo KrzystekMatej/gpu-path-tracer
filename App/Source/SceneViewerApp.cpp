@@ -4,7 +4,7 @@
 
 namespace App
 {
-	void SceneViewerApp::OnEvent(const Core::AppContext& context, const Core::Event& event)
+	void SceneViewerApp::OnEvent(const Core::App::Context& context, const Core::Event& event)
 	{
 		if (event.GetType() == Core::EventType::Key)
 		{
@@ -15,12 +15,10 @@ namespace App
 			}
 		}
 	}
-	void SceneViewerApp::Update(const Core::AppContext& context)
+	void SceneViewerApp::Update(const Core::App::Context& context)
 	{
-		// Update scene logic, animations, etc. here
 	}
-	void SceneViewerApp::Render(const Core::AppContext& context)
+	void SceneViewerApp::Render(const Core::App::Context& context)
 	{
-		// Render the scene here
 	}
 }

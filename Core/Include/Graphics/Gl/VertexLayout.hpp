@@ -26,9 +26,9 @@ namespace Core::Graphics::Gl
 	public:
 		VertexLayout() : m_Stride(0) {}
 
-		void PushFloat(float value, uint32_t count);
-		void PushUInt32(uint32_t value, uint32_t count, VertexAttributeRepresentation representation);
-		void PushUInt8(uint8_t value, uint32_t count, VertexAttributeRepresentation representation);
+		void PushFloat(uint32_t count);
+		void PushUInt32(uint32_t count, VertexAttributeRepresentation representation);
+		void PushUInt8(uint32_t count, VertexAttributeRepresentation representation);
 
 		void Apply() const;
 

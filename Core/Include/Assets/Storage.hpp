@@ -4,6 +4,7 @@
 #include <memory>
 #include <unordered_map>
 
+#include "Utils/Guid.hpp"
 #include "Assets/Asset.hpp"
 #include "Assets/Handle.hpp"
 #include "Assets/Key.hpp"
@@ -29,7 +30,7 @@ namespace Core::Assets
         template<Asset T>
         std::expected<Handle<T>, Utils::Error> GetHandleByKey(const Source& source, const Subkey& subkey) const
         {
-            const AssetId id = MakeAssetId(Key{ source, subkey, T::Type });
+            const Utils::Guid id = MakeAssetId(Key{ source, subkey, T::Type });
             if (!m_Storage.contains(id))
                 return std::unexpected(Utils::Error("Asset not found"));
 
@@ -49,14 +50,14 @@ namespace Core::Assets
         template<Asset T>
         std::expected<std::reference_wrapper<const T>, Utils::Error> GetByKey(const Source& source, const Subkey& subkey) const
         {
-            const AssetId id = MakeAssetId(Key{ source, subkey, T::Type });
+            const Utils::Guid id = MakeAssetId(Key{ source, subkey, T::Type });
             return Get<T>(Handle<T>(id));
         }
 
         template<Asset T>
         std::expected<Handle<T>, Utils::Error> Emplace(const Source& source, const Subkey& subkey, T&& asset)
         {
-            const AssetId id = MakeAssetId(Key{ source, subkey, T::Type });
+            const Utils::Guid id = MakeAssetId(Key{ source, subkey, T::Type });
 
             if (m_Storage.contains(id))
                 return std::unexpected(Utils::Error("Asset already exists"));
@@ -84,6 +85,6 @@ namespace Core::Assets
             std::unique_ptr<IAsset> value;
         };
 
-        std::unordered_map<AssetId, Entry> m_Storage;
+        std::unordered_map<Utils::Guid, Entry> m_Storage;
     };
 }

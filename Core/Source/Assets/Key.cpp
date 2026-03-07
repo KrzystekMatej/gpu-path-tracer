@@ -1,63 +1,63 @@
 #include "Assets/Key.hpp"
-#include "Utils/Hasher.hpp"
+#include "Utils/Hash.hpp"
 
 namespace Core::Assets
 {
     namespace
     {
-        void HashAppend(Utils::Hasher& h, AssetType type)
+        void HashAppend(Utils::Hasher& hasher, AssetType type)
         {
             using UT = std::underlying_type_t<AssetType>;
-            h.Update(static_cast<UT>(type));
+            hasher.Update(static_cast<UT>(type));
         }
 
-        void HashAppend(Utils::Hasher& h, const SourcePath& s)
+        void HashAppend(Utils::Hasher& hasher, const SourcePath& source)
         {
-            uint64_t length = s.path.size();
-            h.Update(length);
-            h.Update(std::as_bytes(std::span{ s.path }));
+            uint64_t length = source.path.size();
+            hasher.Update(length);
+            hasher.Update(std::as_bytes(std::span{ source.path }));
         }
 
-        void HashAppend(Utils::Hasher& h, const SourcePixel& s)
+        void HashAppend(Utils::Hasher& hasher, const SourcePixel& source)
         {
-            h.Update(s.externalFormat);
-            h.Update(s.pixelType);
-            h.Update(s.internalFormat);
+            hasher.Update(source.format.layout);
+            hasher.Update(source.format.componentType);
+            hasher.Update(source.format.colorSpace);
 
-            uint64_t length = s.data.size();
-            h.Update(length);
-            h.Update(s.data);
+            uint64_t length = source.data.size();
+            hasher.Update(length);
+            hasher.Update(std::as_bytes(source.data));
         }
 
-        void HashAppend(Utils::Hasher& h, const SubkeyNone&) {}
+        void HashAppend(Utils::Hasher& hasher, const SubkeyNone&) {}
 
-        void HashAppend(Utils::Hasher& h, const SubkeyIndex& s)
+        void HashAppend(Utils::Hasher& hasher, const SubkeyIndex& subkey)
         {
-            h.Update(s.value);
+            hasher.Update(subkey.value);
         }
 
-        void HashAppend(Utils::Hasher& h, const SubkeyName& s)
+        void HashAppend(Utils::Hasher& hasher, const SubkeyName& subkey)
         {
-            uint64_t length = s.name.size();
-            h.Update(length);
-            h.Update(std::as_bytes(std::span{ s.name }));
+            uint64_t length = subkey.name.size();
+            hasher.Update(length);
+            hasher.Update(std::as_bytes(std::span{ subkey.name }));
         }
 
         template<class... Ts>
-        void HashAppend(Utils::Hasher& h, const std::variant<Ts...>& v)
+        void HashAppend(Utils::Hasher& hasher, const std::variant<Ts...>& variant)
         {
-            uint8_t index = static_cast<uint8_t>(v.index());
-            h.Update(index);
-            std::visit([&](const auto& x) { HashAppend(h, x); }, v);
+            uint8_t index = static_cast<uint8_t>(variant.index());
+            hasher.Update(index);
+            std::visit([&](const auto& x) { HashAppend(hasher, x); }, variant);
         }
     }
 
-    AssetId MakeAssetId(const Key& key)
+    Utils::Guid MakeAssetId(const Key& key)
     {
-        Utils::Hasher h;
-        HashAppend(h, key.type);
-        HashAppend(h, key.source);
-        HashAppend(h, key.subkey);
-        return h.Digest();
+        Utils::Hasher hasher;
+        HashAppend(hasher, key.type);
+        HashAppend(hasher, key.source);
+        HashAppend(hasher, key.subkey);
+        return hasher.Digest();
     }
 }

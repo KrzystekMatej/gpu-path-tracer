@@ -29,10 +29,10 @@ namespace Core::Assets
 
 		std::filesystem::path ResolveRelativeToFile(const std::filesystem::path& filePath, const std::string& maybeRelative)
 		{
-			std::filesystem::path p(maybeRelative);
-			if (p.is_absolute())
-				return p.lexically_normal();
-			return (filePath.parent_path() / p).lexically_normal();
+			std::filesystem::path path(maybeRelative);
+			if (path.is_absolute())
+				return path.lexically_normal();
+			return (filePath.parent_path() / path).lexically_normal();
 		}
 
 		uint8_t NormalizedFloatToU8(float x)
@@ -41,16 +41,6 @@ namespace Core::Assets
 				x = 0.0f;
 			x = std::clamp(x, 0.0f, 1.0f);
 			return static_cast<uint8_t>(std::lround(x * 255.0f));
-		}
-
-		SourcePixel MakeSourcePixel(const Graphics::PixelFormat& format, std::span<const uint8_t> data)
-		{
-			return {
-				.externalFormat = static_cast<uint32_t>(format.layout),
-				.pixelType = static_cast<uint32_t>(format.componentType),
-				.internalFormat = static_cast<uint32_t>(format.colorSpace),
-				.data = data
-			};
 		}
 
 		bool IsUint8Texture(const Graphics::PixelFormat& f)
@@ -77,9 +67,16 @@ namespace Core::Assets
 		}
 	}
 
-	std::expected<Manager, Utils::Error> Manager::Create()
+	std::expected<Manager, Utils::Error> Manager::Create(std::filesystem::path assetsPath)
 	{
+		 std::error_code errorCode;
+		assetsPath = std::filesystem::weakly_canonical(std::filesystem::absolute(assetsPath), errorCode);
+		if (errorCode) return std::unexpected(Utils::Error("Invalid assets root: {}", assetsPath.string()));
+		if (!std::filesystem::is_directory(assetsPath))
+			return std::unexpected(Utils::Error("Asset root directory '{}' does not exist!", assetsPath.string()));
+
 		Manager manager;
+		manager.m_AssetsPath = std::move(assetsPath);
 		auto defaultMaterial = manager.ImportDefaultMaterial();
 		if (!defaultMaterial)
 			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(defaultMaterial.error()), "Failed to import default material"));
@@ -88,7 +85,7 @@ namespace Core::Assets
 
 	std::expected<Handle<Texture>, Utils::Error> Manager::ImportPixelTexture(const Graphics::PixelFormat& format, std::span<const uint8_t> data)
 	{
-		Source source = MakeSourcePixel(format, data);
+		Source source = SourcePixel{ format, data };
 		Subkey subkey = SubkeyNone{};
 
 		auto cached = m_Storage.GetHandleByKey<Texture>(source, subkey);
@@ -120,7 +117,7 @@ namespace Core::Assets
 
 	std::expected<Handle<Material>, Utils::Error> Manager::ImportDefaultMaterial()
 	{
-		Source source = SourcePath{ std::string(DefaultMaterialSource) };
+		Source source = SourcePath{ DefaultMaterialSource };
 		Subkey subkey = SubkeyNone{};
 
 		auto cached = m_Storage.GetHandleByKey<Material>(source, subkey);
@@ -185,23 +182,35 @@ namespace Core::Assets
 
 	std::expected<Handle<Texture>, Utils::Error> Manager::ImportTexture(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
 	{
-		std::string pathStr = NormalizePathString(path);
-		Source source = SourcePath{ pathStr };
+		auto pathResult = Utils::Path::Resolve(path, m_AssetsPath);
+		if (!pathResult)
+			return std::unexpected(pathResult.error());
+		Utils::Path::ResolvedPath resolved = pathResult.value();
+
+		std::string absoluteStr = resolved.absolute.generic_string();
+		std::string relativeStr = resolved.relative.generic_string();
+		Source source = SourcePath{ relativeStr };
 		Subkey subkey = SubkeyNone{};
 
 		auto cached = m_Storage.GetHandleByKey<Texture>(source, subkey);
 		if (cached)
 			return cached.value();
 
-		auto imageResult = IO::LoadImage(path, colorSpace);
+		auto imageResult = IO::LoadImage(resolved.absolute, colorSpace);
 		if (!imageResult)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(imageResult.error()), "Failed to load image, file path: {}", pathStr));
+			return std::unexpected(Utils::Error(
+				std::make_shared<Utils::Error>(imageResult.error()), 
+				"Failed to load image, file path: {}", 
+				absoluteStr));
 
 		IO::Image image = std::move(imageResult.value());
 
 		auto glResult = Graphics::Gl::Texture::Create2D(image);
 		if (!glResult)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(glResult.error()), "Failed to create GL texture, file path: {}", pathStr));
+			return std::unexpected(Utils::Error(
+				std::make_shared<Utils::Error>(glResult.error()), 
+				"Failed to create GL texture, file path: {}", 
+				absoluteStr));
 
 		Texture asset(
 			Graphics::Cpu::Texture::Create(std::move(image)), 
@@ -215,10 +224,10 @@ namespace Core::Assets
 		return handle.value();
 	}
 
-	std::expected<Handle<Mesh>, Utils::Error> Manager::ImportMesh(const std::filesystem::path& path, IO::ParsedMesh mesh, uint32_t index)
+	std::expected<Handle<Mesh>, Utils::Error> Manager::ImportMesh(const Utils::Path::ResolvedPath& objPath, IO::ParsedMesh mesh, uint32_t index)
 	{
-		std::string objStr = NormalizePathString(path);
-		Source source = SourcePath{ objStr };
+		std::string relativeStr = objPath.relative.generic_string();
+		Source source = SourcePath{ relativeStr };
 		Subkey subkey = SubkeyIndex{ index };
 
 		auto cached = m_Storage.GetHandleByKey<Mesh>(source, subkey);
@@ -227,7 +236,10 @@ namespace Core::Assets
 
 		auto glResult = Graphics::Gl::Mesh::Create(mesh);
 		if (!glResult)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(glResult.error()), "Failed to create GL mesh, obj path: {}", objStr));
+			return std::unexpected(Utils::Error(
+				std::make_shared<Utils::Error>(glResult.error()),
+				"Failed to create GL mesh, obj path: {}",
+				objPath.absolute.generic_string()));
 
 		Mesh asset(Graphics::Cpu::Mesh::Create(std::move(mesh)), std::move(glResult.value()));
 
@@ -238,10 +250,10 @@ namespace Core::Assets
 		return handle.value();
 	}
 
-	std::expected<Handle<Material>, Utils::Error> Manager::ImportMaterial(const std::filesystem::path& objPath, const IO::ParsedMaterial& material)
+	std::expected<Handle<Material>, Utils::Error> Manager::ImportMaterial(const Utils::Path::ResolvedPath& objPath, const IO::ParsedMaterial& material)
 	{
-		std::string objStr = NormalizePathString(objPath);
-		Source source = SourcePath{ objStr };
+		std::string relativeStr = objPath.relative.generic_string();
+		Source source = SourcePath{ relativeStr };
 		Subkey subkey = SubkeyName{ material.name };
 
 		auto cached = m_Storage.GetHandleByKey<Material>(source, subkey);
@@ -278,31 +290,31 @@ namespace Core::Assets
 		std::array<uint8_t, 1> metallicPixel = { NormalizedFloatToU8(material.metallic)};
 
 		auto albedo = material.albedoTexture
-			? ImportTexture(ResolveRelativeToFile(objPath, *material.albedoTexture), Graphics::ColorSpace::SRGB)
+			? ImportTexture(ResolveRelativeToFile(objPath.absolute, *material.albedoTexture), Graphics::ColorSpace::SRGB)
 			: makeRgb(Graphics::ColorSpace::SRGB, albedoPixel);
 
 		if (!albedo) return std::unexpected(albedo.error());
 
 		auto roughness = material.roughnessTexture
-			? ImportTexture(ResolveRelativeToFile(objPath, *material.roughnessTexture), Graphics::ColorSpace::Linear)
+			? ImportTexture(ResolveRelativeToFile(objPath.absolute, *material.roughnessTexture), Graphics::ColorSpace::Linear)
 			: makeR(roughnessPixel);
 
 		if (!roughness) return std::unexpected(roughness.error());
 
 		auto metallic = material.metallicTexture
-			? ImportTexture(ResolveRelativeToFile(objPath, *material.metallicTexture), Graphics::ColorSpace::Linear)
+			? ImportTexture(ResolveRelativeToFile(objPath.absolute, *material.metallicTexture), Graphics::ColorSpace::Linear)
 			: makeR(metallicPixel);
 
 		if (!metallic) return std::unexpected(metallic.error());
 
 		auto ao = material.aoTexture
-			? ImportTexture(ResolveRelativeToFile(objPath, *material.aoTexture), Graphics::ColorSpace::Linear)
+			? ImportTexture(ResolveRelativeToFile(objPath.absolute, *material.aoTexture), Graphics::ColorSpace::Linear)
 			: makeR(Graphics::MaterialDefaults::DefaultAo);
 
 		if (!ao) return std::unexpected(ao.error());
 
 		auto normal = material.normalTexture
-			? ImportTexture(ResolveRelativeToFile(objPath, *material.normalTexture), Graphics::ColorSpace::Linear)
+			? ImportTexture(ResolveRelativeToFile(objPath.absolute, *material.normalTexture), Graphics::ColorSpace::Linear)
 			: makeRgb(Graphics::ColorSpace::Linear, Graphics::MaterialDefaults::DefaultNormal);
 
 		if (!normal) return std::unexpected(normal.error());
@@ -324,20 +336,27 @@ namespace Core::Assets
 
 	std::expected<Handle<Model>, Utils::Error> Manager::ImportObj(const std::filesystem::path& path)
 	{
-		std::string objStr = NormalizePathString(path);
-		Source source = SourcePath{ objStr };
+		auto pathResult = Utils::Path::Resolve(path, m_AssetsPath);
+		if (!pathResult)
+			return std::unexpected(pathResult.error());
+		Utils::Path::ResolvedPath resolved = pathResult.value();
+
+		std::string absoluteStr = resolved.absolute.generic_string();
+		std::string relativeStr = resolved.relative.generic_string();
+
+		Source source = SourcePath{ relativeStr };
 		Subkey subkey = SubkeyNone{};
 
 		auto cached = m_Storage.GetHandleByKey<Model>(source, subkey);
 		if (cached)
 			return cached.value();
 
-		auto parsedResult = IO::LoadObj(path);
+		auto parsedResult = IO::LoadObj(resolved.absolute);
 		if (!parsedResult)
 			return std::unexpected(Utils::Error(
-				std::make_shared<Utils::Error>(parsedResult.error()), 
+				std::make_shared<Utils::Error>(parsedResult.error()),
 				"Failed to load OBJ, file path: {}", 
-				objStr));
+				absoluteStr));
 
 		IO::ParsedModel parsed = std::move(parsedResult.value());
 
@@ -355,16 +374,16 @@ namespace Core::Assets
 			if (m.materialIndex)
 			{
 				if (*m.materialIndex >= parsed.materials.size())
-					return std::unexpected(Utils::Error("Invalid material index {}, file path: {}", *m.materialIndex, objStr));
+					return std::unexpected(Utils::Error("Invalid material index {}, file path: {}", *m.materialIndex, absoluteStr));
 
-				auto materialHandle = ImportMaterial(path, parsed.materials[*m.materialIndex]);
+				auto materialHandle = ImportMaterial(resolved, parsed.materials[*m.materialIndex]);
 				if (!materialHandle)
 					return std::unexpected(materialHandle.error());
 
 				matHandle = materialHandle.value();
 			}
 
-			auto meshHandle = ImportMesh(path, std::move(m), m.index);
+			auto meshHandle = ImportMesh(resolved, std::move(m), m.index);
 			if (!meshHandle)
 				return std::unexpected(meshHandle.error());
 
@@ -383,18 +402,25 @@ namespace Core::Assets
 
 	std::expected<Handle<EnvironmentMap>, Utils::Error> Manager::ImportEnvironmentMap(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
 	{
-		std::string dirStr = NormalizePathString(path);
-		Source source = SourcePath{ dirStr };
+		auto pathResult = Utils::Path::Resolve(path, m_AssetsPath);
+		if (!pathResult)
+			return std::unexpected(pathResult.error());
+		Utils::Path::ResolvedPath resolved = pathResult.value();
+
+		std::string absoluteStr = resolved.absolute.generic_string();
+		std::string relativeStr = resolved.relative.generic_string();
+
+		Source source = SourcePath{ relativeStr };
 		Subkey subkey = SubkeyNone{};
 
 		auto cached = m_Storage.GetHandleByKey<EnvironmentMap>(source, subkey);
 		if (cached)
 			return cached.value();
 
-		std::filesystem::path backgroundPath = path / std::string(BackgroundFile);
-		std::filesystem::path irradiancePath = path / std::string(IrradianceDir);
-		std::filesystem::path prefilteredPath = path / std::string(PrefilteredDir);
-		std::filesystem::path skyboxPath = path / std::string(SkyboxDir);
+		std::filesystem::path backgroundPath = resolved.absolute / std::string(BackgroundFile);
+		std::filesystem::path irradiancePath = resolved.absolute / std::string(IrradianceDir);
+		std::filesystem::path prefilteredPath = resolved.absolute / std::string(PrefilteredDir);
+		std::filesystem::path skyboxPath = resolved.absolute / std::string(SkyboxDir);
 
 		auto backgroundResult = IO::LoadImage(backgroundPath, colorSpace);
 		if (!backgroundResult)

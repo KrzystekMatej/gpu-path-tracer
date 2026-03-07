@@ -142,7 +142,6 @@ namespace Core::Graphics::Gl
 		if (mipmapLevels > 1)
 		{
 			glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-			glGenerateMipmap(target);
 		}
 		else
 		{
@@ -249,7 +248,6 @@ namespace Core::Graphics::Gl
 		if (mipmapLevels > 1)
 		{
 			glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-			glGenerateMipmap(target);
 		}
 		else
 		{

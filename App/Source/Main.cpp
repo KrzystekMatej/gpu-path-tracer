@@ -8,22 +8,25 @@ int main()
 {
 	std::filesystem::path projectConfigPath = "../../../project-config.yaml";
 
-	auto result = Core::Application::Create
+	auto appResult = Core::App::Application::Create
 	(
 		std::make_unique<App::SceneViewerApp>(),
 		Core::WindowAttributes::DefaultAttributes(),
 		projectConfigPath
 	);
 
-	if (!result)
+	if (!appResult)
 	{
-		result.error().Log();
+		appResult.error().Log();
 		return 1;
 	}
 	
 	
-	std::unique_ptr<Core::Application> app = std::move(result.value());
+	std::unique_ptr<Core::App::Application> app = std::move(appResult.value());
 	app->PrintInfo();
+	auto ok = app->SetScene("cornell-box.yaml");
+	if (!ok)
+		ok.error().Log();
 	app->Run();
 	return 0;
 }

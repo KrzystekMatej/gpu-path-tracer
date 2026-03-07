@@ -1,8 +1,10 @@
 #pragma once
 #include <cstdint>
 #include <span>
+#include <string>
 #include <type_traits>
 #include "External/XxHash.hpp"
+#include "Utils/Guid.hpp"
 
 namespace Core::Utils
 {
@@ -19,20 +21,34 @@ namespace Core::Utils
             XXH3_64bits_reset(&m_State);
         }
 
-        void Update(std::span<const std::byte> data)
+		void Update(std::string_view str)
+		{
+			Update(std::as_bytes(std::span(str.data(), str.size())));
+		}
+
+        void Update(const std::span<const std::byte>& data)
         {
             XXH3_64bits_update(&m_State, data.data(), data.size());
         }
 
 		template <typename T>
+		requires (std::is_trivially_copyable_v<T> &&
+				  std::has_unique_object_representations_v<T>)
 		void Update(const T& value)
 		{
-			static_assert(std::is_trivially_copyable_v<T>);
-			static_assert(std::has_unique_object_representations_v<T>);
+            static_assert(!std::is_pointer_v<T>);
 			XXH3_64bits_update(&m_State, &value, sizeof(T));
 		}
+        
+		template <typename T>
+        static Utils::Guid MakeId(const T& value)
+        {
+            Hasher hasher;
+			hasher.Update(value);
+            return hasher.Digest();
+        }
 
-        uint64_t Digest() const
+        Utils::Guid Digest() const
         {
             return XXH3_64bits_digest(&m_State);
         }

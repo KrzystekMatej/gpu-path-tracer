@@ -14,19 +14,19 @@ namespace Core::Graphics::Gl
 		return 0;
 	}
 
-	void VertexLayout::PushFloat(float value, uint32_t count)
+	void VertexLayout::PushFloat(uint32_t count)
 	{
 		m_Elements.push_back({ GL_FLOAT, count, GL_FALSE, VertexAttributeRepresentation::Float });
 		m_Stride += count * VertexAttribute::GetSizeOfType(GL_FLOAT);
 	}
 
-	void VertexLayout::PushUInt32(uint32_t value, uint32_t count, VertexAttributeRepresentation representation)
+	void VertexLayout::PushUInt32(uint32_t count, VertexAttributeRepresentation representation)
 	{
 		m_Elements.push_back({ GL_UNSIGNED_INT, count, GL_FALSE, representation });
 		m_Stride += count * VertexAttribute::GetSizeOfType(GL_UNSIGNED_INT);
 	}
 
-	void VertexLayout::PushUInt8(uint8_t value, uint32_t count, VertexAttributeRepresentation representation)
+	void VertexLayout::PushUInt8(uint32_t count, VertexAttributeRepresentation representation)
 	{
 		m_Elements.push_back({ GL_UNSIGNED_BYTE, count, GL_TRUE, representation });
 		m_Stride += count * VertexAttribute::GetSizeOfType(GL_UNSIGNED_BYTE);

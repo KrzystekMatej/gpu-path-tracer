@@ -4,7 +4,10 @@
 
 namespace Core::Assets
 {
-    struct IAsset {};
+    struct IAsset
+    {
+        virtual ~IAsset() = default;
+    };
 
     template<class Derived, AssetType TypeValue>
     struct AssetTyped : IAsset

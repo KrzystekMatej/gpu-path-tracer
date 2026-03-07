@@ -1,5 +1,6 @@
 #include "Window/Window.hpp"
 #include "Window/GLFWCallbacks.hpp"
+#include <spdlog/spdlog.h>
 
 namespace Core
 {
@@ -22,7 +23,7 @@ namespace Core
 		GLFWcursor* cursor = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
 
 		if (!cursor) 
-			return std::unexpected(Utils::Error("Failed to create cursor, using default system cursor."));
+			spdlog::warn("Failed to create cursor, using default system cursor.");
 
 		glfwSetCursor(windowHandle, cursor);
 

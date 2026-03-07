@@ -3,6 +3,8 @@
 #include <string_view>
 #include <variant>
 #include <span>
+#include "Graphics/Formats.hpp"
+#include "Utils/Guid.hpp"
 
 namespace Core::Assets
 {
@@ -30,9 +32,7 @@ namespace Core::Assets
 
     struct SourcePixel
     {
-        uint32_t externalFormat;
-        uint32_t pixelType;
-        uint32_t internalFormat;
+		Graphics::PixelFormat format;
         std::span<const uint8_t> data;
     };
 
@@ -45,7 +45,5 @@ namespace Core::Assets
         AssetType type;
     };
 
-    using AssetId = uint64_t;
-
-    AssetId MakeAssetId(const Key& key);
+    Utils::Guid MakeAssetId(const Key& key);
 }

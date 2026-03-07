@@ -19,10 +19,10 @@ namespace Core::Graphics::Gl
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, parsedMesh.indices.size() * sizeof(uint32_t), parsedMesh.indices.data(), GL_STATIC_DRAW);
 
 		VertexLayout layout;
-		layout.PushFloat(0.0f, 3);
-		layout.PushFloat(0.0f, 3);
-		layout.PushFloat(0.0f, 4);
-		layout.PushFloat(0.0f, 2);
+		layout.PushFloat(3);
+		layout.PushFloat(3);
+		layout.PushFloat(4);
+		layout.PushFloat(2);
 		layout.Apply();
 
 		return Mesh(vertexArray, vertexBuffer, indexBuffer, static_cast<uint32_t>(parsedMesh.indices.size()));
