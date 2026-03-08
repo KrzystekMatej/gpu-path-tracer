@@ -6,6 +6,7 @@
 #include "Scripts/Phase.hpp"
 #include "ECS/Resolvers/SceneResolverRegistry.hpp"
 #include "IO/Scene.hpp"
+#include "Assets/Manager.hpp"
 
 
 namespace Core::ECS
@@ -20,13 +21,16 @@ namespace Core::ECS
     class Scene
     {
     public:
-		Scene() = default;
+        Scene() = default;
         Scene(const Scene&) = delete;
         Scene& operator=(const Scene&) = delete;
         Scene(Scene&&) = default;
         Scene& operator=(Scene&&) = default;
 
-		static std::expected<Scene, Utils::Error> Create(IO::Scene scene, const ECS::SceneResolverRegistry& resolverRegistry);
+		static std::expected<Scene, Utils::Error> Create(
+            IO::Scene scene,
+            const ECS::SceneResolverRegistry& resolverRegistry,
+            Assets::Manager& assetManager);
 
         entt::registry& GetRegistry() { return m_Registry; }
         const entt::registry& GetRegistry() const { return m_Registry; }

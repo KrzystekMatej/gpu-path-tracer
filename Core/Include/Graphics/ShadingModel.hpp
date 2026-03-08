@@ -6,7 +6,8 @@ namespace Core::Graphics
 	{
 		Constant,
 		Normal,
+		Mirror,
 		Lambert,
-		TorranceSparrow
+		TorranceSparrow,
 	};
 }

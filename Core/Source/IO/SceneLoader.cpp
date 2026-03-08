@@ -1,6 +1,7 @@
 #include "IO/SceneLoader.hpp"
 #include <spdlog/spdlog.h>
 #include "Utils/Hash.hpp"
+#include "Utils/Yaml.hpp"
 
 namespace Core::IO
 {
@@ -10,34 +11,47 @@ namespace Core::IO
 		{
 			Scene scene;
 			YAML::Node root = YAML::LoadFile(path.string());
+			YAML::Node scriptsNode = root["scripts"];
 
-			if (root["scripts"])
+			if (scriptsNode)
 			{
-				YAML::Node scripts = root["scripts"];
 
-				for (const auto& script : scripts)
+				for (const auto& script : scriptsNode)
 				{
-					if (!script["phase"])
-						return std::unexpected(Utils::Error("Script is missing 'phase' field"));
-					if (!script["name"])
-						return std::unexpected(Utils::Error("Script is missing 'name' field"));
+					YAML::Node phaseNode = script["phase"];
+					YAML::Node nameNode = script["name"];
 
-					if (script["phase"].as<std::string>() == "Awake")
-						scene.scripts.emplace_back(Utils::Hasher::MakeId(script["name"].as<std::string>()), Scripts::Phase::Awake);
-					if (script["phase"].as<std::string>() == "Update")
-						scene.scripts.emplace_back(Utils::Hasher::MakeId(script["name"].as<std::string>()), Scripts::Phase::Update);
+					if (!nameNode)
+						return std::unexpected(Utils::Error("Script is missing 'name' field"));
+					if (!phaseNode)
+						return std::unexpected(Utils::Error("Script is missing 'phase' field"));
+
+					Scripts::Phase phase;
+					std::string phaseStr = phaseNode.as<std::string>();
+
+					if (phaseStr == "Awake")
+					{
+						phase = Scripts::Phase::Awake;
+					}
+					else if (phaseStr == "Update")
+					{
+						phase = Scripts::Phase::Update;
+					}
+					else
+					{
+						return std::unexpected(Utils::Error("Invalid script phase '{}'", phaseNode.as<std::string>()));
+					}
+
+					scene.scripts.emplace_back(Utils::Hasher::MakeId(nameNode.as<std::string>()), phase);
 				}
 			}
 
-			if (root["scene"])
-			{
-				scene.sceneRoot = root["scene"];
-				return scene;
-			}
+			auto sceneResult = Utils::Yaml::GetSequence(root, "scene");
 
-			spdlog::warn("Scene in file '{}' is empty.", path.string());
+			if (!sceneResult)
+				return std::unexpected(Utils::Error(std::move(sceneResult).error()));
 
-			scene.sceneRoot = YAML::Node();
+			scene.sceneRoot = sceneResult.value();
 			return scene;
 		}
 		catch (const std::exception& e)

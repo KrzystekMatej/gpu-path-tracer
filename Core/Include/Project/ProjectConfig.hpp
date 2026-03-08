@@ -1,45 +1,44 @@
 #pragma once
 
-#include <string>
+#include <string_view>
 #include <filesystem>
 #include <yaml-cpp/yaml.h>
+#include <expected>
+#include "Utils/Error/Error.hpp"
 
 namespace Core
 {
     struct ProjectConfig
     {
-        std::string Name = "Untitled";
+		static constexpr const char* nameKey = "name";
+		static constexpr const char* contentKey = "content";
+		static constexpr const char* startSceneKey = "start-scene";
 
-        std::filesystem::path AssetDirectory = "Assets";
-        std::filesystem::path SceneDirectory = "Assets/Scenes";
-        std::filesystem::path ShaderDirectory = "Assets/Shaders";
-        std::filesystem::path ModelDirectory = "Assets/Models";
-		std::filesystem::path BackgroundDirectory = "Assets/Backgrounds";
+        std::string name;
+        std::filesystem::path contentDirectory;
+        std::filesystem::path startScene;
 
-        static ProjectConfig LoadFromYAML(const std::filesystem::path& configPath)
+        static std::expected<ProjectConfig, Utils::Error> LoadFromYAML(const std::filesystem::path& configPath)
         {
-            YAML::Node config = YAML::LoadFile(configPath.string());
+            YAML::Node root = YAML::LoadFile(configPath.string());
 
-            ProjectConfig result;
-            if (config["name"])
-                result.Name = config["name"].as<std::string>();
+			YAML::Node nameNode = root[nameKey];
+			YAML::Node contentNode = root[contentKey];
+			YAML::Node sceneNode = root[startSceneKey];
 
-            if (config["assets"])
-                result.AssetDirectory = config["assets"].as<std::string>();
+            if (!nameNode)
+				return std::unexpected(Utils::Error("Project config is missing required '{}' field", nameKey));
+            if (!contentNode)
+                return std::unexpected(Utils::Error("Project config is missing required '{}' field", contentKey));
+            if (!sceneNode)
+                return std::unexpected(Utils::Error("Project config is missing required '{}' field", startSceneKey));
 
-            if (config["scenes"])
-                result.SceneDirectory = config["scenes"].as<std::string>();
-
-            if (config["shaders"])
-                result.ShaderDirectory = config["shaders"].as<std::string>();
-
-            if (config["models"])
-                result.ModelDirectory = config["models"].as<std::string>();
-
-            if (config["backgrounds"])
-				result.BackgroundDirectory = config["backgrounds"].as<std::string>();
-
-            return result;
+            return ProjectConfig
+            {
+                .name = nameNode.as<std::string>(),
+                .contentDirectory = contentNode.as<std::string>(),
+                .startScene = sceneNode.as<std::string>()
+            };
         }
     };
 }

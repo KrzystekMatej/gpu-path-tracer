@@ -22,17 +22,15 @@ namespace Core::Assets
 		constexpr std::string_view PrefilteredDir = "prefiltered_map";
 		constexpr std::string_view SkyboxDir = "skybox";
 
-		std::string NormalizePathString(const std::filesystem::path& p)
-		{
-			return p.lexically_normal().generic_string();
-		}
 
-		std::filesystem::path ResolveRelativeToFile(const std::filesystem::path& filePath, const std::string& maybeRelative)
+		std::filesystem::path ResolveRelativeToFile(const std::filesystem::path& filePath, const std::filesystem::path& maybeRelative)
 		{
-			std::filesystem::path path(maybeRelative);
-			if (path.is_absolute())
-				return path.lexically_normal();
-			return (filePath.parent_path() / path).lexically_normal();
+			auto resolved = Utils::Path::ResolvePath(maybeRelative, filePath.parent_path());
+
+			if (resolved)
+				return resolved.value().absolute;
+
+			return maybeRelative.lexically_normal();
 		}
 
 		uint8_t NormalizedFloatToU8(float x)
@@ -76,7 +74,7 @@ namespace Core::Assets
 			return std::unexpected(Utils::Error("Asset root directory '{}' does not exist!", assetsPath.string()));
 
 		Manager manager;
-		manager.m_AssetsPath = std::move(assetsPath);
+		manager.m_Root = std::move(assetsPath);
 		auto defaultMaterial = manager.ImportDefaultMaterial();
 		if (!defaultMaterial)
 			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(defaultMaterial.error()), "Failed to import default material"));
@@ -109,9 +107,6 @@ namespace Core::Assets
 			Graphics::Cuda::Texture{});
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		if (!handle)
-			return std::unexpected(handle.error());
-
 		return handle.value();
 	}
 
@@ -174,21 +169,18 @@ namespace Core::Assets
 			normal.value());
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		if (!handle)
-			return std::unexpected(handle.error());
-
 		return handle.value();
 	}
 
 	std::expected<Handle<Texture>, Utils::Error> Manager::ImportTexture(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
 	{
-		auto pathResult = Utils::Path::Resolve(path, m_AssetsPath);
+		auto pathResult = Utils::Path::ResolvePath(path, m_Root);
 		if (!pathResult)
-			return std::unexpected(pathResult.error());
-		Utils::Path::ResolvedPath resolved = pathResult.value();
+			return std::unexpected(std::move(pathResult).error());
+		Utils::Path::ResolvedPath resolvedPath = std::move(pathResult).value();
+		std::string absoluteStr = resolvedPath.absolute.generic_string();
+		std::string relativeStr = resolvedPath.relative.generic_string();
 
-		std::string absoluteStr = resolved.absolute.generic_string();
-		std::string relativeStr = resolved.relative.generic_string();
 		Source source = SourcePath{ relativeStr };
 		Subkey subkey = SubkeyNone{};
 
@@ -196,7 +188,7 @@ namespace Core::Assets
 		if (cached)
 			return cached.value();
 
-		auto imageResult = IO::LoadImage(resolved.absolute, colorSpace);
+		auto imageResult = IO::LoadImage(resolvedPath.absolute, colorSpace);
 		if (!imageResult)
 			return std::unexpected(Utils::Error(
 				std::make_shared<Utils::Error>(imageResult.error()), 
@@ -218,9 +210,6 @@ namespace Core::Assets
 			Graphics::Cuda::Texture{});
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		if (!handle)
-			return std::unexpected(handle.error());
-
 		return handle.value();
 	}
 
@@ -244,9 +233,6 @@ namespace Core::Assets
 		Mesh asset(Graphics::Cpu::Mesh::Create(std::move(mesh)), std::move(glResult.value()));
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		if (!handle)
-			return std::unexpected(handle.error());
-
 		return handle.value();
 	}
 
@@ -328,15 +314,12 @@ namespace Core::Assets
 			normal.value());
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		if (!handle)
-			return std::unexpected(handle.error());
-
 		return handle.value();
 	}
 
 	std::expected<Handle<Model>, Utils::Error> Manager::ImportObj(const std::filesystem::path& path)
 	{
-		auto pathResult = Utils::Path::Resolve(path, m_AssetsPath);
+		auto pathResult = Utils::Path::ResolvePath(path, m_Root);
 		if (!pathResult)
 			return std::unexpected(pathResult.error());
 		Utils::Path::ResolvedPath resolved = pathResult.value();
@@ -353,10 +336,7 @@ namespace Core::Assets
 
 		auto parsedResult = IO::LoadObj(resolved.absolute);
 		if (!parsedResult)
-			return std::unexpected(Utils::Error(
-				std::make_shared<Utils::Error>(parsedResult.error()),
-				"Failed to load OBJ, file path: {}", 
-				absoluteStr));
+			return std::unexpected(Utils::Error(std::move(parsedResult).error()));
 
 		IO::ParsedModel parsed = std::move(parsedResult.value());
 
@@ -367,45 +347,42 @@ namespace Core::Assets
 		Model model{};
 		model.parts.reserve(parsed.meshes.size());
 
-		for (auto& m : parsed.meshes)
+		for (auto& mesh : parsed.meshes)
 		{
-			Handle<Material> matHandle = defaultMat.value();
+			Handle<Material> materialHandle = defaultMat.value();
 
-			if (m.materialIndex)
+			if (mesh.materialIndex)
 			{
-				if (*m.materialIndex >= parsed.materials.size())
-					return std::unexpected(Utils::Error("Invalid material index {}, file path: {}", *m.materialIndex, absoluteStr));
+				if (*mesh.materialIndex >= parsed.materials.size())
+					return std::unexpected(Utils::Error("Invalid material index {}, file path: {}", *mesh.materialIndex, absoluteStr));
 
-				auto materialHandle = ImportMaterial(resolved, parsed.materials[*m.materialIndex]);
-				if (!materialHandle)
-					return std::unexpected(materialHandle.error());
+				auto handleResult = ImportMaterial(resolved, parsed.materials[*mesh.materialIndex]);
+				if (!handleResult)
+					return std::unexpected(handleResult.error());
 
-				matHandle = materialHandle.value();
+				materialHandle = handleResult.value();
 			}
 
-			auto meshHandle = ImportMesh(resolved, std::move(m), m.index);
+			auto meshHandle = ImportMesh(resolved, std::move(mesh), mesh.index);
 			if (!meshHandle)
 				return std::unexpected(meshHandle.error());
 
 			model.parts.push_back(ModelPart{
 				.mesh = meshHandle.value(),
-				.material = matHandle
+				.material = materialHandle
 			});
 		}
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(model));
-		if (!handle)
-			return std::unexpected(handle.error());
-
 		return handle.value();
 	}
 
 	std::expected<Handle<EnvironmentMap>, Utils::Error> Manager::ImportEnvironmentMap(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
 	{
-		auto pathResult = Utils::Path::Resolve(path, m_AssetsPath);
+		auto pathResult = Utils::Path::ResolvePath(path, m_Root);
 		if (!pathResult)
-			return std::unexpected(pathResult.error());
-		Utils::Path::ResolvedPath resolved = pathResult.value();
+			return std::unexpected(std::move(pathResult).error());
+		Utils::Path::ResolvedPath resolved = std::move(pathResult).value();
 
 		std::string absoluteStr = resolved.absolute.generic_string();
 		std::string relativeStr = resolved.relative.generic_string();
@@ -464,9 +441,6 @@ namespace Core::Assets
 		);
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		if (!handle)
-			return std::unexpected(handle.error());
-
 		return handle.value();
 	}
 }

@@ -41,9 +41,9 @@ namespace Core::App
 
 		auto windowResult = Window::Create(std::move(windowAttributes));
 		if (!windowResult)
-			return std::unexpected(windowResult.error());
+			return std::unexpected(std::move(windowResult).error());
 
-		Window window = std::move(windowResult.value());
+		Window window = std::move(windowResult).value();
 
 		window.GetContext().MakeCurrent();
 		if (!gladLoadGL(glfwGetProcAddress))
@@ -51,43 +51,53 @@ namespace Core::App
 		window.GetContext().SetSwapInterval(1);
 
 		Scripts::Catalog scriptCatalog;
-		client->RegisterScripts(scriptCatalog);
+		client->RegisterUserScripts(scriptCatalog);
 
 		ECS::SceneResolverRegistry resolverRegistry;
-		client->RegisterSceneResolvers(resolverRegistry);
+		resolverRegistry.RegisterCoreResolvers();
+		client->RegisterUserResolvers(resolverRegistry);
 
 		auto projectResult = Project::Create(projectConfigPath);
 
 		if (!projectResult)
-			return std::unexpected(projectResult.error());
+			return std::unexpected(std::move(projectResult).error());
 
-		Project project = std::move(projectResult.value());
+		Project project = std::move(projectResult).value();
 
-		auto assetManagerResult = Assets::Manager::Create(project.GetAssetsPath());
+		auto assetManagerResult = Assets::Manager::Create(project.GetContentPath());
 		if (!assetManagerResult)
-			return std::unexpected(assetManagerResult.error());
+			return std::unexpected(std::move(assetManagerResult).error());
 
-		return std::unique_ptr<Application>(new Application(
+		std::unique_ptr<Application> app = std::unique_ptr<Application>(new Application(
 			std::move(client), 
 			std::move(window),
 			std::move(scriptCatalog),
 			std::move(resolverRegistry),
-			std::move(assetManagerResult.value()), 
+			std::move(assetManagerResult).value(), 
 			std::move(project)));
+
+		auto ok = app->SetScene(app->m_Project.GetStartScenePath());
+
+		if (!ok)
+			return std::unexpected(std::move(ok).error());
+
+		return app;
 	}
 
 	std::expected<void, Utils::Error> Application::SetScene(const std::filesystem::path& path)
 	{
-		auto loadedScene = IO::LoadScene(m_Project.GetScenesPath() / path);
-
+		auto loadedScene = IO::LoadScene(path);
 		if (!loadedScene)
-			return std::unexpected(loadedScene.error());
+			return std::unexpected(std::move(loadedScene).error());
+		IO::Scene scene = std::move(loadedScene).value();
+		auto resolvedScene = ECS::Scene::Create(std::move(scene), m_ResolverRegistry, m_AssetManager);
+		if (!resolvedScene)
+			return std::unexpected(std::move(resolvedScene).error());
+		m_Scene = std::move(resolvedScene).value();
 
-		auto resolvedScene = ECS::Scene::Create(std::move(loadedScene.value()), m_ResolverRegistry);
-
-		auto ok = m_ScriptRunner.Bind(m_ScriptCatalog, resolvedScene.value());
+		auto ok = m_ScriptRunner.Bind(m_ScriptCatalog, m_Scene);
 		if (!ok)
-			return std::unexpected(ok.error());
+			return std::unexpected(std::move(ok).error());
 
 		return {};
 	}

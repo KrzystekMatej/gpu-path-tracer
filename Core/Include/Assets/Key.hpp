@@ -16,7 +16,6 @@ namespace Core::Assets
         Shader,
         Material,
         EnvironmentMap,
-        Scene,
     };
 
     struct SubkeyNone {};

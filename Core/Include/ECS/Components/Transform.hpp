@@ -1,28 +1,30 @@
 #pragma once
 #include <entt/entt.hpp>
 #include "External/Glm.hpp"
+#include "Utils/Math/CoordinateSystem.hpp"
 
 namespace Core::ECS::Components
 {
 
     struct WorldTransform
     {
+		WorldTransform() = default;
+		explicit WorldTransform(const glm::mat4& matrix) : matrix(matrix) {}
+
         glm::mat4 matrix{ 1.0f };
     };
 
     struct Transform
     {
-        static constexpr glm::vec3 WorldUp{ 0.0f, 1.0f, 0.0f };
-
         glm::vec3 position{ 0.0f, 0.0f, 0.0f };
         glm::quat rotation = glm::identity<glm::quat>();
         glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
         entt::entity parent{ entt::null };
 
         Transform() = default;
+		Transform(entt::entity parent) : parent(parent) {}
         Transform(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale, entt::entity parent)
-            : position(position), rotation(rotation), scale(scale), parent(parent) {
-        }
+            : position(position), rotation(rotation), scale(scale), parent(parent) {}
 
         glm::mat4 GetMatrix() const
         {
@@ -34,16 +36,17 @@ namespace Core::ECS::Components
 
         glm::vec3 GetForward() const
         {
-            return rotation * glm::vec3(0.0f, 0.0f, -1.0f);
+            return rotation * Utils::Math::CoordinateSystem::Forward;
         }
 
         glm::vec3 GetRight() const
         {
-            return rotation * glm::vec3(1.0f, 0.0f, 0.0f);
+            return rotation * Utils::Math::CoordinateSystem::Right;
         }
+
         glm::vec3 GetUp() const
         {
-            return rotation * glm::vec3(0.0f, 1.0f, 0.0f);
+            return rotation * Utils::Math::CoordinateSystem::Up;
         }
     };
 }

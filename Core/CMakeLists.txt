@@ -18,6 +18,10 @@ target_sources(core PRIVATE
     "Source/Scripts/Catalog.cpp"
     "Source/ECS/Systems/Render.cpp"
 	"Source/ECS/Systems/ScriptRunner.cpp"
+    "Source/ECS/Resolvers/SceneResolverRegistry.cpp"
+    "Source/ECS/Resolvers/Camera.cpp"
+    "Source/ECS/Resolvers/Model.cpp" 
+    "Source/ECS/Resolvers/Transform.cpp"
     "Source/ECS/Scene.cpp" 
     "Source/Events/EventDispatcher.cpp"
     "Source/External/TinyObjLoader.cpp"
@@ -35,7 +39,8 @@ target_sources(core PRIVATE
     "Source/Window/GLFWCallbacks.cpp"
     "Source/Project/Project.cpp" 
     "Source/IO/SceneLoader.cpp" 
-    
+    "Source/Utils/Path.cpp"
+    "Source/Utils/Yaml.cpp" 
 )
 
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include")

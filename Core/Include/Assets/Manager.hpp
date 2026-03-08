@@ -34,6 +34,6 @@ namespace Core::Assets
 		std::expected<Handle<Texture>, Utils::Error> ImportPixelTexture(const Graphics::PixelFormat& format, std::span<const uint8_t> data);
 
 		Storage m_Storage;
-		std::filesystem::path m_AssetsPath;
+		std::filesystem::path m_Root;
 	};
 }

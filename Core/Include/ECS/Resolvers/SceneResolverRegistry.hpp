@@ -27,6 +27,8 @@ namespace Core::ECS
 				return std::unexpected(Utils::Error("Resolver with name '{}' is already registered!", name));
 			return id;
 		}
+
+		void RegisterCoreResolvers();
 	private:
 		std::unordered_map<Utils::Guid, std::unique_ptr<SceneNodeResolver>> m_Resolvers;
 	};

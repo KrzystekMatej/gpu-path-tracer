@@ -1,6 +1,7 @@
 #include "SceneViewerApp.hpp"
 #include <GLFW/glfw3.h>
 #include "Events/KeyEvent.hpp"
+#include "Scripting/CameraController.hpp"
 
 namespace App
 {
@@ -20,5 +21,16 @@ namespace App
 	}
 	void SceneViewerApp::Render(const Core::App::Context& context)
 	{
+	}
+
+	void SceneViewerApp::RegisterUserScripts(Core::Scripts::Catalog& scriptCatalog)
+	{
+		scriptCatalog.Register("AwakeCameraController", App::Scripting::AwakeCameraController);
+		scriptCatalog.Register("UpdateCameraController", App::Scripting::UpdateCameraController);
+	}
+
+	void SceneViewerApp::RegisterUserResolvers(Core::ECS::SceneResolverRegistry& resolverRegistry)
+	{
+		resolverRegistry.RegisterResolver("CameraController", std::make_unique<App::Scripting::CameraControllerResolver>());
 	}
 }

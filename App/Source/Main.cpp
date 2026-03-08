@@ -22,11 +22,8 @@ int main()
 	}
 	
 	
-	std::unique_ptr<Core::App::Application> app = std::move(appResult.value());
+	std::unique_ptr<Core::App::Application> app = std::move(appResult).value();
 	app->PrintInfo();
-	auto ok = app->SetScene("cornell-box.yaml");
-	if (!ok)
-		ok.error().Log();
 	app->Run();
 	return 0;
 }

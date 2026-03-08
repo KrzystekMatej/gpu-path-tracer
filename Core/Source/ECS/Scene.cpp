@@ -1,68 +1,102 @@
 #include "ECS/Scene.hpp"
 #include <spdlog/spdlog.h>
 #include <stack>
+#include "ECS/Components/Camera.hpp"
+#include "Utils/Yaml.hpp"
+#include "ECS/Components/Transform.hpp"
 
 namespace Core::ECS
 {
-	namespace
-	{
-		struct NodeContext
-		{
-			YAML::Node node;
-			entt::entity entity;
-		};
-	}
-
-
-	std::expected<Scene, Utils::Error> Scene::Create(IO::Scene scene, const ECS::SceneResolverRegistry& resolverRegistry)
+	std::expected<Scene, Utils::Error> Scene::Create(
+		IO::Scene scene,
+		const ECS::SceneResolverRegistry& resolverRegistry,
+		Assets::Manager& assetManager)
 	{
 		entt::registry registry;
-		entt::entity camera = entt::null;
+		std::stack<SceneNodeContext> nodes;
 
-		std::stack<NodeContext> nodes;
-		NodeContext current{ scene.sceneRoot, entt::null };
+		for (const auto& rootNode : scene.sceneRoot)
+		{
+			nodes.push(SceneNodeContext{
+				.node = rootNode,
+				.entity = registry.create(),
+				.parent = entt::null
+			});
+		}
 
 		while (!nodes.empty())
 		{
-			for (const auto& node : current.node)
+			SceneNodeContext current = nodes.top();
+			nodes.pop();
+
+			YAML::Node components = current.node["components"];
+			registry.emplace<Components::Transform>(current.entity, current.parent);
+			registry.emplace<Components::WorldTransform>(current.entity);
+
+			if (!components)
 			{
-				current.entity = registry.create();
-				if (!node["components"])
-					spdlog::warn("Entity with id '{}' has no components.", entt::to_integral(current.entity));
-					continue;
+				spdlog::warn("Entity with id '{}' has no components.", entt::to_integral(current.entity));
+			}
+			else
+			{
+				if (!components.IsSequence())
+					return std::unexpected(Utils::Error("Entity 'components' must be a sequence"));
 
-				YAML::Node components = node["components"];
-
-				for (const auto& component : components)
+				for (const auto& componentNode : components)
 				{
-					if (!component["type"])
-						return std::unexpected(Utils::Error("Component is missing 'type' field"));
+					auto typeResult = Utils::Yaml::GetString(componentNode, "type");
 
-					std::string typeStr = component["type"].as<std::string>();
+					if (!typeResult)
+						return std::unexpected(Utils::Error(std::move(typeResult).error()));
+
+					std::string typeStr = std::move(typeResult).value();
 					Utils::Guid resolverId = Utils::Hasher::MakeId(typeStr);
+					
 					auto resolverResult = resolverRegistry.GetResolver(resolverId);
 					if (!resolverResult)
 						return std::unexpected(Utils::Error(resolverResult.error().Message()));
 
 					const SceneNodeResolver& resolver = resolverResult.value();
-					YAML::Node componentNode = component;
 
-					resolver.Resolve(componentNode, current.entity, registry);
-				}
+					SceneNodeContext context{
+						.node = componentNode,
+						.entity = current.entity,
+						.parent = current.parent
+					};
 
-				if (node["children"])
-					continue;
+					auto ok = resolver.Resolve(context, registry, assetManager);
 
-				YAML::Node children = node["children"];
-
-				for (const auto& child : children)
-				{
-					nodes.emplace(child, registry.create());
+					if (!ok)
+						return std::unexpected(ok.error());
 				}
 			}
-			current = nodes.top();
-			nodes.pop();
+
+			YAML::Node children = current.node["children"];
+
+			if (children)
+			{
+				if (!children.IsSequence())
+					return std::unexpected(Utils::Error("Entity 'children' must be a sequence"));
+
+				for (const auto& childNode : children)
+				{
+					nodes.push(SceneNodeContext{
+						.node = childNode,
+						.entity = registry.create(),
+						.parent = current.entity
+					});
+				}
+			}
 		}
-		return Scene(std::move(registry), camera, SceneState::Empty, std::move(scene.scripts));
+
+		auto view = registry.view<Components::Camera>();
+
+		if (view.size() == 1)
+		{
+			entt::entity cameraEntity = *view.begin();
+			return Scene(std::move(registry), cameraEntity, SceneState::Empty, std::move(scene.scripts));
+		}
+		
+		return std::unexpected(Utils::Error("Scene must contain exactly one camera!"));
 	}
 }

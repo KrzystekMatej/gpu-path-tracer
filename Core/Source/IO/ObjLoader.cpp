@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <format>
 #include <tiny_obj_loader.h>
+#include <spdlog/spdlog.h>
 
 namespace Core::IO
 {
@@ -48,6 +49,7 @@ namespace Core::IO
 		const std::string ShadingModelKey = "shader";
 		const std::string ConstantShaderValue = "constant";
 		const std::string NormalShaderValue = "normal";
+		const std::string MirrorShaderValue = "mirror";
 		const std::string LambertShaderValue = "lambert";
 		const std::string TorranceShaderValue = "torrance";
 	}
@@ -55,7 +57,7 @@ namespace Core::IO
 	std::expected<ParsedModel, Utils::Error> LoadObj(const std::filesystem::path& path)
 	{
 		tinyobj::ObjReaderConfig readerConfig;
-		readerConfig.mtl_search_path = "./";
+		readerConfig.mtl_search_path = path.parent_path().string();
 		readerConfig.triangulate = true;
 		readerConfig.vertex_color = false;
 
@@ -64,11 +66,12 @@ namespace Core::IO
 		if (!reader.ParseFromFile(path.string(), readerConfig))
 		{
 		  if (!reader.Error().empty())
-		  {
-			  return std::unexpected(Utils::Error("TinyObjReader failed, error: {}, file path: {}", path.string(), reader.Error()));
-		  }
+			  return std::unexpected(Utils::Error("TinyObjReader failed, error: {}", reader.Error()));
 		  return std::unexpected(Utils::Error("TinyObjReader failed, error: unknown, file path: {}", path.string()));
 		}
+
+		if (!reader.Warning().empty())
+			spdlog::warn("TinyObjReader warning while loading '{}': {}", path.string(), reader.Warning());
 
 		auto& attrib = reader.GetAttrib();
 		auto& shapes = reader.GetShapes();
@@ -79,19 +82,19 @@ namespace Core::IO
 
 		for (size_t s = 0; s < shapes.size(); s++)
 		{
-			size_t index_offset = 0;
-			std::map<uint32_t, SubmeshBuilder> submeshes;
+			size_t indexOffset = 0;
+			std::map<int, SubmeshBuilder> submeshes;
 
 			for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++)
 			{
-				int mat_id = shapes[s].mesh.material_ids[f];
-				auto& builder = submeshes[mat_id];
+				int matId = shapes[s].mesh.material_ids[f];
+				auto& builder = submeshes[matId];
 
 				for (size_t v = 0; v < fv; v++)
 				{
 					Graphics::Vertex vertex{};
 
-					tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
+					tinyobj::index_t idx = shapes[s].mesh.indices[indexOffset + v];
 					vertex.position.x = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
 					vertex.position.y = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
 					vertex.position.z = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
@@ -102,7 +105,9 @@ namespace Core::IO
 						vertex.normal.y = attrib.normals[3 * size_t(idx.normal_index) + 1];
 						vertex.normal.z = attrib.normals[3 * size_t(idx.normal_index) + 2];
 					}
-					else return std::unexpected(Utils::Error("Mesh loading failed, error: normal data is required but not found, file path: {}", path.string()));
+					else return std::unexpected(Utils::Error(
+						"Mesh loading failed, error: normal data is required but not found, file path: {}", 
+						path.string()));
 
 					vertex.normal = glm::normalize(vertex.normal);
 
@@ -111,7 +116,9 @@ namespace Core::IO
 						vertex.uv.x = attrib.texcoords[2 * size_t(idx.texcoord_index) + 0];
 						vertex.uv.y = attrib.texcoords[2 * size_t(idx.texcoord_index) + 1];
 					}
-					else return std::unexpected(Utils::Error("Mesh loading failed, error: uv data is required but not found, file path: {}", path.string()));
+					else return std::unexpected(Utils::Error(
+						"Mesh loading failed, error: uv data is required but not found, file path: {}", 
+						path.string()));
 
 					ObjIndexKey key
 					{
@@ -127,10 +134,10 @@ namespace Core::IO
 
 					builder.indices.push_back(it->second);
 				}
-				index_offset += fv;
+				indexOffset += fv;
 			}
 
-			for (auto& [mat_id, builder] : submeshes)
+			for (auto& [matId, builder] : submeshes)
 			{
 				Utils::Math::GenerateTangentSpace(builder.vertices, builder.indices);
 
@@ -139,14 +146,17 @@ namespace Core::IO
 					.index = static_cast<uint32_t>(meshes.size()),
 					.vertices = std::move(builder.vertices),
 					.indices = std::move(builder.indices),
-					.materialIndex = mat_id >= 0
-						? std::make_optional<uint32_t>(mat_id)
+					.materialIndex = matId >= 0
+						? std::make_optional<uint32_t>(matId)
 						: std::nullopt
 				});
 			}
 		}
 		
 		auto& materialSources = reader.GetMaterials();
+
+		if (materialSources.empty())
+			spdlog::warn("No materials were loaded for '{}'. Faces referencing materials will be ignored.", path.string());
 		
 		std::vector<ParsedMaterial> materials;
 
@@ -159,11 +169,33 @@ namespace Core::IO
 			{
 				const std::string& shaderValue = it->second;
 				if (shaderValue == ConstantShaderValue)
+				{
 					shader = Graphics::ShadingModel::Constant;
+				}
 				else if (shaderValue == NormalShaderValue)
+				{
 					shader = Graphics::ShadingModel::Normal;
+				}
+				else if (shaderValue == MirrorShaderValue)
+				{
+					shader = Graphics::ShadingModel::Mirror;
+				}
+				else if (shaderValue == LambertShaderValue)
+				{
+					shader = Graphics::ShadingModel::Lambert;
+				}
 				else if (shaderValue == TorranceShaderValue)
+				{
 					shader = Graphics::ShadingModel::TorranceSparrow;
+				}
+				else
+				{
+					spdlog::warn(
+						"Unknown shader value '{}' for material '{}', defaulting to Lambert shader. File path: {}",
+						shaderValue,
+						source.name,
+						path.string());
+				}
 			}
 
 			materials.push_back(ParsedMaterial{
