@@ -30,12 +30,12 @@ namespace App::Scripting
 	}
 
 
-	void AwakeCameraController(Core::ECS::Scene& scene)
+	void AwakeCameraController(const Core::ECS::Context& context)
 	{
 
 	}
 
-	void UpdateCameraController(Core::ECS::Scene& registry, const Core::App::Time& time)
+	void UpdateCameraController(const Core::ECS::Context& context)
 	{
 
 	}

@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include <optional>
-#include "Graphics/ShadingModel.hpp"
+#include "Graphics/Material.hpp"
 #include "Graphics/Vertex.hpp"
 
 namespace Core::IO
@@ -21,7 +21,7 @@ namespace Core::IO
 	{
 		std::string name;
 
-		Graphics::ShadingModel shader;
+		Graphics::SurfaceModel surface;
 
 		float albedo[3];
 		float roughness;

@@ -2,6 +2,7 @@
 #include "ECS/Components/Transform.hpp"
 #include "Utils/Yaml.hpp"
 #include "ECS/Components/Graphics.hpp"
+#include "ECS/Components/Hierarchy.hpp"
 
 namespace Core::ECS
 {
@@ -25,12 +26,12 @@ namespace Core::ECS
 		{
 			const entt::entity child = registry.create();
 
+			registry.emplace<Components::Parent>(child, context.entity);
 			registry.emplace<Components::Transform>(
 				child,
 				glm::vec3(0.0f, 0.0f, 0.0f),
 				glm::identity<glm::quat>(),
-				glm::vec3(1.0f, 1.0f, 1.0f),
-				context.entity);
+				glm::vec3(1.0f, 1.0f, 1.0f));
 			registry.emplace<Components::WorldTransform>(child);
 			registry.emplace<Components::Mesh>(child, part.mesh);
 			registry.emplace<Components::Material>(child, part.material);

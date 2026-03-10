@@ -46,12 +46,13 @@ namespace Core::IO
 			std::unordered_map<ObjIndexKey, size_t, ObjIndexKeyHash> indexMap;
 		};
 
-		const std::string ShadingModelKey = "shader";
-		const std::string ConstantShaderValue = "constant";
-		const std::string NormalShaderValue = "normal";
-		const std::string MirrorShaderValue = "mirror";
-		const std::string LambertShaderValue = "lambert";
-		const std::string TorranceShaderValue = "torrance";
+		const std::string SurfaceModelKey = "surface";
+		const std::string UnlitSurfaceKey = "constant";
+		const std::string NormalSurfaceKey = "normal";
+		const std::string MirrorSurfaceKey = "mirror";
+		const std::string DiffuseSurfaceKey = "diffuse";
+		const std::string MicrofacetSurfaceKey = "microfacet";
+		const std::string EmissiveSurfaceKey = "emissive";
 	}
 
 	std::expected<ParsedModel, Utils::Error> LoadObj(const std::filesystem::path& path)
@@ -162,37 +163,41 @@ namespace Core::IO
 
 		for (auto& source : materialSources)
 		{
-			auto it = source.unknown_parameter.find(ShadingModelKey);
-			Graphics::ShadingModel shader = Graphics::ShadingModel::Lambert;
+			auto it = source.unknown_parameter.find(SurfaceModelKey);
+			Graphics::SurfaceModel surface = Graphics::MaterialDefaults::DefaultSurfaceModel;
 
 			if (it != source.unknown_parameter.end())
 			{
-				const std::string& shaderValue = it->second;
-				if (shaderValue == ConstantShaderValue)
+				const std::string& surfaceValue = it->second;
+				if (surfaceValue == UnlitSurfaceKey)
 				{
-					shader = Graphics::ShadingModel::Constant;
+					surface = Graphics::SurfaceModel::Unlit;
 				}
-				else if (shaderValue == NormalShaderValue)
+				else if (surfaceValue == NormalSurfaceKey)
 				{
-					shader = Graphics::ShadingModel::Normal;
+					surface = Graphics::SurfaceModel::Normal;
 				}
-				else if (shaderValue == MirrorShaderValue)
+				else if (surfaceValue == MirrorSurfaceKey)
 				{
-					shader = Graphics::ShadingModel::Mirror;
+					surface = Graphics::SurfaceModel::Mirror;
 				}
-				else if (shaderValue == LambertShaderValue)
+				else if (surfaceValue == DiffuseSurfaceKey)
 				{
-					shader = Graphics::ShadingModel::Lambert;
+					surface = Graphics::SurfaceModel::Diffuse;
 				}
-				else if (shaderValue == TorranceShaderValue)
+				else if (surfaceValue == MicrofacetSurfaceKey)
 				{
-					shader = Graphics::ShadingModel::TorranceSparrow;
+					surface = Graphics::SurfaceModel::Microfacet;
+				}
+				else if (surfaceValue == EmissiveSurfaceKey)
+				{
+					surface = Graphics::SurfaceModel::Emissive;
 				}
 				else
 				{
 					spdlog::warn(
-						"Unknown shader value '{}' for material '{}', defaulting to Lambert shader. File path: {}",
-						shaderValue,
+						"Unknown shader value '{}' for material '{}', defaulting to Unlit shader. File path: {}",
+						surfaceValue,
 						source.name,
 						path.string());
 				}
@@ -200,7 +205,7 @@ namespace Core::IO
 
 			materials.push_back(ParsedMaterial{
 				.name = source.name,
-				.shader = shader,
+				.surface = surface,
 				.albedo = { source.diffuse[0], source.diffuse[1], source.diffuse[2] },
 				.roughness = source.roughness,
 				.metallic = source.metallic,

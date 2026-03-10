@@ -4,6 +4,7 @@
 #include "ECS/Components/Camera.hpp"
 #include "Utils/Yaml.hpp"
 #include "ECS/Components/Transform.hpp"
+#include "ECS/Components/Hierarchy.hpp"
 
 namespace Core::ECS
 {
@@ -30,8 +31,6 @@ namespace Core::ECS
 			nodes.pop();
 
 			YAML::Node components = current.node["components"];
-			registry.emplace<Components::Transform>(current.entity, current.parent);
-			registry.emplace<Components::WorldTransform>(current.entity);
 
 			if (!components)
 			{
@@ -80,9 +79,11 @@ namespace Core::ECS
 
 				for (const auto& childNode : children)
 				{
+					entt::entity childEntity = registry.create();
+					registry.emplace<Components::Parent>(childEntity, current.entity);
 					nodes.push(SceneNodeContext{
 						.node = childNode,
-						.entity = registry.create(),
+						.entity = childEntity,
 						.parent = current.entity
 					});
 				}

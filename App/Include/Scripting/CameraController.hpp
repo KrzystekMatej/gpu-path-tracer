@@ -1,7 +1,6 @@
 #pragma once
-#include "ECS/Scene.hpp"
-#include "App/Time.hpp"
 #include "ECS/Resolvers/Resolver.hpp"
+#include "ECS/Context.hpp"
 
 namespace App::Scripting
 {
@@ -20,6 +19,6 @@ namespace App::Scripting
 			Core::Assets::Manager& assetManager) const override;
 	};
 
-	void AwakeCameraController(Core::ECS::Scene& scene);
-	void UpdateCameraController(Core::ECS::Scene& registry, const Core::App::Time& time);
+	void AwakeCameraController(const Core::ECS::Context& context);
+	void UpdateCameraController(const Core::ECS::Context& context);
 }

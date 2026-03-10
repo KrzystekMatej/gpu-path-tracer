@@ -19,12 +19,10 @@ namespace Core::ECS::Components
         glm::vec3 position{ 0.0f, 0.0f, 0.0f };
         glm::quat rotation = glm::identity<glm::quat>();
         glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
-        entt::entity parent{ entt::null };
 
         Transform() = default;
-		Transform(entt::entity parent) : parent(parent) {}
-        Transform(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale, entt::entity parent)
-            : position(position), rotation(rotation), scale(scale), parent(parent) {}
+        Transform(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale)
+            : position(position), rotation(rotation), scale(scale) {}
 
         glm::mat4 GetMatrix() const
         {

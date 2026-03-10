@@ -1,12 +1,40 @@
 #pragma once
 #include <array>
-#include "Graphics/ShadingModel.hpp"
 
 namespace Core::Graphics
 {
-struct MaterialDefaults
+	enum class SurfaceModel
 	{
-		static constexpr ShadingModel DefaultShader = ShadingModel::Lambert;
+		Unlit,
+		Normal,
+		Diffuse,
+		Microfacet,
+		Mirror,
+		Emissive,
+	};
+
+	enum class LocalShadingModel
+	{
+		Unlit,
+		Normal,
+		Lambert,
+		Pbr,
+	};
+
+	enum class GlobalShadingModel
+	{
+		Unlit,
+		Normal,
+		Diffuse,
+		Mirror,
+		CookTorrance,
+		Emissive,
+	};
+
+
+	struct MaterialDefaults
+	{
+		static constexpr SurfaceModel DefaultSurfaceModel = SurfaceModel::Unlit;
 
 		static constexpr std::array<uint8_t, 3> DefaultAlbedo = { 255, 255, 255 };
 		static constexpr std::array<uint8_t, 1> DefaultRoughness = { 255 };

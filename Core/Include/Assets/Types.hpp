@@ -3,7 +3,7 @@
 
 #include "Assets/Asset.hpp"
 #include "Assets/Handle.hpp"
-#include "Graphics/MaterialDefaults.hpp"
+#include "Graphics/Material.hpp"
 #include "Graphics/Cpu/Resources/Mesh.hpp"
 #include "Graphics/Cpu/Resources/Texture.hpp"
 #include "Graphics/Cpu/Resources/EnvironmentMap.hpp"
@@ -50,20 +50,20 @@ namespace Core::Assets
     {
         Material() = default;
         Material(
-            Graphics::ShadingModel shader,
+            Graphics::SurfaceModel surface,
             Handle<Texture> albedo,
             Handle<Texture> roughness,
             Handle<Texture> metallic,
             Handle<Texture> ao,
             Handle<Texture> normal)
-            : shader(shader),
+            : surface(surface),
               albedo(albedo),
               roughness(roughness),
               metallic(metallic),
               ao(ao),
               normal(normal) {}
 
-        Graphics::ShadingModel shader;
+        Graphics::SurfaceModel surface;
         Handle<Texture> albedo;
         Handle<Texture> roughness;
         Handle<Texture> metallic;

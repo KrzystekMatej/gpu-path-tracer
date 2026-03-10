@@ -3,6 +3,7 @@
 #include "App/Context.hpp"
 #include "ECS/Systems/Render.hpp"
 #include "IO/SceneLoader.hpp"
+#include "ECS/Context.hpp"
 
 namespace Core::App
 {
@@ -124,18 +125,18 @@ namespace Core::App
 
 	void Application::Run()
 	{
-		m_ScriptRunner.Awake(m_Scene);
+		Context appContext(m_Time, m_Window, m_Project);
+		ECS::Context sceneContext(m_Time, m_Scene, m_Window);
 
+		m_ScriptRunner.Awake(sceneContext);
 		while (m_Window.IsOpen())
 		{
 			m_Time.Update();
 			m_Window.PollEvents();
 
-			Context context(m_Time, m_Window, m_Project);
+			m_Client->Update(appContext);
 
-			m_Client->Update(context);
-
-			m_ScriptRunner.Update(m_Scene, m_Time);
+			m_ScriptRunner.Update(sceneContext);
 
 			m_Renderer.BeginFrame();
 
@@ -143,7 +144,7 @@ namespace Core::App
 
 			ECS::Systems::RenderScene(m_Renderer, m_Scene);
 
-			m_Client->Render(context);
+			m_Client->Render(appContext);
 
 			m_Renderer.EndFrame();
 			m_Window.SwapBuffers();

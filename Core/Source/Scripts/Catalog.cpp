@@ -4,7 +4,7 @@
 
 namespace Core::Scripts
 {
-	std::expected<std::variant<Awake, Update>, Utils::Error> Catalog::Get(Utils::Guid id) const
+	std::expected<Callback, Utils::Error> Catalog::Get(Utils::Guid id) const
 	{
 		auto it = m_Scripts.find(id);
 		if (it == m_Scripts.end())
@@ -12,7 +12,7 @@ namespace Core::Scripts
 		return it->second;
 	}
 
-	std::expected<Utils::Guid, Utils::Error> Catalog::Register(const std::string& name, std::variant<Awake, Update> script)
+	std::expected<Utils::Guid, Utils::Error> Catalog::Register(const std::string& name, Callback script)
 	{
 		Utils::Guid id = Utils::Hasher::MakeId(name);
 		auto [it, inserted] = m_Scripts.try_emplace(id, std::move(script));

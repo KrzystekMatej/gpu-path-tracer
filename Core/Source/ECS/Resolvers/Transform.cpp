@@ -59,10 +59,7 @@ namespace Core::ECS
 			rotation = glm::normalize(glm::quat_cast(glm::mat3(right, up, -forward)));
 		}
 
-		Components::Transform& transform = registry.get<Components::Transform>(context.entity);
-		transform.position = position;
-		transform.rotation = rotation;
-		transform.scale = scale;
+		registry.emplace<Components::Transform>(context.entity, position, rotation, scale);
 		return {};
 	}
 }

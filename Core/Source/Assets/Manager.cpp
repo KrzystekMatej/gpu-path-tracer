@@ -161,7 +161,7 @@ namespace Core::Assets
 			return std::unexpected(normal.error());
 
 		Material asset(
-			Graphics::MaterialDefaults::DefaultShader,
+			Graphics::MaterialDefaults::DefaultSurfaceModel,
 			albedo.value(),
 			roughness.value(),
 			metallic.value(),
@@ -306,7 +306,7 @@ namespace Core::Assets
 		if (!normal) return std::unexpected(normal.error());
 
 		Material asset(
-			material.shader,
+			material.surface,
 			albedo.value(),
 			roughness.value(),
 			metallic.value(),

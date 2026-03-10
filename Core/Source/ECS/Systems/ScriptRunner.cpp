@@ -9,29 +9,17 @@ namespace Core::ECS::Systems
 
 		for (const auto& binding : scene.GetScriptBindings())
 		{
+			auto scriptResult = catalog.Get(binding.id);
+			if (!scriptResult)
+				return std::unexpected(scriptResult.error());
+
 			if (binding.phase == Scripts::Phase::Awake)
 			{
-				auto scriptResult = catalog.Get(binding.id);
-				if (!scriptResult)
-					return std::unexpected(scriptResult.error());
-
-				auto script = scriptResult.value();
-				if (!std::holds_alternative<Scripts::Awake>(script))
-					return std::unexpected(Utils::Error("Script with id '{}' was bound to an incorrect phase!", binding.id));
-
-				m_Awakes.push_back(std::get<Scripts::Awake>(script));
+				m_Awakes.push_back(scriptResult.value());
 			}
 			if (binding.phase == Scripts::Phase::Update)
 			{
-				auto scriptResult = catalog.Get(binding.id);
-				if (!scriptResult)
-					return std::unexpected(scriptResult.error());
-
-				auto script = scriptResult.value();
-				if (!std::holds_alternative<Scripts::Update>(script))
-					return std::unexpected(Utils::Error("Script with id '{}' was bound to an incorrect phase!", binding.id));
-
-				m_Updates.push_back(std::get<Scripts::Update>(script));
+				m_Updates.push_back(scriptResult.value());
 			}
 		}
 
