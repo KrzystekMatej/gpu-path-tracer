@@ -4,6 +4,14 @@
 
 namespace Core::Graphics::Gl
 {
+	Mesh::Mesh(uint32_t vertexCount)
+		: m_VertexCount(vertexCount)
+	{
+		glGenVertexArrays(1, &m_VertexArray);
+		glGenBuffers(1, &m_VertexBuffer);
+		glGenBuffers(1, &m_IndexBuffer);
+	}
+
 	Mesh::Mesh(Mesh&& other) noexcept
 		: m_VertexArray(std::exchange(other.m_VertexArray, 0)),
 		  m_VertexBuffer(std::exchange(other.m_VertexBuffer, 0)),
@@ -42,16 +50,11 @@ namespace Core::Graphics::Gl
 
 	std::expected<Mesh, Utils::Error> Mesh::Create(const IO::ParsedMesh& parsedMesh)
 	{
-		uint32_t vertexArray;
-		glGenVertexArrays(1, &vertexArray);
-		glBindVertexArray(vertexArray);
-		uint32_t vertexBuffer;
-		glGenBuffers(1, &vertexBuffer);
-		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+		Mesh mesh(static_cast<uint32_t>(parsedMesh.indices.size()));
+		mesh.BindVertexArray();
+		mesh.BindVertexBuffer();
 		glBufferData(GL_ARRAY_BUFFER, parsedMesh.vertices.size() * sizeof(Graphics::Vertex), parsedMesh.vertices.data(), GL_STATIC_DRAW);
-		uint32_t indexBuffer;
-		glGenBuffers(1, &indexBuffer);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+		mesh.BindIndexBuffer();
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, parsedMesh.indices.size() * sizeof(uint32_t), parsedMesh.indices.data(), GL_STATIC_DRAW);
 
 		VertexLayout layout;
@@ -61,16 +64,36 @@ namespace Core::Graphics::Gl
 		layout.PushFloat(2);
 		layout.Apply();
 
-		return Mesh(vertexArray, vertexBuffer, indexBuffer, static_cast<uint32_t>(parsedMesh.indices.size()));
+		return mesh;
 	}
 
-	void Mesh::Bind() const
+	void Mesh::BindVertexArray() const
 	{
 		glBindVertexArray(m_VertexArray);
 	}
 
-	void Mesh::Unbind() const
+	void Mesh::UnbindVertexArray() const
 	{
 		glBindVertexArray(0);
+	}
+
+	void Mesh::BindVertexBuffer() const
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, m_VertexBuffer);
+	}
+
+	void Mesh::UnbindVertexBuffer() const
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+
+	void Mesh::BindIndexBuffer() const
+	{
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_IndexBuffer);
+	}
+
+	void Mesh::UnbindIndexBuffer() const
+	{
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
 }

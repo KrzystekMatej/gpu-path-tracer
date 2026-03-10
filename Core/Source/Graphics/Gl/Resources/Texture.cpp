@@ -71,6 +71,12 @@ namespace Core::Graphics::Gl
 			return 1 + static_cast<uint32_t>(std::floor(std::log2(std::max(width, height))));
 		}
 	}
+
+	Texture::Texture(uint32_t target)
+		: m_Target(target)
+	{
+		glGenTextures(1, &m_Id);
+	}
 	
 	Texture::Texture(Texture&& other) noexcept
 		: m_Id(std::exchange(other.m_Id, 0)),
@@ -97,38 +103,35 @@ namespace Core::Graphics::Gl
 
 	std::expected<Texture, Utils::Error> Texture::Create2D(const IO::Image& image)
 	{
-		uint32_t target = GL_TEXTURE_2D;
 		auto internalFormatResult = GetInternalFormat(image.format);
 		if (!internalFormatResult)
 			return std::unexpected(internalFormatResult.error());
 		uint32_t internalFormat = internalFormatResult.value();
 		uint32_t externalFormat = GetExternalFormat(image.format);
 		uint32_t pixelType = GetPixelType(image.format);
-		uint32_t id;
 
-		glGenTextures(1, &id);
-		glBindTexture(target, id);
-		glTexImage2D(target, 0, internalFormat, image.width, image.height, 0, externalFormat, pixelType, image.data.data());
+		Texture texture(GL_TEXTURE_2D);
+		texture.Bind();
+		glTexImage2D(texture.m_Target, 0, internalFormat, image.width, image.height, 0, externalFormat, pixelType, image.data.data());
 
-		glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 		uint32_t mipmapLevels = GetMipmapLevelCount(image.width, image.height);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, mipmapLevels - 1);
 		if (mipmapLevels > 1)
 		{
-			glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-			glGenerateMipmap(target);
+			glTexParameteri(texture.m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			glGenerateMipmap(texture.m_Target);
 		}
 		else
 		{
-			glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(texture.m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		}
-		glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		glBindTexture(target, 0);
-		return Texture(id, target);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		texture.Unbind();
+		return texture;
 	}
 
 	std::expected<Texture, Utils::Error> Texture::Create2DFromMipmaps(const IO::ImageMipChain& mipChain)
@@ -137,7 +140,6 @@ namespace Core::Graphics::Gl
 		if (mipMaps.empty())
 			return std::unexpected(Utils::Error("Mipmap list cannot be empty"));
 
-		uint32_t target = GL_TEXTURE_2D;
 		auto internalFormatResult = GetInternalFormat(mipChain.format);
 		if (!internalFormatResult)
 			return std::unexpected(internalFormatResult.error());
@@ -146,37 +148,45 @@ namespace Core::Graphics::Gl
 		uint32_t pixelType = GetPixelType(mipChain.format);
 		uint32_t id;
 
-		glGenTextures(1, &id);
-		glBindTexture(target, id);
+		Texture texture(GL_TEXTURE_2D);
+		texture.Bind();
 		for (size_t i = 0; i < mipMaps.size(); i++)
 		{
 			const auto& mipmap = mipMaps[i];
-			glTexImage2D(target, static_cast<int>(i), internalFormat, mipmap.width, mipmap.height, 0, externalFormat, pixelType, mipmap.data.data());
+			glTexImage2D(
+				texture.m_Target, 
+				static_cast<int>(i), 
+				internalFormat, 
+				mipmap.width, 
+				mipmap.height, 
+				0, 
+				externalFormat, 
+				pixelType, 
+				mipmap.data.data());
 		}
 
-		glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 		uint32_t mipmapLevels = static_cast<uint32_t>(mipMaps.size());
-		glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
-		glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(mipMaps.size() - 1));
+		glTexParameteri(texture.m_Target, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(mipMaps.size() - 1));
 		if (mipmapLevels > 1)
 		{
-			glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			glTexParameteri(texture.m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		}
 		else
 		{
-			glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(texture.m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		}
-		glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-		glBindTexture(target, 0);
-		return Texture(id, target);
+		texture.Unbind();
+		return texture;
 	}
 
 	std::expected<Texture, Utils::Error> Texture::CreateCubemap(const IO::Cubemap& cubemap)
 	{
-		uint32_t target = GL_TEXTURE_CUBE_MAP;
 		auto internalFormatResult = GetInternalFormat(cubemap.format);
 		if (!internalFormatResult)
 			return std::unexpected(internalFormatResult.error());
@@ -185,8 +195,8 @@ namespace Core::Graphics::Gl
 		uint32_t pixelType = GetPixelType(cubemap.format);
 		uint32_t id;
 
-		glGenTextures(1, &id);
-		glBindTexture(target, id);
+		Texture texture(GL_TEXTURE_CUBE_MAP);
+		texture.Bind();
 		for (size_t i = 0; i < cubemap.faces.size(); i++)
 		{
 			const auto& face = cubemap.faces[i];
@@ -202,26 +212,26 @@ namespace Core::Graphics::Gl
 				face.data());
 		}
 
-		glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
 		uint32_t mipmapLevels = GetMipmapLevelCount(cubemap.size, cubemap.size);
-		glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
-		glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, mipmapLevels - 1);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_MAX_LEVEL, mipmapLevels - 1);
 		if (mipmapLevels > 1)
 		{
-			glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-			glGenerateMipmap(target);
+			glTexParameteri(texture.m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			glGenerateMipmap(texture.m_Target);
 		}
 		else
 		{
-			glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(texture.m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		}
-		glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-		glBindTexture(target, 0);
-		return Texture(id, target);
+		texture.Unbind();
+		return texture;
 	}
 
 	std::expected<Texture, Utils::Error> Texture::CreateCubemapFromMipmaps(const IO::CubemapMipChain& mipChain)
@@ -230,7 +240,6 @@ namespace Core::Graphics::Gl
 		if (mipMaps.empty())
 			return std::unexpected(Utils::Error("Mipmap list cannot be empty"));
 
-		uint32_t target = GL_TEXTURE_CUBE_MAP;
 		auto internalFormatResult = GetInternalFormat(mipChain.format);
 		if (!internalFormatResult)
 			return std::unexpected(internalFormatResult.error());
@@ -239,8 +248,8 @@ namespace Core::Graphics::Gl
 		uint32_t pixelType = GetPixelType(mipChain.format);
 		uint32_t id;
 
-		glGenTextures(1, &id);
-		glBindTexture(target, id);
+		Texture texture(GL_TEXTURE_CUBE_MAP);
+		texture.Bind();
 		for (size_t i = 0; i < mipMaps.size(); i++)
 		{
 			const auto& mipMap = mipMaps[i];
@@ -259,25 +268,25 @@ namespace Core::Graphics::Gl
 					face.data());
 			}
 		}
-		glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
 		uint32_t mipmapLevels = static_cast<uint32_t>(mipMaps.size());
-		glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
-		glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(mipMaps.size() - 1));
+		glTexParameteri(texture.m_Target, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(mipMaps.size() - 1));
 		if (mipmapLevels > 1)
 		{
-			glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			glTexParameteri(texture.m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		}
 		else
 		{
-			glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(texture.m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		}
-		glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(texture.m_Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-		glBindTexture(target, 0);
-		return Texture(id, target);
+		texture.Unbind();
+		return texture;
 	}
 
 	void Texture::Bind() const

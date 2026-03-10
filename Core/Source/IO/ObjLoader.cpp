@@ -47,12 +47,15 @@ namespace Core::IO
 		};
 
 		const std::string SurfaceModelKey = "surface";
-		const std::string UnlitSurfaceKey = "constant";
-		const std::string NormalSurfaceKey = "normal";
-		const std::string MirrorSurfaceKey = "mirror";
-		const std::string DiffuseSurfaceKey = "diffuse";
-		const std::string MicrofacetSurfaceKey = "microfacet";
-		const std::string EmissiveSurfaceKey = "emissive";
+
+		constexpr std::array<std::pair<std::string_view, Graphics::SurfaceModel>, 6> SurfaceModels = {
+			std::pair{ "unlit" , Graphics::SurfaceModel::Unlit},
+			std::pair{ "normal" , Graphics::SurfaceModel::Normal},
+			std::pair{ "mirror" , Graphics::SurfaceModel::Mirror},
+			std::pair{ "diffuse" , Graphics::SurfaceModel::Diffuse},
+			std::pair{ "microfacet" , Graphics::SurfaceModel::Microfacet},
+			std::pair{ "emissive" , Graphics::SurfaceModel::Emissive}
+		};
 	}
 
 	std::expected<ParsedModel, Utils::Error> LoadObj(const std::filesystem::path& path)
@@ -168,39 +171,25 @@ namespace Core::IO
 
 			if (it != source.unknown_parameter.end())
 			{
+				bool found = false;
 				const std::string& surfaceValue = it->second;
-				if (surfaceValue == UnlitSurfaceKey)
+
+				for (const auto& [key, model] : SurfaceModels)
 				{
-					surface = Graphics::SurfaceModel::Unlit;
+					if (surfaceValue == key)
+					{
+						surface = model;
+						found = true;
+						break;
+					}
 				}
-				else if (surfaceValue == NormalSurfaceKey)
-				{
-					surface = Graphics::SurfaceModel::Normal;
-				}
-				else if (surfaceValue == MirrorSurfaceKey)
-				{
-					surface = Graphics::SurfaceModel::Mirror;
-				}
-				else if (surfaceValue == DiffuseSurfaceKey)
-				{
-					surface = Graphics::SurfaceModel::Diffuse;
-				}
-				else if (surfaceValue == MicrofacetSurfaceKey)
-				{
-					surface = Graphics::SurfaceModel::Microfacet;
-				}
-				else if (surfaceValue == EmissiveSurfaceKey)
-				{
-					surface = Graphics::SurfaceModel::Emissive;
-				}
-				else
-				{
+
+				if (!found)	
 					spdlog::warn(
 						"Unknown shader value '{}' for material '{}', defaulting to Unlit shader. File path: {}",
 						surfaceValue,
 						source.name,
 						path.string());
-				}
 			}
 
 			materials.push_back(ParsedMaterial{

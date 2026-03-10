@@ -44,16 +44,18 @@ namespace Core::App
 		std::unique_ptr<Client> m_Client;
 		Time m_Time;
 		Window m_Window;
+
 		Input::State m_Input;
 		entt::dispatcher m_EventDispatcher;
+
 		Graphics::Gl::Renderer m_Renderer;
+
 		Scripts::Catalog m_ScriptCatalog;
 		ECS::Scene m_Scene;
 		ECS::SceneResolverRegistry m_ResolverRegistry;
 		ECS::Systems::ScriptRunner m_ScriptRunner;
 
 		Assets::Manager m_AssetManager;
-
 		Project m_Project;
 	};
 }

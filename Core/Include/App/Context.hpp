@@ -10,12 +10,13 @@ namespace Core::App
 {
 	struct Context
 	{
-		Context(const Time& time, Window& window, const Input::State& input, Project& project)
-			: time(time), window(window), input(input), project(project) { }
+		Context(const Time& time, Window& window, const Input::State& input, entt::dispatcher& eventDispatcher, Project& project)
+			: time(time), window(window), input(input), eventDispatcher(eventDispatcher), project(project) { }
 
 		const Time& time;
 		Window& window;
 		const Input::State& input;
+		entt::dispatcher& eventDispatcher;
 		Project& project;
 	};
 }

@@ -40,6 +40,9 @@ target_sources(core PRIVATE
     "Source/IO/SceneLoader.cpp" 
     "Source/Utils/Path.cpp"
     "Source/Utils/Yaml.cpp" 
+    "Source/Graphics/Gl/Program.cpp" 
+    "Source/IO/ShaderLoader.cpp" 
+    "Source/Graphics/Gl/Shader.cpp"
 )
 
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include")

@@ -16,15 +16,19 @@ namespace Core::Graphics::Gl
 
 		static std::expected<Mesh, Utils::Error> Create(const IO::ParsedMesh& parsedMesh);
 
-		void Bind() const;
-		void Unbind() const;
-	private:
-		Mesh(uint32_t vertexArray, uint32_t vertexBuffer, uint32_t indexBuffer, uint32_t vertexCount)
-			: m_VertexArray(vertexArray), m_VertexBuffer(vertexBuffer), m_IndexBuffer(indexBuffer), m_VertexCount(vertexCount) {}
 
-		uint32_t m_VertexArray;
-		uint32_t m_VertexBuffer;
-		uint32_t m_IndexBuffer;
-		uint32_t m_VertexCount;
+		void BindVertexArray() const;
+		void UnbindVertexArray() const;
+		void BindVertexBuffer() const;
+		void UnbindVertexBuffer() const;
+		void BindIndexBuffer() const;
+		void UnbindIndexBuffer() const;
+	private:
+		Mesh(uint32_t vertexCount);
+
+		uint32_t m_VertexArray = 0;
+		uint32_t m_VertexBuffer = 0;
+		uint32_t m_IndexBuffer = 0;
+		uint32_t m_VertexCount = 0;
 	};
 }

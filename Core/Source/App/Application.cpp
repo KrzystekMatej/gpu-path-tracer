@@ -127,8 +127,8 @@ namespace Core::App
 
 	void Application::Run()
 	{
-		Context appContext(m_Time, m_Window, m_Input, m_Project);
-		ECS::Context sceneContext(m_Time, m_Window, m_Input, m_Scene);
+		Context appContext(m_Time, m_Window, m_Input, m_EventDispatcher, m_Project);
+		ECS::Context sceneContext(m_Time, m_Window, m_Input, m_EventDispatcher, m_Scene);
 
 		m_ScriptRunner.Awake(sceneContext);
 		while (m_Window.IsOpen())

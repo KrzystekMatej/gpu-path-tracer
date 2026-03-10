@@ -22,10 +22,9 @@ namespace Core::Graphics::Gl
 		void Bind() const;
 		void Unbind() const;
 	private:
-		Texture(uint32_t id, uint32_t target)
-			: m_Id(id), m_Target(target) {}
+		Texture(uint32_t target);
 
-		uint32_t m_Id;
-		uint32_t m_Target;
+		uint32_t m_Id = 0;
+		uint32_t m_Target = 0;
 	};
 }
