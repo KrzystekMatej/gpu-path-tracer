@@ -71,8 +71,29 @@ namespace Core::Graphics::Gl
 			return 1 + static_cast<uint32_t>(std::floor(std::log2(std::max(width, height))));
 		}
 	}
+	
+	Texture::Texture(Texture&& other) noexcept
+		: m_Id(std::exchange(other.m_Id, 0)),
+		  m_Target(std::exchange(other.m_Target, 0)) {}
 
+	Texture& Texture::operator=(Texture&& other) noexcept
+	{
+		if (this != &other)
+		{
+			if (m_Id)
+				glDeleteTextures(1, &m_Id);
 
+			m_Id = std::exchange(other.m_Id, 0);
+			m_Target = std::exchange(other.m_Target, 0);
+		}
+		return *this;
+	}
+
+	Texture::~Texture()
+	{
+		if (m_Id)
+			glDeleteTextures(1, &m_Id);
+	}
 
 	std::expected<Texture, Utils::Error> Texture::Create2D(const IO::Image& image)
 	{
@@ -267,11 +288,5 @@ namespace Core::Graphics::Gl
 	void Texture::Unbind() const
 	{
 		glBindTexture(m_Target, 0);
-	}
-
-	Texture::~Texture()
-	{
-		if (m_Id)
-			glDeleteTextures(1, &m_Id);
 	}
 }

@@ -11,6 +11,7 @@
 #include "Scripts/Catalog.hpp"
 #include "ECS/Scene.hpp"
 #include "ECS/Systems/ScriptRunner.hpp"
+#include "Input/State.hpp"
 
 namespace Core::App
 {
@@ -20,7 +21,8 @@ namespace Core::App
 		Application(const Application&) = delete;
 		Application& operator=(const Application&) = delete;
 		Application(Application&&) = delete;
-		Application& operator=(Application&&) = delete;	
+		Application& operator=(Application&&) = delete;
+		~Application();
 
 		static std::expected<std::unique_ptr<Application>, Utils::Error> Create(
 			std::unique_ptr<Client> client, 
@@ -29,7 +31,6 @@ namespace Core::App
 
 		std::expected<void, Utils::Error> SetScene(const std::filesystem::path& path);
 		void PrintInfo() const;
-		void OnEvent(const Event& event);
 		void Run();
 	private:
 		Application(
@@ -43,6 +44,8 @@ namespace Core::App
 		std::unique_ptr<Client> m_Client;
 		Time m_Time;
 		Window m_Window;
+		Input::State m_Input;
+		entt::dispatcher m_EventDispatcher;
 		Graphics::Gl::Renderer m_Renderer;
 		Scripts::Catalog m_ScriptCatalog;
 		ECS::Scene m_Scene;

@@ -10,23 +10,8 @@ namespace Core::Graphics::Gl
 	public:
 		Texture(const Texture&) = delete;
 		Texture& operator=(const Texture&) = delete;
-		Texture(Texture&& other) noexcept
-			: m_Id(other.m_Id), m_Target(other.m_Target)
-		{
-			other.m_Id = 0;
-			other.m_Target = 0;
-		}
-		Texture& operator=(Texture&& other) noexcept
-		{
-			if (this != &other)
-			{
-				m_Id = other.m_Id;
-				m_Target = other.m_Target;
-				other.m_Id = 0;
-				other.m_Target = 0;
-			}
-			return *this;
-		}
+		Texture(Texture&& other) noexcept;
+		Texture& operator=(Texture&& other) noexcept;
 
 		static std::expected<Texture, Utils::Error> Create2D(const IO::Image& image);
 		static std::expected<Texture, Utils::Error> Create2DFromMipmaps(const IO::ImageMipChain& mipMaps);

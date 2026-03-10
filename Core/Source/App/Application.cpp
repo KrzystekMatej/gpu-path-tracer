@@ -16,7 +16,9 @@ namespace Core::App
 		Project project)
 		: m_Client(std::move(client)), 
 		m_Time(),
-		m_Window(std::move(window)), 
+		m_Window(std::move(window)),
+		m_Input(),
+		m_EventDispatcher(),
 		m_Renderer(m_Window.GetContext()),
 		m_ScriptCatalog(std::move(catalog)),
 		m_Scene(),
@@ -26,8 +28,14 @@ namespace Core::App
 		m_Project(std::move(project))
 	{ 
 		m_Renderer.Initialize();
+		m_Window.SetEventRouter(std::make_unique<Events::WindowEventRouter>(m_Input, m_EventDispatcher));
 		m_Window.InitCallbacks();
-		m_Window.SetEventCallback([this](const Event& event) { OnEvent(event); });
+		m_Client->RegisterEventHandlers(m_EventDispatcher, m_Window);
+	}
+
+	Application::~Application()
+	{
+		glfwTerminate();
 	}
 
 	std::expected<std::unique_ptr<Application>, Utils::Error> Application::Create
@@ -117,22 +125,19 @@ namespace Core::App
 		spdlog::info("GLFW Version: {}.{}.{}", major, minor, revision);
 	}
 
-
-	void Application::OnEvent(const Event& event)
-	{
-		m_Client->OnEvent(Context(m_Time, m_Window, m_Project), event);
-	}
-
 	void Application::Run()
 	{
-		Context appContext(m_Time, m_Window, m_Project);
-		ECS::Context sceneContext(m_Time, m_Scene, m_Window);
+		Context appContext(m_Time, m_Window, m_Input, m_Project);
+		ECS::Context sceneContext(m_Time, m_Window, m_Input, m_Scene);
 
 		m_ScriptRunner.Awake(sceneContext);
 		while (m_Window.IsOpen())
 		{
 			m_Time.Update();
+			m_Input.BeginFrame();
+
 			m_Window.PollEvents();
+			m_EventDispatcher.update();
 
 			m_Client->Update(appContext);
 
