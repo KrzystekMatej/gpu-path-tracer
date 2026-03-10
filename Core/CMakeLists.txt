@@ -23,7 +23,6 @@ target_sources(core PRIVATE
     "Source/ECS/Resolvers/Model.cpp" 
     "Source/ECS/Resolvers/Transform.cpp"
     "Source/ECS/Scene.cpp" 
-    "Source/Events/EventDispatcher.cpp"
     "Source/External/TinyObjLoader.cpp"
     "Source/Graphics/Cpu/Resources/EnvironmentMap.cpp"
     "Source/Graphics/Gl/Resources/Texture.cpp"

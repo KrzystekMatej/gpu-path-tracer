@@ -1,6 +1,5 @@
 #include "Window/GLFWCallbacks.hpp"
 #include "Window/Window.hpp"
-#include "Events/EventDispatcher.hpp"
 #include "Events/KeyEvent.hpp"
 #include "Events/MouseButtonEvent.hpp"
 #include "Events/CursorPositionEvent.hpp"
