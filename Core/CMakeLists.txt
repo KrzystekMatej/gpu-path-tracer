@@ -43,7 +43,7 @@ target_sources(core PRIVATE
     "Source/Graphics/Gl/Program.cpp" 
     "Source/IO/ShaderLoader.cpp" 
     "Source/Graphics/Gl/Shader.cpp"
-)
+ "Source/ECS/Systems/Transform.cpp")
 
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include")
 target_link_libraries(core PUBLIC core_cuda_kernels)

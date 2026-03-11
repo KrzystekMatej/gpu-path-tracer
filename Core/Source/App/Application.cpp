@@ -4,6 +4,7 @@
 #include "ECS/Systems/Render.hpp"
 #include "IO/SceneLoader.hpp"
 #include "ECS/Context.hpp"
+#include "ECS/Systems/Transform.hpp"
 
 namespace Core::App
 {
@@ -142,6 +143,7 @@ namespace Core::App
 			m_Client->Update(appContext);
 
 			m_ScriptRunner.Update(sceneContext);
+			ECS::Systems::UpdateWorldTransforms(m_Scene);
 
 			m_Renderer.BeginFrame();
 

@@ -21,11 +21,14 @@ namespace Core::ECS
 
 		auto modelResult = assetManager.GetStorage().Get(modelHandleResult.value());
 		const Assets::Model& model = modelResult.value();
+		std::vector<entt::entity> children;
+		children.reserve(model.parts.size());
 
 		for (const auto& part : model.parts)
 		{
 			const entt::entity child = registry.create();
 
+			children.emplace_back(child);
 			registry.emplace<Components::Parent>(child, context.entity);
 			registry.emplace<Components::Transform>(
 				child,
@@ -36,6 +39,9 @@ namespace Core::ECS
 			registry.emplace<Components::Mesh>(child, part.mesh);
 			registry.emplace<Components::Material>(child, part.material);
 		}
+
+		if (!children.empty())
+			registry.emplace<Components::Children>(context.entity, std::move(children));
 
 		return {};
 	}

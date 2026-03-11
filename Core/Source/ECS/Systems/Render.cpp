@@ -9,15 +9,12 @@ namespace Core::ECS::Systems
 
 	void RenderScene(const Graphics::Gl::Renderer& renderer, const Scene& scene)
 	{
-		/*const entt::registry& registry = scene.GetRegistry();
+		const entt::registry& registry = scene.GetRegistry();
 		const entt::entity cameraEntity = scene.GetActiveCamera();
-		if (cameraEntity == entt::null)
-			return;
-		const Camera& camera = registry.get<Camera>(cameraEntity);
-		const Transform& cameraTransform = registry.get<Transform>(cameraEntity);
-		registry.view<Transform, Mesh, Material>().each([&](const Components::Transform& transform, const Mesh& mesh, const Material& material)
+		auto [camera, cameraTransform] = registry.get<Camera, WorldTransform>(cameraEntity);
+		registry.view<WorldTransform, Mesh, Material>().each([&](const Components::WorldTransform& transform, const Mesh& mesh, const Material& material)
 		{
 			
-		});*/
+		});
 	}
 }

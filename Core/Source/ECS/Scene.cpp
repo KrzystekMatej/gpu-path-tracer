@@ -70,23 +70,31 @@ namespace Core::ECS
 				}
 			}
 
-			YAML::Node children = current.node["children"];
+			YAML::Node childNodes = current.node["children"];
 
-			if (children)
+			if (childNodes)
 			{
-				if (!children.IsSequence())
+				if (!childNodes.IsSequence())
 					return std::unexpected(Utils::Error("Entity 'children' must be a sequence"));
 
-				for (const auto& childNode : children)
+				std::vector<entt::entity> childEntities;
+				childEntities.reserve(childNodes.size());
+
+				for (const auto& childNode : childNodes)
 				{
 					entt::entity childEntity = registry.create();
 					registry.emplace<Components::Parent>(childEntity, current.entity);
+
+					childEntities.emplace_back(childEntity);
 					nodes.push(SceneNodeContext{
 						.node = childNode,
 						.entity = childEntity,
 						.parent = current.entity
 					});
 				}
+
+				if (!childEntities.empty())
+					registry.emplace<Components::Children>(current.entity, std::move(childEntities));
 			}
 		}
 
@@ -95,6 +103,11 @@ namespace Core::ECS
 		if (view.size() == 1)
 		{
 			entt::entity cameraEntity = *view.begin();
+			if (!registry.all_of<Components::Transform, Components::WorldTransform>(cameraEntity))
+			{
+				return std::unexpected(Utils::Error("Camera entity must have a Transform component"));
+			}
+
 			return Scene(std::move(registry), cameraEntity, SceneState::Empty, std::move(scene.scripts));
 		}
 		

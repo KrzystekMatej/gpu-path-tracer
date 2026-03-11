@@ -6,14 +6,14 @@ scripts:
 scene:
     - components:
         - type: Transform
-          position: [0.0, 0.0, 0.0]
+          translation: [0.0, 0.0, 0.0]
           rotation: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/CornellBox/mesh.obj
     - components:
         - type: Transform
-          position: [40.0, -940.0, 250.0]
+          translation: [40.0, -940.0, 250.0]
           target: [0.0, 0.0, 250.0]
           scale: [1.0, 1.0, 1.0]
         - type: Camera

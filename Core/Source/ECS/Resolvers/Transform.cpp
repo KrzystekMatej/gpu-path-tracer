@@ -9,11 +9,11 @@ namespace Core::ECS
 		entt::registry& registry,
 		Assets::Manager& assetManager) const
 	{
-		auto positionResult = Utils::Yaml::GetVec3(context.node, "position");
-		if (!positionResult)
-			return std::unexpected(std::move(positionResult).error());
+		auto translationResult = Utils::Yaml::GetVec3(context.node, "translation");
+		if (!translationResult)
+			return std::unexpected(std::move(translationResult).error());
 
-		glm::vec3 position = positionResult.value();
+		glm::vec3 translation = translationResult.value();
 
 		auto scaleResult = Utils::Yaml::GetVec3(context.node, "scale");
 		if (!scaleResult)
@@ -43,7 +43,7 @@ namespace Core::ECS
 			if (!targetResult)
 				return std::unexpected(targetResult.error());
 
-			glm::vec3 forward = targetResult.value() - position;
+			glm::vec3 forward = targetResult.value() - translation;
 			if (glm::length(forward) <= 1e-6f)
 				return std::unexpected(Utils::Error("Transform 'target' must differ from 'position'"));
 
@@ -59,7 +59,8 @@ namespace Core::ECS
 			rotation = glm::normalize(glm::quat_cast(glm::mat3(right, up, -forward)));
 		}
 
-		registry.emplace<Components::Transform>(context.entity, position, rotation, scale);
+		registry.emplace<Components::Transform>(context.entity, translation, rotation, scale);
+		registry.emplace<Components::WorldTransform>(context.entity);
 		return {};
 	}
 }

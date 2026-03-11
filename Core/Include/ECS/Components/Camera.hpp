@@ -6,6 +6,7 @@ namespace Core::ECS::Components
     struct Camera
     {
     public:
+		Camera() = default;
         Camera(float fovY, float nearPlane, float farPlane) : fovY(fovY), nearPlane(nearPlane), farPlane(farPlane) {}
 
         glm::mat4 GetProjectionMatrix(float aspectRatio) const
