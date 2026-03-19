@@ -4,6 +4,33 @@
 
 namespace Core
 {
+	namespace
+	{
+		int ToGlfwCursorMode(CursorMode mode)
+		{
+			switch (mode)
+			{
+				case CursorMode::Normal: return GLFW_CURSOR_NORMAL;
+				case CursorMode::Hidden: return GLFW_CURSOR_HIDDEN;
+				case CursorMode::Disabled: return GLFW_CURSOR_DISABLED;
+			}
+
+			return GLFW_CURSOR_NORMAL;
+		}
+
+		CursorMode FromGlfwCursorMode(int mode)
+		{
+			switch (mode)
+			{
+				case GLFW_CURSOR_NORMAL: return CursorMode::Normal;
+				case GLFW_CURSOR_HIDDEN: return CursorMode::Hidden;
+				case GLFW_CURSOR_DISABLED: return CursorMode::Disabled;
+			}
+
+			return CursorMode::Normal;
+		}
+	}
+
 	Window::Window(GLFWwindow* handle, WindowAttributes attributes, GraphicsContext context)
 		: m_Handle(handle), m_Attributes(std::move(attributes)), m_GraphicsContext(std::move(context)) {}
 
@@ -99,4 +126,47 @@ namespace Core
     {
         glfwSwapBuffers(m_Handle);
     }
+
+	glm::vec2 Window::GetCursorPosition() const
+	{
+		double x, y;
+		glfwGetCursorPos(m_Handle, &x, &y);
+		return glm::vec2(static_cast<float>(x), static_cast<float>(y));
+	}
+
+	void Window::SetCursorPosition(glm::vec2 position) const
+	{
+		glfwSetCursorPos(m_Handle, position.x, position.y);
+	}
+
+	void Window::SetCursorMode(CursorMode mode) const
+	{
+		glfwSetInputMode(m_Handle, GLFW_CURSOR, ToGlfwCursorMode(mode));
+	}
+
+	CursorMode Window::GetCursorMode() const
+	{
+		return FromGlfwCursorMode(glfwGetInputMode(m_Handle, GLFW_CURSOR));
+	}
+
+	bool Window::SupportsRawMouseMotion() const
+	{
+		return glfwRawMouseMotionSupported() == GLFW_TRUE;
+	}
+
+	void Window::SetRawMouseMotionEnabled(bool enabled) const
+	{
+		if (!SupportsRawMouseMotion())
+			return;
+
+		glfwSetInputMode(m_Handle, GLFW_RAW_MOUSE_MOTION, enabled ? GLFW_TRUE : GLFW_FALSE);
+	}
+
+	bool Window::IsRawMouseMotionEnabled() const
+	{
+		if (!SupportsRawMouseMotion())
+			return false;
+
+		return glfwGetInputMode(m_Handle, GLFW_RAW_MOUSE_MOTION) == GLFW_TRUE;
+	}
 }

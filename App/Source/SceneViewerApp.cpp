@@ -4,21 +4,18 @@
 
 namespace App
 {
-	void SceneViewerApp::RegisterUserScripts(Core::Scripts::Catalog& scriptCatalog) const
+	void SceneViewerApp::Init(const Core::App::InitContext& context)
 	{
-		scriptCatalog.Register("AwakeCameraController", App::Scripting::AwakeCameraController);
-		scriptCatalog.Register("UpdateCameraController", App::Scripting::UpdateCameraController);
-	}
+		context.scriptCatalog.Register("AwakeCameraController", App::Scripting::AwakeCameraController);
+		context.scriptCatalog.Register("UpdateCameraController", App::Scripting::UpdateCameraController);
 
-	void SceneViewerApp::RegisterUserResolvers(Core::ECS::SceneResolverRegistry& resolverRegistry) const
-	{
-		resolverRegistry.RegisterResolver("CameraController", std::make_unique<App::Scripting::CameraControllerResolver>());
-	}
+		context.resolverRegistry.RegisterResolver("CameraController", std::make_unique<App::Scripting::CameraControllerResolver>());
 
-	void SceneViewerApp::RegisterEventHandlers(entt::dispatcher& dispatcher, Core::Window& window)
-	{
-		m_Window = &window;
-		dispatcher.sink<Core::Events::KeyPressed>().connect<&SceneViewerApp::OnKeyPressed>(*this);
+		m_Window = &context.window;
+		context.eventDispatcher.sink<Core::Events::KeyPressed>().connect<&SceneViewerApp::OnKeyPressed>(*this);
+
+		m_Window->SetCursorMode(Core::CursorMode::Disabled);
+		m_Window->SetRawMouseMotionEnabled(true);
 	}
 
 	void SceneViewerApp::OnKeyPressed(const Core::Events::KeyPressed& event)

@@ -36,6 +36,7 @@ namespace Core::App
 		Application(
 			std::unique_ptr<Client> client, 
 			Window window, 
+			Graphics::Gl::Renderer renderer,
 			Scripts::Catalog catalog, 
 			ECS::SceneResolverRegistry resolverRegistry,
 			Assets::Manager assetManager, 

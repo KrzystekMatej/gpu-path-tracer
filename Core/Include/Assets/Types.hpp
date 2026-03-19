@@ -11,6 +11,7 @@
 #include "Graphics/Gl/Resources/Mesh.hpp"
 #include "Graphics/Gl/Resources/Texture.hpp"
 #include "Graphics/Cuda/Resources.hpp"
+#include "Graphics/Gl/ShaderProgram.hpp"
 
 namespace Core::Assets
 {
@@ -81,4 +82,13 @@ namespace Core::Assets
     {
         std::vector<ModelPart> parts;
     };
+
+    struct ShaderProgram : AssetTyped<ShaderProgram, AssetType::Shader>
+    {
+        ShaderProgram() = default;
+        ShaderProgram(Graphics::Gl::ShaderProgram program)
+            : program(std::move(program)) {}
+
+        Graphics::Gl::ShaderProgram program;
+	};
 }

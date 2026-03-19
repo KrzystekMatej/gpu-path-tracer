@@ -1,5 +1,6 @@
 #include "Scripting/CameraController.hpp"
 #include "Utils/Yaml.hpp"
+#include "ECS/Components/Transform.hpp"
 
 namespace App::Scripting
 {
@@ -32,11 +33,40 @@ namespace App::Scripting
 
 	void AwakeCameraController(const Core::ECS::Context& context)
 	{
-
+		auto [transform, controller] = context.scene.GetRegistry().get<Core::ECS::Components::Transform, CameraController>(context.scene.GetActiveCamera());
+		glm::vec3 forward = transform.GetForward();
+		controller.pitch = asinf(forward.y);
+		controller.yaw   = atan2f(-forward.x, -forward.z);
 	}
 
 	void UpdateCameraController(const Core::ECS::Context& context)
 	{
+		auto [transform, controller] = context.scene.GetRegistry().get<Core::ECS::Components::Transform, CameraController>(context.scene.GetActiveCamera());
 
+		glm::vec3 direction(0.0f);
+		if (context.input.IsKeyDown(Core::Input::KeyCode::W))
+			direction += transform.GetForward();
+		if (context.input.IsKeyDown(Core::Input::KeyCode::S))
+			direction -= transform.GetForward();
+		if (context.input.IsKeyDown(Core::Input::KeyCode::D))
+			direction += transform.GetRight();
+		if (context.input.IsKeyDown(Core::Input::KeyCode::A))
+			direction -= transform.GetRight();
+
+		if (glm::length(direction) > 0.0f)
+			direction = glm::normalize(direction);
+
+		transform.translation += direction * controller.speed * context.time.GetDeltaTime();
+
+		glm::vec2 cursorDelta = context.input.GetCursorDelta() * controller.sensitivity;
+
+		controller.yaw   -= cursorDelta.x;
+		controller.pitch -= cursorDelta.y;
+		controller.pitch = glm::clamp(controller.pitch, -glm::radians(89.0f), glm::radians(89.0f));
+
+		glm::quat qYaw = glm::angleAxis(controller.yaw, Core::Utils::Math::CoordinateSystem::Up);
+		glm::quat qPitch = glm::angleAxis(controller.pitch, Core::Utils::Math::CoordinateSystem::Right);
+
+		transform.rotation = glm::normalize(qYaw * qPitch);
 	}
 }

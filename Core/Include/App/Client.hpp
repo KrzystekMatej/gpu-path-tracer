@@ -9,9 +9,7 @@ namespace Core::App
 	class Client
 	{
 	public:
-		virtual void RegisterUserScripts(Scripts::Catalog& scriptCatalog) const = 0;
-		virtual void RegisterUserResolvers(ECS::SceneResolverRegistry& resolverRegistry) const = 0;
-		virtual void RegisterEventHandlers(entt::dispatcher& dispatcher, Window& window) = 0;
+		virtual void Init(const InitContext& context) = 0;
 		virtual void Update(const Context& context) = 0;
 		virtual void Render(const Context& context) = 0;
 	};

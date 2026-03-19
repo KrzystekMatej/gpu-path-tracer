@@ -19,11 +19,16 @@ namespace Core::Assets
 		static std::expected<Manager, Utils::Error> Create(std::filesystem::path assetsPath);
 
 		const Storage& GetStorage() const { return m_Storage; }
+		const std::filesystem::path& GetRootPath() const { return m_Root; }
 
 		std::expected<Handle<Model>, Utils::Error> ImportObj(const std::filesystem::path& path);
-		std::expected<Handle<Texture>, Utils::Error> ImportTexture(const std::filesystem::path& path, Graphics::ColorSpace colorSpace);
+		std::expected<Handle<Texture>, Utils::Error> ImportTexture(
+			const std::filesystem::path& path, 
+			Graphics::ColorSpace colorSpace, 
+			std::optional<std::filesystem::path> root = std::nullopt);
 		std::expected<Handle<EnvironmentMap>, Utils::Error> ImportEnvironmentMap(const std::filesystem::path& path, Graphics::ColorSpace colorSpace);
-
+		std::expected<Handle<ShaderProgram>, Utils::Error> ImportShaderProgram(
+			std::span<std::pair<std::filesystem::path, Graphics::Gl::ShaderType>> shaderPaths);
 	private:
 		Manager() = default;
 

@@ -18,7 +18,7 @@ namespace Core::Graphics::Gl
 
 		static std::expected<Shader, Utils::Error> Create(const IO::Shader& shader);
 	private:
-		friend class Program;
+		friend class ShaderProgram;
 		Shader(uint32_t type);
 
 		uint32_t m_Id = 0;

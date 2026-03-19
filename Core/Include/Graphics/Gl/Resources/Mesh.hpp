@@ -16,7 +16,7 @@ namespace Core::Graphics::Gl
 
 		static std::expected<Mesh, Utils::Error> Create(const IO::ParsedMesh& parsedMesh);
 
-
+		uint32_t GetVertexCount() const { return m_VertexCount; }
 		void BindVertexArray() const;
 		void UnbindVertexArray() const;
 		void BindVertexBuffer() const;

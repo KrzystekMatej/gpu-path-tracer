@@ -13,24 +13,15 @@ namespace Core::Graphics
 		Emissive,
 	};
 
-	enum class LocalShadingModel
-	{
-		Unlit,
-		Normal,
-		Lambert,
-		Pbr,
-	};
-
 	enum class GlobalShadingModel
 	{
 		Unlit,
 		Normal,
 		Diffuse,
 		Mirror,
-		CookTorrance,
+		Ggx,
 		Emissive,
 	};
-
 
 	struct MaterialDefaults
 	{

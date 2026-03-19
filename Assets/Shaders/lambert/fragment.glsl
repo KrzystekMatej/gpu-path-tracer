@@ -15,7 +15,8 @@ const float PI = 3.14159265359;
 
 struct PointLight
 {
-    vec3  position;
+    vec3 position;
+    vec3 color;
     float intensity;
 };
 
@@ -52,7 +53,7 @@ vec3 lambert(vec3 albedo, vec3 N, vec3 P)
 
         float attenuation = lights[i].intensity / (4.0 * PI * d2);
 
-        result += albedo * n_dot_l * attenuation;
+        result += albedo * lights[i].color * n_dot_l * attenuation;
     }
 
     return result;

@@ -39,25 +39,33 @@ namespace Core::IO
 				return std::unexpected(Utils::Error("Unsupported number of channels: {}, file path: {}", spec.nchannels, path.string()));
 		}
 
+		OIIO::TypeDesc readFormat;
+
 		switch (spec.format.basetype)
 		{
 			case OIIO::TypeDesc::UINT8:
+			case OIIO::TypeDesc::UINT16:
 				format.componentType = Graphics::ComponentType::UInt8;
+				readFormat = OIIO::TypeDesc::UINT8;
 				break;
 			case OIIO::TypeDesc::HALF:
 				format.componentType = Graphics::ComponentType::Float16;
+				readFormat = OIIO::TypeDesc::HALF;
 				break;
 			case OIIO::TypeDesc::FLOAT:
 				format.componentType = Graphics::ComponentType::Float32;
+				readFormat = OIIO::TypeDesc::FLOAT;
 				break;
 			default:
 				return std::unexpected(Utils::Error("Unsupported pixel type: {}, file path: {}", spec.format.c_str(), path.string()));
 		}
 
-		std::vector<uint8_t> pixels(width * height * channels * spec.format.size());
+		std::vector<uint8_t> pixels(static_cast<size_t>(width) * height * channels * readFormat.size());
 
-		imageInput->read_image(0, 0, 0, channels, spec.format, pixels.data());
-
+		if (!imageInput->read_image(0, 0, 0, channels, readFormat, pixels.data()))
+		{
+			return std::unexpected(Utils::Error("{}, file path: {}", imageInput->geterror(), path.string()));
+		}
 
 		return Image
 		{

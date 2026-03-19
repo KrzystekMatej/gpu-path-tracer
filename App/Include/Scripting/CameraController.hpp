@@ -1,4 +1,5 @@
 #pragma once
+#include "External/Glm.hpp"
 #include "ECS/Resolvers/Resolver.hpp"
 #include "ECS/Context.hpp"
 
@@ -8,6 +9,12 @@ namespace App::Scripting
 	{
 		float speed;
 		float sensitivity;
+
+		float yaw = 0.0f;
+		float pitch = 0.0f;
+
+		CameraController(float speed, float sensitivity)
+			: speed(speed), sensitivity(sensitivity) {}
 	};
 
 	class CameraControllerResolver : public Core::ECS::SceneNodeResolver

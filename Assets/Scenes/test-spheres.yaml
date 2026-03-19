@@ -1,0 +1,244 @@
+scripts:
+    - phase: Awake
+      name: AwakeCameraController
+    - phase: Update
+      name: UpdateCameraController
+scene:
+    # Camera
+    - components:
+        - type: Transform
+          translation: [0.0, 10.0, 20.0]
+          target: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Camera
+          fov-y: 40.0
+          near-plane: 0.1
+          far-plane: 1000.0
+        - type: CameraController
+          speed: 10.0
+          sensitivity: 0.01
+    # Lights
+    - components:
+        - type: Transform
+          translation: [-10.0, 10.0, 10.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Light
+          color: [1.0, 1.0, 1.0]
+          intensity: 1000.0
+        - type: Model
+          path: Models/Spheres/Gold/mesh.obj
+    - components:
+        - type: Transform
+          translation: [10.0, 10.0, 10.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Light
+          color: [1.0, 1.0, 1.0]
+          intensity: 1000.0
+        - type: Model
+          path: Models/Spheres/Gold/mesh.obj
+    - components:
+        - type: Transform
+          translation: [-10.0, -10.0, 10.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Light
+          color: [1.0, 1.0, 1.0]
+          intensity: 1000.0
+        - type: Model
+          path: Models/Spheres/Gold/mesh.obj
+    - components:
+        - type: Transform
+          translation: [10.0, -10.0, 10.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Light
+          color: [1.0, 1.0, 1.0]
+          intensity: 1000.0
+        - type: Model
+          path: Models/Spheres/Gold/mesh.obj
+    # Background
+    - components:
+        - type: Background
+          path: Backgrounds/Hansaplatz
+    # Spheres
+    - components:
+        - type: Transform
+          translation: [-5.0, -5.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Gold/mesh.obj
+    - components:
+        - type: Transform
+          translation: [-2.5, -5.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Gold/mesh.obj
+    - components:
+        - type: Transform
+          translation: [0.0, -5.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Gold/mesh.obj
+    - components:
+        - type: Transform
+          translation: [2.5, -5.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Gold/mesh.obj
+    - components:
+        - type: Transform
+          translation: [5.0, -5.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Gold/mesh.obj
+
+    - components:
+        - type: Transform
+          translation: [-5.0, -2.5, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Grass/mesh.obj
+    - components:
+        - type: Transform
+          translation: [-2.5, -2.5, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Grass/mesh.obj
+    - components:
+        - type: Transform
+          translation: [0.0, -2.5, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Grass/mesh.obj
+    - components:
+        - type: Transform
+          translation: [2.5, -2.5, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Grass/mesh.obj
+    - components:
+        - type: Transform
+          translation: [5.0, -2.5, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Grass/mesh.obj
+
+    - components:
+        - type: Transform
+          translation: [-5.0, 0.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Plastic/mesh.obj
+    - components:
+        - type: Transform
+          translation: [-2.5, 0.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Plastic/mesh.obj
+    - components:
+        - type: Transform
+          translation: [0.0, 0.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Plastic/mesh.obj
+    - components:
+        - type: Transform
+          translation: [2.5, 0.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Plastic/mesh.obj
+    - components:
+        - type: Transform
+          translation: [5.0, 0.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Plastic/mesh.obj
+
+    - components:
+        - type: Transform
+          translation: [-5.0, 2.5, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/RustedIron/mesh.obj
+    - components:
+        - type: Transform
+          translation: [-2.5, 2.5, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/RustedIron/mesh.obj
+    - components:
+        - type: Transform
+          translation: [0.0, 2.5, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/RustedIron/mesh.obj
+    - components:
+        - type: Transform
+          translation: [2.5, 2.5, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/RustedIron/mesh.obj
+    - components:
+        - type: Transform
+          translation: [5.0, 2.5, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/RustedIron/mesh.obj
+
+    - components:
+        - type: Transform
+          translation: [-5.0, 5.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Wall/mesh.obj
+    - components:
+        - type: Transform
+          translation: [-2.5, 5.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Wall/mesh.obj
+    - components:
+        - type: Transform
+          translation: [0.0, 5.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Wall/mesh.obj
+    - components:
+        - type: Transform
+          translation: [2.5, 5.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Wall/mesh.obj
+    - components:
+        - type: Transform
+          translation: [5.0, 5.0, 0.0]
+          rotation: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Wall/mesh.obj

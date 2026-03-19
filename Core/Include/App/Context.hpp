@@ -5,6 +5,8 @@
 #include "Graphics/Gl/Renderer.hpp"
 #include "Project/Project.hpp"
 #include "Input/State.hpp"
+#include "Scripts/Catalog.hpp"
+#include "ECS/Resolvers/SceneResolverRegistry.hpp"
 
 namespace Core::App
 {
@@ -17,6 +19,27 @@ namespace Core::App
 		Window& window;
 		const Input::State& input;
 		entt::dispatcher& eventDispatcher;
+		Project& project;
+	};
+
+	struct InitContext
+	{
+		InitContext(
+			Window& window, 
+			entt::dispatcher& eventDispatcher, 
+			Scripts::Catalog& scriptCatalog, 
+			ECS::SceneResolverRegistry& resolverRegistry, 
+			Project& project)
+			: window(window), 
+			eventDispatcher(eventDispatcher), 
+			scriptCatalog(scriptCatalog), 
+			resolverRegistry(resolverRegistry), 
+			project(project) {}
+
+		Window& window;
+		entt::dispatcher& eventDispatcher;
+		Scripts::Catalog& scriptCatalog;
+		ECS::SceneResolverRegistry& resolverRegistry;
 		Project& project;
 	};
 }

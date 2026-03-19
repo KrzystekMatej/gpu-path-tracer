@@ -30,7 +30,7 @@ target_sources(core PRIVATE
     "Source/Graphics/Gl/VertexLayout.cpp" 
     "Source/IO/ObjLoader.cpp"
     "Source/IO/ImageLoader.cpp"
-    "Source/IO/Renderer.cpp"
+    "Source/Graphics/Gl/Renderer.cpp"
     "Source/Utils/Math/TangentSpace.cpp" 
     "Source/Utils/Text.cpp"
     "Source/Window/Window.cpp"
@@ -40,10 +40,10 @@ target_sources(core PRIVATE
     "Source/IO/SceneLoader.cpp" 
     "Source/Utils/Path.cpp"
     "Source/Utils/Yaml.cpp" 
-    "Source/Graphics/Gl/Program.cpp" 
+    "Source/Graphics/Gl/ShaderProgram.cpp" 
     "Source/IO/ShaderLoader.cpp" 
     "Source/Graphics/Gl/Shader.cpp"
- "Source/ECS/Systems/Transform.cpp")
+ "Source/ECS/Systems/Transform.cpp" "Source/ECS/Resolvers/Background.cpp" "Source/ECS/Resolvers/Light.cpp")
 
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include")
 target_link_libraries(core PUBLIC core_cuda_kernels)

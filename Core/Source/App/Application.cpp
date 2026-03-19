@@ -11,6 +11,7 @@ namespace Core::App
 	Application::Application(
 		std::unique_ptr<Client> client, 
 		Window window,
+		Graphics::Gl::Renderer renderer,
 		Scripts::Catalog catalog,
 		ECS::SceneResolverRegistry resolverRegistry,
 		Assets::Manager assetManager, 
@@ -20,7 +21,7 @@ namespace Core::App
 		m_Window(std::move(window)),
 		m_Input(),
 		m_EventDispatcher(),
-		m_Renderer(m_Window.GetContext()),
+		m_Renderer(std::move(renderer)),
 		m_ScriptCatalog(std::move(catalog)),
 		m_Scene(),
 		m_ResolverRegistry(std::move(resolverRegistry)),
@@ -28,10 +29,9 @@ namespace Core::App
 		m_AssetManager(std::move(assetManager)), 
 		m_Project(std::move(project))
 	{ 
-		m_Renderer.Initialize();
 		m_Window.SetEventRouter(std::make_unique<Events::WindowEventRouter>(m_Input, m_EventDispatcher));
 		m_Window.InitCallbacks();
-		m_Client->RegisterEventHandlers(m_EventDispatcher, m_Window);
+		m_Renderer.InitContext(&m_Window.GetContext());
 	}
 
 	Application::~Application()
@@ -61,11 +61,9 @@ namespace Core::App
 		window.GetContext().SetSwapInterval(1);
 
 		Scripts::Catalog scriptCatalog;
-		client->RegisterUserScripts(scriptCatalog);
 
 		ECS::SceneResolverRegistry resolverRegistry;
 		resolverRegistry.RegisterCoreResolvers();
-		client->RegisterUserResolvers(resolverRegistry);
 
 		auto projectResult = Project::Create(projectConfigPath);
 
@@ -78,18 +76,34 @@ namespace Core::App
 		if (!assetManagerResult)
 			return std::unexpected(std::move(assetManagerResult).error());
 
+		Assets::Manager assetManager = std::move(assetManagerResult).value();
+
+		auto rendererResult = Graphics::Gl::Renderer::Create(assetManager);
+		if (!rendererResult)
+			return std::unexpected(std::move(rendererResult).error());
+
 		std::unique_ptr<Application> app = std::unique_ptr<Application>(new Application(
-			std::move(client), 
+			std::move(client),
 			std::move(window),
+			std::move(std::move(rendererResult).value()),
 			std::move(scriptCatalog),
 			std::move(resolverRegistry),
-			std::move(assetManagerResult).value(), 
+			std::move(assetManager), 
 			std::move(project)));
 
-		auto ok = app->SetScene(app->m_Project.GetStartScenePath());
+		InitContext context(
+			app->m_Window, 
+			app->m_EventDispatcher, 
+			app->m_ScriptCatalog,
+			app->m_ResolverRegistry, 
+			app->m_Project);
 
-		if (!ok)
-			return std::unexpected(std::move(ok).error());
+		app->m_Client->Init(context);
+		
+		auto initSceneResult = app->SetScene(app->m_Project.GetStartScenePath());
+
+		if (!initSceneResult)
+			return std::unexpected(std::move(initSceneResult).error());
 
 		return app;
 	}
@@ -147,9 +161,10 @@ namespace Core::App
 
 			m_Renderer.BeginFrame();
 
+			m_Renderer.SetViewport(0, 0, m_Window.GetWidth(), m_Window.GetHeight());
 			m_Renderer.Clear(0.1f, 0.1f, 0.1f, 1.0f);
 
-			ECS::Systems::RenderScene(m_Renderer, m_Scene);
+			ECS::Systems::RenderScene(m_Window.GetWidth() / (float)m_Window.GetHeight(), m_Renderer, m_Scene, m_AssetManager.GetStorage());
 
 			m_Client->Render(appContext);
 

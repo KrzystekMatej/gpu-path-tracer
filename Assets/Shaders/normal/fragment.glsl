@@ -27,6 +27,5 @@ vec3 get_normal()
 
 void main()
 {
-    world_normal = get_normal();
-    frag_color = vec4(world_normal * 0.5 + 0.5, 1.0);
+    frag_color = vec4(get_normal() * 0.5 + 0.5, 1.0);
 }

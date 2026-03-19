@@ -48,7 +48,7 @@ namespace Core::IO
 
 		const std::string SurfaceModelKey = "surface";
 
-		constexpr std::array<std::pair<std::string_view, Graphics::SurfaceModel>, 6> SurfaceModels = {
+		constexpr std::array<std::pair<std::string_view, Graphics::SurfaceModel>, 7> SurfaceModels = {
 			std::pair{ "unlit" , Graphics::SurfaceModel::Unlit},
 			std::pair{ "normal" , Graphics::SurfaceModel::Normal},
 			std::pair{ "mirror" , Graphics::SurfaceModel::Mirror},

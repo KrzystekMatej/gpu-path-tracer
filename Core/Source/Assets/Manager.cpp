@@ -11,6 +11,8 @@
 
 #include "IO/ObjLoader.hpp"
 #include "IO/ImageLoader.hpp"
+#include "IO/ShaderLoader.hpp"
+#include "Graphics/Gl/Material.hpp"
 
 namespace Core::Assets
 {
@@ -27,7 +29,7 @@ namespace Core::Assets
 		{
 			auto resolved = Utils::Path::ResolvePath(maybeRelative, filePath.parent_path());
 
-			if (resolved)
+			if (!resolved)
 				return resolved.value().absolute;
 
 			return maybeRelative.lexically_normal();
@@ -172,14 +174,21 @@ namespace Core::Assets
 		return handle.value();
 	}
 
-	std::expected<Handle<Texture>, Utils::Error> Manager::ImportTexture(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
+	std::expected<Handle<Texture>, Utils::Error> Manager::ImportTexture(
+		const std::filesystem::path& path, 
+		Graphics::ColorSpace colorSpace, 
+		std::optional<std::filesystem::path> root)
 	{
-		auto pathResult = Utils::Path::ResolvePath(path, m_Root);
+		std::filesystem::path actualRoot = root ? *root : m_Root;
+		auto pathResult = Utils::Path::ResolvePath(path, actualRoot);
 		if (!pathResult)
 			return std::unexpected(std::move(pathResult).error());
 		Utils::Path::ResolvedPath resolvedPath = std::move(pathResult).value();
 		std::string absoluteStr = resolvedPath.absolute.generic_string();
+
 		std::string relativeStr = resolvedPath.relative.generic_string();
+		if (root)
+			relativeStr = std::filesystem::relative(resolvedPath.absolute, m_Root).generic_string();
 
 		Source source = SourcePath{ relativeStr };
 		Subkey subkey = SubkeyNone{};
@@ -275,35 +284,45 @@ namespace Core::Assets
 		std::array<uint8_t, 1> roughnessPixel = { NormalizedFloatToU8(material.roughness) };
 		std::array<uint8_t, 1> metallicPixel = { NormalizedFloatToU8(material.metallic)};
 
+		std::optional<std::filesystem::path> root = objPath.absolute.parent_path();
+
 		auto albedo = material.albedoTexture
-			? ImportTexture(ResolveRelativeToFile(objPath.absolute, *material.albedoTexture), Graphics::ColorSpace::SRGB)
+			? ImportTexture(material.albedoTexture.value(), Graphics::ColorSpace::SRGB, root)
 			: makeRgb(Graphics::ColorSpace::SRGB, albedoPixel);
 
 		if (!albedo) return std::unexpected(albedo.error());
 
 		auto roughness = material.roughnessTexture
-			? ImportTexture(ResolveRelativeToFile(objPath.absolute, *material.roughnessTexture), Graphics::ColorSpace::Linear)
+			? ImportTexture(material.roughnessTexture.value(), Graphics::ColorSpace::Linear, root)
 			: makeR(roughnessPixel);
 
 		if (!roughness) return std::unexpected(roughness.error());
 
 		auto metallic = material.metallicTexture
-			? ImportTexture(ResolveRelativeToFile(objPath.absolute, *material.metallicTexture), Graphics::ColorSpace::Linear)
+			? ImportTexture(material.metallicTexture.value(), Graphics::ColorSpace::Linear, root)
 			: makeR(metallicPixel);
 
 		if (!metallic) return std::unexpected(metallic.error());
 
 		auto ao = material.aoTexture
-			? ImportTexture(ResolveRelativeToFile(objPath.absolute, *material.aoTexture), Graphics::ColorSpace::Linear)
+			? ImportTexture(material.aoTexture.value(), Graphics::ColorSpace::Linear, root)
 			: makeR(Graphics::MaterialDefaults::DefaultAo);
 
 		if (!ao) return std::unexpected(ao.error());
 
 		auto normal = material.normalTexture
-			? ImportTexture(ResolveRelativeToFile(objPath.absolute, *material.normalTexture), Graphics::ColorSpace::Linear)
+			? ImportTexture(material.normalTexture.value(), Graphics::ColorSpace::Linear, root)
 			: makeRgb(Graphics::ColorSpace::Linear, Graphics::MaterialDefaults::DefaultNormal);
 
 		if (!normal) return std::unexpected(normal.error());
+
+		auto localShading = Graphics::Gl::ToLocalShadingChecked(material.surface);
+		if (!localShading.second)
+			spdlog::warn(
+				"Material '{}' uses surface model, which is not supported with local illumination."
+				"It will be treated as Unlit when shading via OpenGL. File path: {}",
+				material.name,
+				objPath.absolute.generic_string());
 
 		Material asset(
 			material.surface,
@@ -442,5 +461,56 @@ namespace Core::Assets
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		return handle.value();
+	}
+
+	std::expected<Handle<ShaderProgram>, Utils::Error> Manager::ImportShaderProgram(
+		std::span<std::pair<std::filesystem::path, Graphics::Gl::ShaderType>> shaderPaths)
+	{
+		
+		std::ranges::sort(shaderPaths, [](const auto& a, const auto& b)
+		{
+			return a.second < b.second;
+		});
+		
+		std::vector<std::pair<Utils::Path::ResolvedPath, Graphics::Gl::ShaderType>> resolvedShaderPaths;
+		resolvedShaderPaths.reserve(shaderPaths.size());
+		std::string combinedPaths;
+		
+		for (const auto& [path, shaderType] : shaderPaths)
+		{
+			auto pathResult = Utils::Path::ResolvePath(path, m_Root);
+			if (!pathResult)
+				return std::unexpected(std::move(pathResult).error());
+			auto resolved = std::move(pathResult).value();
+			combinedPaths += resolved.relative.generic_string() + ";";
+			resolvedShaderPaths.emplace_back(std::move(resolved), shaderType);
+		}
+		
+		Source source = SourcePath{ combinedPaths };
+		Subkey subkey = SubkeyNone{};
+		auto cached = m_Storage.GetHandleByKey<ShaderProgram>(source, subkey);
+		if (cached)
+			return cached.value();
+
+		std::vector<Graphics::Gl::Shader> shaders;
+		shaders.reserve(shaderPaths.size());
+		for (const auto& [path, shaderType] : resolvedShaderPaths)
+		{
+			auto loadedShader = IO::LoadShader(path.absolute, shaderType);
+			if (!loadedShader)
+				return std::unexpected(Utils::Error(std::move(loadedShader).error()));
+
+			auto shader = Graphics::Gl::Shader::Create(std::move(loadedShader).value());
+			if (!shader)
+				return std::unexpected(Utils::Error(std::move(shader).error()));
+			shaders.emplace_back(std::move(shader).value());
+		}
+
+		auto program = Graphics::Gl::ShaderProgram::Create(shaders);
+		if (!program)
+			return std::unexpected(Utils::Error(std::move(program).error()));
+
+		ShaderProgram programAsset(std::move(program).value());
+		return m_Storage.Emplace(source, subkey, std::move(programAsset));
 	}
 }

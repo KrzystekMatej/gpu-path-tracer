@@ -15,16 +15,12 @@ uniform sampler2D metallic_texture;
 uniform sampler2D ao_texture;
 uniform sampler2D normal_texture;
 
-uniform samplerCube irradiance_map;
-uniform samplerCube prefilter_map;
-uniform sampler2D brdf_map;
-
 const int LIGHT_LIMIT = 10;
 const float PI = 3.14159265359;
 
 struct PointLight
 {
-    vec3  position;
+    vec3 position;
     vec3 color;
     float intensity;
 };
@@ -135,23 +131,9 @@ void main()
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
-    vec3 F = fresnel_schlick_roughness(max(dot(N, V), 0.0), F0, roughness);
-
-    vec3 kS = F;
-    vec3 kD = 1.0 - kS;
-    kD *= 1.0 - metallic;
-
-    vec3 irradiance = texture(irradiance_map, N).rgb;
-    vec3 diffuse = irradiance * albedo;
-
-    const float MAX_REFLECTION_LOD = 4.0;
-    vec3 prefiltered_color = textureLod(prefilter_map, R, roughness * MAX_REFLECTION_LOD).rgb;
-    vec2 brdf = texture(brdf_map, vec2(max(dot(N, V), 0.0), roughness)).rg;
-    vec3 specular = prefiltered_color * (F * brdf.x + brdf.y);
-
-    vec3 ambient = (kD * diffuse + specular) * ao;
-
+    vec3 ambient = vec3(0.03) * albedo * ao;
     vec3 color = ambient + Lo;
+
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0 / 2.2));
 

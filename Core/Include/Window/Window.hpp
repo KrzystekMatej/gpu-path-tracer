@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <optional>
+#include "External/Glm.hpp"
 #include "Utils/Error/Error.hpp"
 #include "Window/WindowAttributes.hpp"
 #include "Window/GraphicsContext.hpp"
@@ -14,6 +15,13 @@
 
 namespace Core
 {
+	enum class CursorMode
+	{
+		Normal,
+		Hidden,
+		Disabled
+	};
+
 	class Window
 	{
 	public:
@@ -30,12 +38,24 @@ namespace Core
 		const WindowAttributes& GetAttributes() const { return m_Attributes; }
 		const GraphicsContext& GetContext() const { return m_GraphicsContext; }
 		GLFWwindow* GetRawHandle() const { return m_Handle; }
+
 		void InitCallbacks();
 		void SetEventRouter(std::unique_ptr<Events::WindowEventRouter> eventRouter) { m_EventRouter = std::move(eventRouter); }
+
 		void PollEvents() const;
         bool IsOpen() const;
         void SwapBuffers() const;
 		void Close() const;
+
+		glm::vec2 GetCursorPosition() const;
+		void SetCursorPosition(glm::vec2 position) const;
+
+		void SetCursorMode(CursorMode mode) const;
+		CursorMode GetCursorMode() const;
+
+		bool SupportsRawMouseMotion() const;
+		void SetRawMouseMotionEnabled(bool enabled) const;
+		bool IsRawMouseMotionEnabled() const;
 	private:
 		Window(GLFWwindow* handle, WindowAttributes attributes, GraphicsContext context);
 

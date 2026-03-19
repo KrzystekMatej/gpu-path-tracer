@@ -1,28 +1,17 @@
 #version 460 core
 
-layout(location = 0) in vec3 localPosition;
-layout(location = 1) in vec3 localNormal;
-layout(location = 3) in vec2 texCoords;
-layout(location = 4) in vec4 localTangent;
-layout(location = 5) in uint materialIndex;
+in vec3 tex_dir;
 
-out vec3 worldPosition;
-out vec3 worldNormal;
-out vec2 fragTexCoords;
-out vec4 worldTangent;
-flat out uint fragMaterialIndex;
+out vec4 frag_color;
 
-uniform mat4 pvmMatrix;
-uniform mat4 modelMatrix;
-uniform mat3 normalMatrix;
+uniform samplerCube environment_map;
 
-void main(void)
+void main()
 {
-    gl_Position = pvmMatrix * vec4(localPosition, 1.f);
-    vec4 worldPositionH = modelMatrix * vec4(localPosition, 1.f);
-    worldPosition = worldPositionH.xyz / worldPositionH.w;
-    worldNormal = normalize(normalMatrix * localNormal);
-    worldTangent = vec4(normalize((modelMatrix * vec4(localTangent.xyz, 0)).xyz), localTangent.w);
-    fragTexCoords = texCoords;
-    fragMaterialIndex = materialIndex;
+    vec3 color = texture(environment_map, tex_dir).rgb;
+
+    color = color / (color + vec3(1.0));
+    color = pow(color, vec3(1.0 / 2.2));
+
+    frag_color = vec4(color, 1.0);
 }
