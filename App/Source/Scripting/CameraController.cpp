@@ -41,6 +41,28 @@ namespace App::Scripting
 
 	void UpdateCameraController(const Core::ECS::Context& context)
 	{
+		if (context.input.IsKeyDown(Core::Input::KeyCode::LeftControl))
+		{
+			if (context.input.WasKeyPressed(Core::Input::KeyCode::LeftControl))
+			{
+				context.window.SetCursorMode(Core::CursorMode::Disabled);
+				context.window.SetRawMouseMotionEnabled(true);
+			}
+		}
+		else
+		{
+			if (context.input.WasKeyReleased(Core::Input::KeyCode::LeftControl))
+			{
+				context.window.SetCursorMode(Core::CursorMode::Normal);
+				context.window.SetRawMouseMotionEnabled(false);
+			}
+			else
+			{
+				return;
+			}
+		}
+
+
 		auto [transform, controller] = context.scene.GetRegistry().get<Core::ECS::Components::Transform, CameraController>(context.scene.GetActiveCamera());
 
 		glm::vec3 direction(0.0f);

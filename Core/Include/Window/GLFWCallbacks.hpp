@@ -3,10 +3,15 @@
 
 namespace Core
 {
-	void SetGLFWCallbacks(GLFWwindow* windowHandle);
-	void KeyCallback(GLFWwindow* windowHandle, int key, int scancode, int action, int mods);
-	void MouseButtonCallback(GLFWwindow* windowHandle, int button, int action, int mods);
-	void CursorPositionCallback(GLFWwindow* windowHandle, double x, double y);
-	void WindowCloseCallback(GLFWwindow* windowHandle);
-	void FramebufferSizeCallback(GLFWwindow* windowHandle, int width, int height);
+	class GlfwCallbacks
+	{
+	public:
+		static void SetAll(GLFWwindow* windowHandle);
+		static void Key(GLFWwindow* windowHandle, int key, int scancode, int action, int mods);
+		static void MouseButton(GLFWwindow* windowHandle, int button, int action, int mods);
+		static void CursorPosition(GLFWwindow* windowHandle, double x, double y);
+		static void WindowClose(GLFWwindow* windowHandle);
+		static void FramebufferSize(GLFWwindow* windowHandle, int width, int height);
+		static void Error(int error, const char* description);
+	};
 }

@@ -4,5 +4,5 @@
 
 namespace Core::ECS::Systems
 {
-	void RenderScene(float aspectRatio, const Graphics::Gl::Renderer& renderer, const Scene& scene, const Assets::Storage& storage);
+	void RenderScene(const Graphics::Gl::Renderer& renderer, const Scene& scene, const Assets::Storage& storage, float aspectRatio);
 }

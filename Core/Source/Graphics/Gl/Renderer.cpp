@@ -112,21 +112,19 @@ namespace Core::Graphics::Gl
 			std::move(meshResult).value());
     }
 
-    void Renderer::BeginFrame()
+    void Renderer::BindSurface(RenderSurface surface)
     {
-		m_Context->MakeCurrent();
+		m_RenderSurface = surface;
+		glBindFramebuffer(GL_FRAMEBUFFER, m_RenderSurface.GetFramebufferId());
+		SetViewport(0, 0, m_RenderSurface.GetWidth(), m_RenderSurface.GetHeight());
     }
-
-    void Renderer::EndFrame()
-    {
-    }
-
-	void Renderer::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+	
+	void Renderer::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) const
 	{
 		glViewport(x, y, width, height);
 	}
 
-    void Renderer::Clear(float r, float g, float b, float a)
+    void Renderer::Clear(float r, float g, float b, float a) const
     {
         glClearColor(r, g, b, a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -204,12 +202,11 @@ namespace Core::Graphics::Gl
 			}
 			case LocalShadingModel::Pbr:
 			{
-				//background for full pbr
-
 				const ShaderProgram* program = nullptr;
 				if (context.environmentMap)
 				{
 					program = &context.storage.Get(m_FullPbr).value().get().program;
+					program->Bind();
 					
 					glActiveTexture(GL_TEXTURE0 + 5);
 					context.environmentMap->GetIrradianceMap().Bind();
@@ -224,9 +221,9 @@ namespace Core::Graphics::Gl
 				else
 				{
 					program = &context.storage.Get(m_DirectPbr).value().get().program;
+					program->Bind();
 				}
 
-				program->Bind();
 				glActiveTexture(GL_TEXTURE0);
 				context.material.albedo.Bind();
 				program->SetInt32("albedo_texture", 0);

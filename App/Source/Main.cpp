@@ -22,8 +22,12 @@ int main()
 	}
 	
 	
-	std::unique_ptr<Core::App::Application> app = std::move(appResult).value();
-	app->PrintInfo();
-	app->Run();
+	{
+		std::unique_ptr<Core::App::Application> app = std::move(appResult).value();
+		app->PrintInfo();
+		app->Run();
+	}	
+
+	Core::Window::TerminateBackend();
 	return 0;
 }

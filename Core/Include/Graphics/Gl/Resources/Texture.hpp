@@ -5,9 +5,10 @@
 
 namespace Core::Graphics::Gl
 {
-	struct Texture
+	class Texture
 	{
 	public:
+		Texture(uint32_t target);
 		Texture(const Texture&) = delete;
 		Texture& operator=(const Texture&) = delete;
 		Texture(Texture&& other) noexcept;
@@ -19,11 +20,10 @@ namespace Core::Graphics::Gl
 		static std::expected<Texture, Utils::Error> CreateCubemapFromMipmaps(const IO::CubemapMipChain& mipMaps);
 
 		~Texture();
+		uint32_t GetId() const { return m_Id; }
+		uint32_t GetTarget() const { return m_Target; }
 		void Bind() const;
-		void Unbind() const;
 	private:
-		Texture(uint32_t target);
-
 		uint32_t m_Id = 0;
 		uint32_t m_Target = 0;
 	};

@@ -23,12 +23,16 @@ namespace Core
 		GraphicsContext& operator=(GraphicsContext&&) noexcept = default;
 
 		static std::expected<GraphicsContext, Utils::Error> Create(GLFWwindow* windowHandle);
+
 		void MakeCurrent() const;
 		void Detach() const;
 		void SetSwapInterval(int interval) const;
 		GLVersion GetVersion() const;
+
 	private:
-		GraphicsContext(GLFWwindow* windowHandle);
+		explicit GraphicsContext(GLFWwindow* windowHandle);
+		static std::expected<void, Utils::Error> LoadOpenGL();
+		void InitDebugCallback();
 
 		GLFWwindow* m_WindowHandle;
 	};

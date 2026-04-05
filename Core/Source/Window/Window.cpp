@@ -82,17 +82,6 @@ namespace Core
 		glfwSetWindowSizeLimits(windowHandle, windowAttributes.minWidth, windowAttributes.minHeight, GLFW_DONT_CARE, GLFW_DONT_CARE);
 		glfwSetInputMode(windowHandle, GLFW_LOCK_KEY_MODS, GLFW_TRUE);
 
-		GLFWcursor* cursor = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
-
-		if (!cursor)
-		{
-			spdlog::warn("Failed to create cursor, using default system cursor.");
-		}
-		else
-		{
-			glfwSetCursor(windowHandle, cursor);
-		}
-
 		auto graphicsContext = GraphicsContext::Create(windowHandle);
 
 		if (!graphicsContext)
@@ -101,10 +90,30 @@ namespace Core
 		return Window(windowHandle, std::move(windowAttributes), std::move(graphicsContext).value());
 	}
 
+	std::expected<void, Utils::Error> Window::InitBackend()
+	{
+		if (!glfwInit())
+			return std::unexpected(Utils::Error("Failed to initialize GLFW!"));
+		glfwSetErrorCallback(GlfwCallbacks::Error);
+		return {};
+	}
+
+	void Window::TerminateBackend()
+	{
+		glfwTerminate();
+	}
+
+	GlfwVersion Window::GetVersion() const
+	{
+		int major, minor, revision;
+		glfwGetVersion(&major, &minor, &revision);
+		return { major, minor, revision };
+	}
+
 	void Window::InitCallbacks()
 	{
 		glfwSetWindowUserPointer(m_Handle, this);
-		SetGLFWCallbacks(m_Handle);
+		GlfwCallbacks::SetAll(m_Handle);
 	}
 
 	void Window::PollEvents() const

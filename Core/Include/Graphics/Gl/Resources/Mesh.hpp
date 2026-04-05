@@ -5,7 +5,7 @@
 
 namespace Core::Graphics::Gl
 {
-	struct Mesh
+	class Mesh
 	{
 	public:
 		Mesh(const Mesh&) = delete;
@@ -18,11 +18,8 @@ namespace Core::Graphics::Gl
 
 		uint32_t GetVertexCount() const { return m_VertexCount; }
 		void BindVertexArray() const;
-		void UnbindVertexArray() const;
 		void BindVertexBuffer() const;
-		void UnbindVertexBuffer() const;
 		void BindIndexBuffer() const;
-		void UnbindIndexBuffer() const;
 	private:
 		Mesh(uint32_t vertexCount);
 

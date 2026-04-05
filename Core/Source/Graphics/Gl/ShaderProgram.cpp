@@ -10,7 +10,8 @@ namespace Core::Graphics::Gl
 	}
 
 	ShaderProgram::ShaderProgram(ShaderProgram&& other) noexcept
-		: m_Id(std::exchange(other.m_Id, 0)) { }
+		: m_Id(std::exchange(other.m_Id, 0)),
+		m_UniformLocationCache(std::move(other.m_UniformLocationCache)) { }
 
 	ShaderProgram& ShaderProgram::operator=(ShaderProgram&& other) noexcept
 	{
@@ -20,6 +21,7 @@ namespace Core::Graphics::Gl
 				glDeleteProgram(m_Id);
 
 			m_Id = std::exchange(other.m_Id, 0);
+			m_UniformLocationCache = std::move(other.m_UniformLocationCache);
 		}
 		return *this;
 	}
@@ -78,11 +80,6 @@ namespace Core::Graphics::Gl
 	void ShaderProgram::Bind() const
 	{
 		glUseProgram(m_Id);
-	}
-
-	void ShaderProgram::Unbind() const
-	{
-		glUseProgram(0);
 	}
 
 	int ShaderProgram::GetUniformLocation(const std::string& name) const

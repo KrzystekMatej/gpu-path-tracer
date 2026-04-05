@@ -14,10 +14,9 @@ namespace Core::Graphics::Gl
 
 	Mesh::Mesh(Mesh&& other) noexcept
 		: m_VertexArray(std::exchange(other.m_VertexArray, 0)),
-		  m_VertexBuffer(std::exchange(other.m_VertexBuffer, 0)),
-		  m_IndexBuffer(std::exchange(other.m_IndexBuffer, 0)),
-		  m_VertexCount(std::exchange(other.m_VertexCount, 0))
-	{}
+		m_VertexBuffer(std::exchange(other.m_VertexBuffer, 0)),
+		m_IndexBuffer(std::exchange(other.m_IndexBuffer, 0)),
+		m_VertexCount(std::exchange(other.m_VertexCount, 0)) { }
 
 	Mesh& Mesh::operator=(Mesh&& other) noexcept
 	{
@@ -72,28 +71,13 @@ namespace Core::Graphics::Gl
 		glBindVertexArray(m_VertexArray);
 	}
 
-	void Mesh::UnbindVertexArray() const
-	{
-		glBindVertexArray(0);
-	}
-
 	void Mesh::BindVertexBuffer() const
 	{
 		glBindBuffer(GL_ARRAY_BUFFER, m_VertexBuffer);
 	}
 
-	void Mesh::UnbindVertexBuffer() const
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-	}
-
 	void Mesh::BindIndexBuffer() const
 	{
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_IndexBuffer);
-	}
-
-	void Mesh::UnbindIndexBuffer() const
-	{
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
 }

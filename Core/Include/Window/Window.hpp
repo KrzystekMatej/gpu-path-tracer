@@ -10,6 +10,7 @@
 #include "Window/GraphicsContext.hpp"
 #include <entt/entt.hpp>
 #include "Events/Router.hpp"
+#include "Graphics/Gl/RenderSurface.hpp"
 
 
 
@@ -22,6 +23,13 @@ namespace Core
 		Disabled
 	};
 
+	struct GlfwVersion
+	{
+		int major;
+		int minor;
+		int revision;
+	};
+
 	class Window
 	{
 	public:
@@ -32,12 +40,16 @@ namespace Core
 		~Window();
 
 		static std::expected<Window, Utils::Error> Create(WindowAttributes windowAttributes);
+		static std::expected<void, Utils::Error> InitBackend();
+		static void TerminateBackend();
 
 		uint32_t GetWidth() const { return m_Attributes.width; }
 		uint32_t GetHeight() const { return m_Attributes.height; }
 		const WindowAttributes& GetAttributes() const { return m_Attributes; }
+		GlfwVersion GetVersion() const;
 		const GraphicsContext& GetContext() const { return m_GraphicsContext; }
 		GLFWwindow* GetRawHandle() const { return m_Handle; }
+		Graphics::Gl::RenderSurface GetRenderSurface() const { return Graphics::Gl::RenderSurface(0, GetWidth(), GetHeight()); }
 
 		void InitCallbacks();
 		void SetEventRouter(std::unique_ptr<Events::WindowEventRouter> eventRouter) { m_EventRouter = std::move(eventRouter); }
@@ -59,11 +71,7 @@ namespace Core
 	private:
 		Window(GLFWwindow* handle, WindowAttributes attributes, GraphicsContext context);
 
-		friend void KeyCallback(GLFWwindow*, int, int, int, int);
-		friend void FramebufferSizeCallback(GLFWwindow*, int, int);
-		friend void MouseButtonCallback(GLFWwindow*, int, int, int);
-		friend void CursorPositionCallback(GLFWwindow*, double, double);
-		friend void WindowCloseCallback(GLFWwindow*);
+		friend class GlfwCallbacks;
 
 		GLFWwindow* m_Handle = nullptr;
 		WindowAttributes m_Attributes;

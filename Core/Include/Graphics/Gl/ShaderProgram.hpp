@@ -20,7 +20,6 @@ namespace Core::Graphics::Gl
 
 		static std::expected<ShaderProgram, Utils::Error> Create(std::span<Shader> shaders);
 		void Bind() const;
-		void Unbind() const;
 
 		int GetUniformLocation(const std::string& name) const;
 		void SetInt32(const std::string& name, int value) const;

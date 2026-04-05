@@ -79,8 +79,8 @@ namespace Core::Graphics::Gl
 	}
 	
 	Texture::Texture(Texture&& other) noexcept
-		: m_Id(std::exchange(other.m_Id, 0)),
-		  m_Target(std::exchange(other.m_Target, 0)) {}
+		: m_Id(std::exchange(other.m_Id, 0)), 
+		m_Target(std::exchange(other.m_Target, 0)) { }
 
 	Texture& Texture::operator=(Texture&& other) noexcept
 	{
@@ -130,7 +130,6 @@ namespace Core::Graphics::Gl
 			glTexParameteri(texture.m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		}
 		glTexParameteri(texture.m_Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		texture.Unbind();
 		return texture;
 	}
 
@@ -180,8 +179,6 @@ namespace Core::Graphics::Gl
 			glTexParameteri(texture.m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		}
 		glTexParameteri(texture.m_Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		texture.Unbind();
 		return texture;
 	}
 
@@ -229,8 +226,6 @@ namespace Core::Graphics::Gl
 			glTexParameteri(texture.m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		}
 		glTexParameteri(texture.m_Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		texture.Unbind();
 		return texture;
 	}
 
@@ -284,18 +279,11 @@ namespace Core::Graphics::Gl
 			glTexParameteri(texture.m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		}
 		glTexParameteri(texture.m_Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		texture.Unbind();
 		return texture;
 	}
 
 	void Texture::Bind() const
 	{
 		glBindTexture(m_Target, m_Id);
-	}
-
-	void Texture::Unbind() const
-	{
-		glBindTexture(m_Target, 0);
 	}
 }

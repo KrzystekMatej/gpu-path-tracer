@@ -3,7 +3,7 @@
 #include <expected>
 #include "Window/Window.hpp"
 #include "Utils/Error/Error.hpp"
-#include "App/Client.hpp"
+#include "App/UiClient.hpp"
 #include "Project/Project.hpp"
 #include "Graphics/Gl/Renderer.hpp"
 #include "Assets/Manager.hpp"
@@ -25,7 +25,7 @@ namespace Core::App
 		~Application();
 
 		static std::expected<std::unique_ptr<Application>, Utils::Error> Create(
-			std::unique_ptr<Client> client, 
+			std::unique_ptr<UiClient> client, 
 			WindowAttributes windowAttributes, 
 			const std::filesystem::path& projectConfigPath);
 
@@ -34,7 +34,7 @@ namespace Core::App
 		void Run();
 	private:
 		Application(
-			std::unique_ptr<Client> client, 
+			std::unique_ptr<UiClient> client, 
 			Window window, 
 			Graphics::Gl::Renderer renderer,
 			Scripts::Catalog catalog, 
@@ -42,7 +42,7 @@ namespace Core::App
 			Assets::Manager assetManager, 
 			Project project);
 
-		std::unique_ptr<Client> m_Client;
+		std::unique_ptr<UiClient> m_Client;
 		Time m_Time;
 		Window m_Window;
 

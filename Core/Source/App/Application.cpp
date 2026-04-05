@@ -9,7 +9,7 @@
 namespace Core::App
 {
 	Application::Application(
-		std::unique_ptr<Client> client, 
+		std::unique_ptr<UiClient> client, 
 		Window window,
 		Graphics::Gl::Renderer renderer,
 		Scripts::Catalog catalog,
@@ -36,18 +36,19 @@ namespace Core::App
 
 	Application::~Application()
 	{
-		glfwTerminate();
+		m_Client->Shutdown();
 	}
 
 	std::expected<std::unique_ptr<Application>, Utils::Error> Application::Create
 	(
-		std::unique_ptr<Client> client, 
+		std::unique_ptr<UiClient> client, 
 		WindowAttributes windowAttributes, 
 		const std::filesystem::path& projectConfigPath
 	)
 	{
-		if (!glfwInit())
-			return std::unexpected(Utils::Error("Failed to initialize GLFW!"));
+		auto windowBackendResult = Window::InitBackend();
+		if (!windowBackendResult)
+			return std::unexpected(std::move(windowBackendResult).error());
 
 		auto windowResult = Window::Create(std::move(windowAttributes));
 		if (!windowResult)
@@ -56,8 +57,6 @@ namespace Core::App
 		Window window = std::move(windowResult).value();
 
 		window.GetContext().MakeCurrent();
-		if (!gladLoadGL(glfwGetProcAddress))
-			return std::unexpected(Utils::Error("Failed to initialize GLAD!"));
 		window.GetContext().SetSwapInterval(1);
 
 		Scripts::Catalog scriptCatalog;
@@ -135,14 +134,14 @@ namespace Core::App
 		spdlog::info("Renderer: {}", version.Renderer);
 		spdlog::info("GLSL: {}", version.GLSL);
 
-		int major, minor, revision;
-		glfwGetVersion(&major, &minor, &revision);
-		spdlog::info("GLFW Version: {}.{}.{}", major, minor, revision);
+		GlfwVersion glfwVersion = m_Window.GetVersion();
+		spdlog::info("GLFW Version: {}.{}.{}", glfwVersion.major, glfwVersion.minor, glfwVersion.revision);
 	}
 
 	void Application::Run()
 	{
-		Context appContext(m_Time, m_Window, m_Input, m_EventDispatcher, m_Project);
+		Graphics::SceneRenderService sceneRenderService(m_Renderer, m_AssetManager.GetStorage());
+		Context appContext(m_Time, m_Window, m_Renderer, sceneRenderService, m_Input, m_EventDispatcher, m_Scene, m_Project);
 		ECS::Context sceneContext(m_Time, m_Window, m_Input, m_EventDispatcher, m_Scene);
 
 		m_ScriptRunner.Awake(sceneContext);
@@ -159,16 +158,12 @@ namespace Core::App
 			m_ScriptRunner.Update(sceneContext);
 			ECS::Systems::UpdateWorldTransforms(m_Scene);
 
-			m_Renderer.BeginFrame();
+			m_Client->BuildUi(appContext);
 
-			m_Renderer.SetViewport(0, 0, m_Window.GetWidth(), m_Window.GetHeight());
+			m_Renderer.BindSurface(m_Window.GetRenderSurface());
 			m_Renderer.Clear(0.1f, 0.1f, 0.1f, 1.0f);
+			m_Client->CommitUi();
 
-			ECS::Systems::RenderScene(m_Window.GetWidth() / (float)m_Window.GetHeight(), m_Renderer, m_Scene, m_AssetManager.GetStorage());
-
-			m_Client->Render(appContext);
-
-			m_Renderer.EndFrame();
 			m_Window.SwapBuffers();
 		}
 	}

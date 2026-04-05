@@ -5,6 +5,7 @@
 #include "Graphics/Gl/Material.hpp"
 #include "Assets/Storage.hpp"
 #include "Graphics/Gl/DrawContext.hpp"
+#include "Graphics/Gl/RenderSurface.hpp"
 
 namespace Core::Graphics::Gl
 {
@@ -20,10 +21,9 @@ namespace Core::Graphics::Gl
         static std::expected<Renderer, Utils::Error> Create(Assets::Manager& assetManager);
 
         void InitContext(const GraphicsContext* context);
-        void BeginFrame();
-        void EndFrame();
-		void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
-        void Clear(float r, float g, float b, float a);
+        void BindSurface(RenderSurface surface);
+		void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) const;
+		void Clear(float r, float g, float b, float a) const;
 		void DrawMesh(const DrawContext& context) const;
 		void DrawSkybox(const Assets::Storage& storage, const glm::mat4& view, const glm::mat4& projection, const Texture& skybox) const;
     private:
@@ -44,7 +44,7 @@ namespace Core::Graphics::Gl
 		  m_FullPbr(fullPbr),
 		  m_Background(background),
 		  m_BrdfMap(std::move(brdfMap)),
-	      m_SkyboxMesh(std::move(skyboxMesh)) {}
+	      m_SkyboxMesh(std::move(skyboxMesh)) { }
 
 		const GraphicsContext* m_Context = nullptr;
 		Assets::Handle<Assets::ShaderProgram> m_Unlit;
@@ -56,5 +56,7 @@ namespace Core::Graphics::Gl
 
 		Texture m_BrdfMap;
 		Mesh m_SkyboxMesh;
+
+		RenderSurface m_RenderSurface;
     };
 }

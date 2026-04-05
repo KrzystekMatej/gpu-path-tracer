@@ -3,7 +3,7 @@
 
 namespace Core::Graphics::Gl
 {
-	struct EnvironmentMap
+	class EnvironmentMap
 	{
 	public:
 		EnvironmentMap(const EnvironmentMap&) = delete;

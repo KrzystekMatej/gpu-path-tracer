@@ -1,4 +1,5 @@
 #include "Window/GLFWCallbacks.hpp"
+#include <spdlog/spdlog.h>
 #include "Window/Window.hpp"
 #include "Events/Mouse.hpp"
 #include "Events/Keyboard.hpp"
@@ -203,23 +204,40 @@ namespace Core
 
 			return mask;
 		}
+
+		const char* GlfwErrorToString(int error)
+		{
+			switch (error)
+			{
+				case GLFW_NOT_INITIALIZED:     return "NOT_INITIALIZED";
+				case GLFW_NO_CURRENT_CONTEXT:  return "NO_CURRENT_CONTEXT";
+				case GLFW_INVALID_ENUM:        return "INVALID_ENUM";
+				case GLFW_INVALID_VALUE:       return "INVALID_VALUE";
+				case GLFW_OUT_OF_MEMORY:       return "OUT_OF_MEMORY";
+				case GLFW_API_UNAVAILABLE:     return "API_UNAVAILABLE";
+				case GLFW_VERSION_UNAVAILABLE: return "VERSION_UNAVAILABLE";
+				case GLFW_PLATFORM_ERROR:      return "PLATFORM_ERROR";
+				case GLFW_FORMAT_UNAVAILABLE:  return "FORMAT_UNAVAILABLE";
+				case GLFW_NO_WINDOW_CONTEXT:   return "NO_WINDOW_CONTEXT";
+				default:                       return "UNKNOWN";
+			}
+		}
     }
 
 
 
-    void SetGLFWCallbacks(GLFWwindow* windowHandle)
+    void GlfwCallbacks::SetAll(GLFWwindow* windowHandle)
     {
-        glfwSetKeyCallback(windowHandle, KeyCallback);
-        glfwSetFramebufferSizeCallback(windowHandle, FramebufferSizeCallback);
-        glfwSetMouseButtonCallback(windowHandle, MouseButtonCallback);
-        glfwSetCursorPosCallback(windowHandle, CursorPositionCallback);
-		glfwSetWindowCloseCallback(windowHandle, WindowCloseCallback);
+        glfwSetKeyCallback(windowHandle, Key);
+        glfwSetFramebufferSizeCallback(windowHandle, FramebufferSize);
+        glfwSetMouseButtonCallback(windowHandle, MouseButton);
+        glfwSetCursorPosCallback(windowHandle, CursorPosition);
+		glfwSetWindowCloseCallback(windowHandle, WindowClose);
     }
 
-    void KeyCallback(GLFWwindow* windowHandle, int key, int scancode, int action, int mods)
+    void GlfwCallbacks::Key(GLFWwindow* windowHandle, int key, int scancode, int action, int mods)
     {
         Window* window = static_cast<Window*>(glfwGetWindowUserPointer(windowHandle));
-
 		switch (action)
 		{
 			case GLFW_PRESS:
@@ -234,7 +252,7 @@ namespace Core
 		}
     }
 
-    void MouseButtonCallback(GLFWwindow* windowHandle, int button, int action, int mods)
+    void GlfwCallbacks::MouseButton(GLFWwindow* windowHandle, int button, int action, int mods)
     {
         Window* window = static_cast<Window*>(glfwGetWindowUserPointer(windowHandle));
 
@@ -249,13 +267,13 @@ namespace Core
 		}
     }
 
-    void CursorPositionCallback(GLFWwindow* windowHandle, double x, double y)
+    void GlfwCallbacks::CursorPosition(GLFWwindow* windowHandle, double x, double y)
     {
         Window* window = static_cast<Window*>(glfwGetWindowUserPointer(windowHandle));
 		window->m_EventRouter->OnCursorMoved(glm::vec2(static_cast<float>(x), static_cast<float>(y)));
     }
 
-    void FramebufferSizeCallback(GLFWwindow* windowHandle, int width, int height)
+    void GlfwCallbacks::FramebufferSize(GLFWwindow* windowHandle, int width, int height)
     {
         Window* window = static_cast<Window*>(glfwGetWindowUserPointer(windowHandle));
 		window->m_Attributes.width = static_cast<uint32_t>(width);
@@ -263,9 +281,33 @@ namespace Core
 		window->m_EventRouter->OnFramebufferResized(window->m_Attributes.width, window->m_Attributes.height);
     }
 
-	void WindowCloseCallback(GLFWwindow* windowHandle)
+	void GlfwCallbacks::WindowClose(GLFWwindow* windowHandle)
 	{
 		Window* window = static_cast<Window*>(glfwGetWindowUserPointer(windowHandle));
 		window->m_EventRouter->OnWindowCloseRequested();
+	}
+
+	void GlfwCallbacks::Error(int error, const char* description)
+	{
+		spdlog::level::level_enum level;
+
+		switch (error)
+		{
+			case GLFW_OUT_OF_MEMORY:
+			case GLFW_PLATFORM_ERROR:
+				level = spdlog::level::critical;
+				break;
+
+			case GLFW_INVALID_ENUM:
+			case GLFW_INVALID_VALUE:
+				level = spdlog::level::warn;
+				break;
+
+			default:
+				level = spdlog::level::err;
+				break;
+		}
+
+		spdlog::log(level, "[GLFW][{}] {}", GlfwErrorToString(error), description);
 	}
 }
