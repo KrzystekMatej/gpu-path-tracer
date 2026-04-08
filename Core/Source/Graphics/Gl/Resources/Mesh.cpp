@@ -1,8 +1,8 @@
 #include <glad/gl.h>
-#include "Graphics/Gl/Resources/Mesh.hpp"
-#include "Graphics/Gl/VertexLayout.hpp"
+#include <Core/Graphics/Gl/Resources/Mesh.hpp>
+#include <Core/Graphics/Gl/Resources/VertexLayout.hpp>
 
-namespace Core::Graphics::Gl
+namespace Core::Graphics::Gl::Resources
 {
 	Mesh::Mesh(uint32_t vertexCount)
 		: m_VertexCount(vertexCount)
@@ -47,12 +47,12 @@ namespace Core::Graphics::Gl
 			glDeleteBuffers(1, &m_IndexBuffer);
 	}
 
-	std::expected<Mesh, Utils::Error> Mesh::Create(const IO::ParsedMesh& parsedMesh)
+	std::expected<Mesh, Utils::Error> Mesh::Create(const Import::ParsedMesh& parsedMesh)
 	{
 		Mesh mesh(static_cast<uint32_t>(parsedMesh.indices.size()));
 		mesh.BindVertexArray();
 		mesh.BindVertexBuffer();
-		glBufferData(GL_ARRAY_BUFFER, parsedMesh.vertices.size() * sizeof(Graphics::Vertex), parsedMesh.vertices.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, parsedMesh.vertices.size() * sizeof(Graphics::Common::Vertex), parsedMesh.vertices.data(), GL_STATIC_DRAW);
 		mesh.BindIndexBuffer();
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, parsedMesh.indices.size() * sizeof(uint32_t), parsedMesh.indices.data(), GL_STATIC_DRAW);
 

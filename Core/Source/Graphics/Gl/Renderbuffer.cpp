@@ -1,5 +1,5 @@
 #include <glad/glad.h>
-#include "Graphics/Gl/Renderbuffer.hpp"
+#include <Core/Graphics/Gl/Renderbuffer.hpp>
 #include <cassert>
 #include <utility>
 

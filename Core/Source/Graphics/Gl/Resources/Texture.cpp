@@ -1,31 +1,31 @@
 #include <glad/gl.h>
-#include "Graphics/Gl/Resources/Texture.hpp"
+#include <Core/Graphics/Gl/Resources/Texture.hpp>
 
-namespace Core::Graphics::Gl
+namespace Core::Graphics::Gl::Resources
 {
 	namespace
 	{
-		std::expected<uint32_t, Utils::Error> GetInternalFormat(const PixelFormat& format)
+		std::expected<uint32_t, Utils::Error> GetInternalFormat(const Common::PixelFormat& format)
 		{
-			if (format.layout == ChannelLayout::R && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::UInt8)
+			if (format.layout == Common::ChannelLayout::R && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::UInt8)
 				return GL_R8;
-			if (format.layout == ChannelLayout::R && format.colorSpace == ColorSpace::SRGB && format.componentType == ComponentType::UInt8)
+			if (format.layout == Common::ChannelLayout::R && format.colorSpace == Common::ColorSpace::SRGB && format.componentType == Common::ComponentType::UInt8)
 				return GL_R8;
-			if (format.layout == ChannelLayout::RGB && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::UInt8)
+			if (format.layout == Common::ChannelLayout::RGB && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::UInt8)
 				return GL_RGB8;
-			if (format.layout == ChannelLayout::RGB && format.colorSpace == ColorSpace::SRGB && format.componentType == ComponentType::UInt8)
+			if (format.layout == Common::ChannelLayout::RGB && format.colorSpace == Common::ColorSpace::SRGB && format.componentType == Common::ComponentType::UInt8)
 				return GL_SRGB8;
-			if (format.layout == ChannelLayout::RGB && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::Float16)
+			if (format.layout == Common::ChannelLayout::RGB && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::Float16)
 				return GL_RGB16F;
-			if (format.layout == ChannelLayout::RGB && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::Float32)
+			if (format.layout == Common::ChannelLayout::RGB && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::Float32)
 				return GL_RGB32F;
-			if (format.layout == ChannelLayout::RGBA && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::UInt8)
+			if (format.layout == Common::ChannelLayout::RGBA && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::UInt8)
 				return GL_RGBA8;
-			if (format.layout == ChannelLayout::RGBA && format.colorSpace == ColorSpace::SRGB && format.componentType == ComponentType::UInt8)
+			if (format.layout == Common::ChannelLayout::RGBA && format.colorSpace == Common::ColorSpace::SRGB && format.componentType == Common::ComponentType::UInt8)
 				return GL_SRGB8_ALPHA8;
-			if (format.layout == ChannelLayout::RGBA && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::Float16)
+			if (format.layout == Common::ChannelLayout::RGBA && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::Float16)
 				return GL_RGBA16F;
-			if (format.layout == ChannelLayout::RGBA && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::Float32)
+			if (format.layout == Common::ChannelLayout::RGBA && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::Float32)
 				return GL_RGBA32F;
 
 			return std::unexpected(Utils::Error(
@@ -35,15 +35,15 @@ namespace Core::Graphics::Gl
 		}
 
 
-		uint32_t GetExternalFormat(const PixelFormat& format)
+		uint32_t GetExternalFormat(const Common::PixelFormat& format)
 		{
 			switch (format.layout)
 			{
-				case ChannelLayout::R:
+				case Common::ChannelLayout::R:
 					return GL_RED;
-				case ChannelLayout::RGB:
+				case Common::ChannelLayout::RGB:
 					return GL_RGB;
-				case ChannelLayout::RGBA:
+				case Common::ChannelLayout::RGBA:
 					return GL_RGBA;
 				default:
 					return 0;
@@ -51,15 +51,15 @@ namespace Core::Graphics::Gl
 		}
 
 
-		uint32_t GetPixelType(const PixelFormat& format)
+		uint32_t GetPixelType(const Common::PixelFormat& format)
 		{
 			switch (format.componentType)
 			{
-				case ComponentType::UInt8:
+				case Common::ComponentType::UInt8:
 					return GL_UNSIGNED_BYTE;
-				case ComponentType::Float16:
+				case Common::ComponentType::Float16:
 					return GL_HALF_FLOAT;
-				case ComponentType::Float32:
+				case Common::ComponentType::Float32:
 					return GL_FLOAT;
 				default:
 					return 0;
@@ -101,7 +101,7 @@ namespace Core::Graphics::Gl
 			glDeleteTextures(1, &m_Id);
 	}
 
-	std::expected<Texture, Utils::Error> Texture::Create2D(const IO::Image& image)
+	std::expected<Texture, Utils::Error> Texture::Create2D(const Import::Image& image)
 	{
 		auto internalFormatResult = GetInternalFormat(image.format);
 		if (!internalFormatResult)
@@ -133,7 +133,7 @@ namespace Core::Graphics::Gl
 		return texture;
 	}
 
-	std::expected<Texture, Utils::Error> Texture::Create2DFromMipmaps(const IO::ImageMipChain& mipChain)
+	std::expected<Texture, Utils::Error> Texture::Create2DFromMipmaps(const Import::ImageMipChain& mipChain)
 	{
 		const auto& mipMaps = mipChain.mipMaps;
 		if (mipMaps.empty())
@@ -182,7 +182,7 @@ namespace Core::Graphics::Gl
 		return texture;
 	}
 
-	std::expected<Texture, Utils::Error> Texture::CreateCubemap(const IO::Cubemap& cubemap)
+	std::expected<Texture, Utils::Error> Texture::CreateCubemap(const Import::Cubemap& cubemap)
 	{
 		auto internalFormatResult = GetInternalFormat(cubemap.format);
 		if (!internalFormatResult)
@@ -229,7 +229,7 @@ namespace Core::Graphics::Gl
 		return texture;
 	}
 
-	std::expected<Texture, Utils::Error> Texture::CreateCubemapFromMipmaps(const IO::CubemapMipChain& mipChain)
+	std::expected<Texture, Utils::Error> Texture::CreateCubemapFromMipmaps(const Import::CubemapMipChain& mipChain)
 	{
 		const auto& mipMaps = mipChain.mipMaps;
 		if (mipMaps.empty())

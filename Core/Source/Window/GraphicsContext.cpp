@@ -1,8 +1,8 @@
 #include <glad/gl.h>
-#include "Window/GraphicsContext.hpp"
+#include <Core/Window/GraphicsContext.hpp>
 #include <spdlog/spdlog.h>
 
-namespace Core
+namespace Core::Window
 {
 	namespace
 	{

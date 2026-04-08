@@ -1,6 +1,6 @@
 #include <cassert>
 #include <glad/gl.h>
-#include "Graphics/Gl/RenderTarget.hpp"
+#include <Core/Graphics/Gl/RenderTarget.hpp>
 
 namespace Core::Graphics::Gl
 {

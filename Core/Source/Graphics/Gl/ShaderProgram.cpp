@@ -1,5 +1,5 @@
 #include <glad/gl.h>
-#include "Graphics/Gl/ShaderProgram.hpp"
+#include <Core/Graphics/Gl/ShaderProgram.hpp>
 #include <utility>
 
 namespace Core::Graphics::Gl

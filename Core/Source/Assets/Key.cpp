@@ -1,5 +1,5 @@
-#include "Assets/Key.hpp"
-#include "Utils/Hash.hpp"
+#include <Core/Assets/Key.hpp>
+#include <Core/Utils/Hash.hpp>
 
 namespace Core::Assets
 {

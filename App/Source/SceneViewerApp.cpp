@@ -1,18 +1,18 @@
-#include "SceneViewerApp.hpp"
+#include <App/SceneViewerApp.hpp>
 #include <GLFW/glfw3.h>
-#include "Scripting/CameraController.hpp"
+#include <App/Scripts/CameraController.hpp>
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
 namespace App
 {
-    void SceneViewerApp::ImGuiInit(const Core::App::InitContext& context)
+    void SceneViewerApp::ImGuiInit(const Core::Runtime::InitContext& context)
     {
-        context.scriptCatalog.Register("AwakeCameraController", App::Scripting::AwakeCameraController);
-        context.scriptCatalog.Register("UpdateCameraController", App::Scripting::UpdateCameraController);
+        context.scriptCatalog.Register("AwakeCameraController", App::Scripts::AwakeCameraController);
+        context.scriptCatalog.Register("UpdateCameraController", App::Scripts::UpdateCameraController);
 
-        context.resolverRegistry.RegisterResolver("CameraController", std::make_unique<App::Scripting::CameraControllerResolver>());
+        context.builderRegistry.Register("CameraController", std::make_unique<App::Scripts::CameraControllerBuilder>());
 
         m_Window = &context.window;
         context.eventDispatcher.sink<Core::Events::KeyPressed>().connect<&SceneViewerApp::OnKeyPressed>(*this);
@@ -28,11 +28,11 @@ namespace App
 		}
 	}
 
-	void SceneViewerApp::Update(const Core::App::Context& context)
+	void SceneViewerApp::Update(const Core::Runtime::Context& context)
 	{
 	}
 
-	void SceneViewerApp::ImGuiBuild(const Core::App::Context& context)
+	void SceneViewerApp::ImGuiBuild(const Core::Runtime::Context& context)
 	{
 		const ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -79,7 +79,7 @@ namespace App
         if (displayWidth != m_SceneTarget->GetWidth() || sceneHeight != m_SceneTarget->GetHeight())
 			m_SceneTarget->Resize(displayWidth, sceneHeight);
 
-        Core::Graphics::SceneViewDesc sceneViewDesc = {
+        Core::Graphics::Services::SceneViewDesc sceneViewDesc = {
             .target = *m_SceneTarget,
             .scene = context.scene,
             .clearColor = { 0.1f, 0.1f, 0.1f, 1.0f }

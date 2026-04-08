@@ -1,5 +1,5 @@
-#include "Scripts/Catalog.hpp"
-#include "Utils/Hash.hpp"
+#include <Core/Scripts/Catalog.hpp>
+#include <Core/Utils/Hash.hpp>
 
 
 namespace Core::Scripts

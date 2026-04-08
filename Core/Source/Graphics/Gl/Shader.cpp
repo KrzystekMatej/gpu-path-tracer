@@ -1,5 +1,5 @@
 #include <glad/gl.h>
-#include "Graphics/Gl/Shader.hpp"
+#include <Core/Graphics/Gl/Shader.hpp>
 
 namespace Core::Graphics::Gl
 {
@@ -55,7 +55,7 @@ namespace Core::Graphics::Gl
 			glDeleteShader(m_Id);
 	}
 
-	std::expected<Shader, Utils::Error> Shader::Create(const IO::Shader& shader)
+	std::expected<Shader, Utils::Error> Shader::Create(const Import::Shader& shader)
 	{
 		auto typeResult = GetGlShaderType(shader.type);
 		if (!typeResult)

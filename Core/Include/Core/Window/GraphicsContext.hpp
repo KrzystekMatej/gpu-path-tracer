@@ -1,0 +1,39 @@
+#pragma once
+#include <expected>
+#include <GLFW/glfw3.h>
+#include <Core/Utils/Error.hpp>
+
+namespace Core::Window
+{
+	struct GLVersion
+	{
+		int Major;
+		int Minor;
+		std::string Vendor;
+		std::string Renderer;
+		std::string GLSL;
+	};
+
+	class GraphicsContext
+	{
+	public:
+		GraphicsContext(const GraphicsContext&) = delete;
+		GraphicsContext& operator=(const GraphicsContext&) = delete;
+		GraphicsContext(GraphicsContext&&) noexcept = default;
+		GraphicsContext& operator=(GraphicsContext&&) noexcept = default;
+
+		static std::expected<GraphicsContext, Utils::Error> Create(GLFWwindow* windowHandle);
+
+		void MakeCurrent() const;
+		void Detach() const;
+		void SetSwapInterval(int interval) const;
+		GLVersion GetVersion() const;
+
+	private:
+		explicit GraphicsContext(GLFWwindow* windowHandle);
+		static std::expected<void, Utils::Error> LoadOpenGL();
+		void InitDebugCallback();
+
+		GLFWwindow* m_WindowHandle;
+	};
+}

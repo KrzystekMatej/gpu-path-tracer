@@ -1,11 +1,11 @@
-#include "Window/GLFWCallbacks.hpp"
+#include <Core/Window/GLFWCallbacks.hpp>
 #include <spdlog/spdlog.h>
-#include "Window/Window.hpp"
-#include "Events/Mouse.hpp"
-#include "Events/Keyboard.hpp"
-#include "Events/Window.hpp"
+#include <Core/Window/NativeWindow.hpp>
+#include <Core/Events/Mouse.hpp>
+#include <Core/Events/Keyboard.hpp>
+#include <Core/Events/Window.hpp>
 
-namespace Core
+namespace Core::Window
 {
     namespace
     {
@@ -237,7 +237,7 @@ namespace Core
 
     void GlfwCallbacks::Key(GLFWwindow* windowHandle, int key, int scancode, int action, int mods)
     {
-        Window* window = static_cast<Window*>(glfwGetWindowUserPointer(windowHandle));
+        NativeWindow* window = static_cast<NativeWindow*>(glfwGetWindowUserPointer(windowHandle));
 		switch (action)
 		{
 			case GLFW_PRESS:
@@ -254,7 +254,7 @@ namespace Core
 
     void GlfwCallbacks::MouseButton(GLFWwindow* windowHandle, int button, int action, int mods)
     {
-        Window* window = static_cast<Window*>(glfwGetWindowUserPointer(windowHandle));
+        NativeWindow* window = static_cast<NativeWindow*>(glfwGetWindowUserPointer(windowHandle));
 
 		switch (action)
 		{
@@ -269,13 +269,13 @@ namespace Core
 
     void GlfwCallbacks::CursorPosition(GLFWwindow* windowHandle, double x, double y)
     {
-        Window* window = static_cast<Window*>(glfwGetWindowUserPointer(windowHandle));
+        NativeWindow* window = static_cast<NativeWindow*>(glfwGetWindowUserPointer(windowHandle));
 		window->m_EventRouter->OnCursorMoved(glm::vec2(static_cast<float>(x), static_cast<float>(y)));
     }
 
     void GlfwCallbacks::FramebufferSize(GLFWwindow* windowHandle, int width, int height)
     {
-        Window* window = static_cast<Window*>(glfwGetWindowUserPointer(windowHandle));
+        NativeWindow* window = static_cast<NativeWindow*>(glfwGetWindowUserPointer(windowHandle));
 		window->m_Attributes.width = static_cast<uint32_t>(width);
 		window->m_Attributes.height = static_cast<uint32_t>(height);
 		window->m_EventRouter->OnFramebufferResized(window->m_Attributes.width, window->m_Attributes.height);
@@ -283,7 +283,7 @@ namespace Core
 
 	void GlfwCallbacks::WindowClose(GLFWwindow* windowHandle)
 	{
-		Window* window = static_cast<Window*>(glfwGetWindowUserPointer(windowHandle));
+		NativeWindow* window = static_cast<NativeWindow*>(glfwGetWindowUserPointer(windowHandle));
 		window->m_EventRouter->OnWindowCloseRequested();
 	}
 

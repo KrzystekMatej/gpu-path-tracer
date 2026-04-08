@@ -1,4 +1,4 @@
-#include "Utils/Text.hpp"
+#include <Core/Utils/Text.hpp>
 #include <algorithm>
 
 namespace Core::Utils::Text

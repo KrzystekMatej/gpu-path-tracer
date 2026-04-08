@@ -1,7 +1,7 @@
 #include <glad/glad.h>
-#include "Graphics/Gl/Framebuffer.hpp"
-#include "Graphics/Gl/Renderbuffer.hpp"
-#include "Graphics/Gl/Resources/Texture.hpp"
+#include <Core/Graphics/Gl/Framebuffer.hpp>
+#include <Core/Graphics/Gl/Renderbuffer.hpp>
+#include <Core/Graphics/Gl/Resources/Texture.hpp>
 
 namespace Core::Graphics::Gl
 {
@@ -35,7 +35,7 @@ namespace Core::Graphics::Gl
         glBindFramebuffer(GL_FRAMEBUFFER, m_Id);
     }
 
-    void Framebuffer::AttachTexture(uint32_t attachment, const Texture& texture, int level) const
+    void Framebuffer::AttachTexture(uint32_t attachment, const Resources::Texture& texture, int level) const
     {
         glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, texture.GetTarget(), texture.GetId(), level);
     }

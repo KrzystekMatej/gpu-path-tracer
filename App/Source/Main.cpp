@@ -1,17 +1,16 @@
-#include "App/Application.hpp"
-#include "SceneViewerApp.hpp"
-#include "Project/ProjectConfig.hpp"
 #include <expected>
+#include <Core/Runtime/Application.hpp>
+#include <App/SceneViewerApp.hpp>
 
 
 int main()
 {
 	std::filesystem::path projectConfigPath = "../../../project-config.yaml";
 
-	auto appResult = Core::App::Application::Create
+	auto appResult = Core::Runtime::Application::Create
 	(
 		std::make_unique<App::SceneViewerApp>(),
-		Core::WindowAttributes::DefaultAttributes(),
+		Core::Window::Attributes::DefaultAttributes(),
 		projectConfigPath
 	);
 
@@ -23,11 +22,10 @@ int main()
 	
 	
 	{
-		std::unique_ptr<Core::App::Application> app = std::move(appResult).value();
+		std::unique_ptr<Core::Runtime::Application> app = std::move(appResult).value();
 		app->PrintInfo();
 		app->Run();
 	}	
 
-	Core::Window::TerminateBackend();
 	return 0;
 }

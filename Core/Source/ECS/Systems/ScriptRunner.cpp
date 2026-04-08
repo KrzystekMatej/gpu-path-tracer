@@ -1,4 +1,4 @@
-#include "ECS/Systems/ScriptRunner.hpp"
+#include <Core/ECS/Systems/ScriptRunner.hpp>
 
 namespace Core::ECS::Systems
 {

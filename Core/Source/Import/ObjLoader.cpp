@@ -1,0 +1,216 @@
+#include <Core/Import/ObjLoader.hpp>
+#include <map>
+#include <unordered_map>
+#include <format>
+#include <tiny_obj_loader.h>
+#include <spdlog/spdlog.h>
+#include <Core/Utils/Math/TangentSpace.hpp>
+
+namespace Core::Import
+{
+	namespace
+	{
+		struct ObjIndexKey
+		{
+			int32_t v;
+			int32_t vt;
+			int32_t vn;
+
+			friend bool operator==(const ObjIndexKey& a, const ObjIndexKey& b) noexcept
+			{
+				return a.v == b.v && a.vt == b.vt && a.vn == b.vn;
+			}
+		};
+
+		struct ObjIndexKeyHash
+		{
+			static size_t Combine(size_t h, uint32_t x) noexcept
+			{
+				return h ^ (static_cast<size_t>(x) + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2));
+			}
+
+			size_t operator()(const ObjIndexKey& k) const noexcept
+			{
+				size_t h = 0;
+				h = Combine(h, static_cast<uint32_t>(k.v));
+				h = Combine(h, static_cast<uint32_t>(k.vt));
+				h = Combine(h, static_cast<uint32_t>(k.vn));
+				return h;
+			}
+		};
+
+		struct SubmeshBuilder
+		{
+			std::vector<Graphics::Common::Vertex> vertices;
+			std::vector<uint32_t> indices;
+			std::unordered_map<ObjIndexKey, size_t, ObjIndexKeyHash> indexMap;
+		};
+
+		const std::string SurfaceModelKey = "surface";
+
+		constexpr std::array<std::pair<std::string_view, Graphics::Common::SurfaceModel>, 7> SurfaceModels = {
+			std::pair{ "unlit" , Graphics::Common::SurfaceModel::Unlit},
+			std::pair{ "normal" , Graphics::Common::SurfaceModel::Normal},
+			std::pair{ "mirror" , Graphics::Common::SurfaceModel::Mirror},
+			std::pair{ "diffuse" , Graphics::Common::SurfaceModel::Diffuse},
+			std::pair{ "microfacet" , Graphics::Common::SurfaceModel::Microfacet},
+			std::pair{ "emissive" , Graphics::Common::SurfaceModel::Emissive}
+		};
+	}
+
+	std::expected<ParsedModel, Utils::Error> LoadObj(const std::filesystem::path& path)
+	{
+		tinyobj::ObjReaderConfig readerConfig;
+		readerConfig.mtl_search_path = path.parent_path().string();
+		readerConfig.triangulate = true;
+		readerConfig.vertex_color = false;
+
+		tinyobj::ObjReader reader;
+
+		if (!reader.ParseFromFile(path.string(), readerConfig))
+		{
+		  if (!reader.Error().empty())
+			  return std::unexpected(Utils::Error("TinyObjReader failed, error: {}", reader.Error()));
+		  return std::unexpected(Utils::Error("TinyObjReader failed, error: unknown, file path: {}", path.string()));
+		}
+
+		if (!reader.Warning().empty())
+			spdlog::warn("TinyObjReader warning while loading '{}': {}", path.string(), reader.Warning());
+
+		auto& attrib = reader.GetAttrib();
+		auto& shapes = reader.GetShapes();
+
+		constexpr size_t fv = 3;
+
+		std::vector<ParsedMesh> meshes;
+
+		for (size_t s = 0; s < shapes.size(); s++)
+		{
+			size_t indexOffset = 0;
+			std::map<int, SubmeshBuilder> submeshes;
+
+			for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++)
+			{
+				int matId = shapes[s].mesh.material_ids[f];
+				auto& builder = submeshes[matId];
+
+				for (size_t v = 0; v < fv; v++)
+				{
+					Graphics::Common::Vertex vertex{};
+
+					tinyobj::index_t idx = shapes[s].mesh.indices[indexOffset + v];
+					vertex.position.x = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
+					vertex.position.y = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
+					vertex.position.z = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
+
+					if (idx.normal_index >= 0)
+					{
+						vertex.normal.x = attrib.normals[3 * size_t(idx.normal_index) + 0];
+						vertex.normal.y = attrib.normals[3 * size_t(idx.normal_index) + 1];
+						vertex.normal.z = attrib.normals[3 * size_t(idx.normal_index) + 2];
+					}
+					else return std::unexpected(Utils::Error(
+						"Mesh loading failed, error: normal data is required but not found, file path: {}", 
+						path.string()));
+
+					vertex.normal = glm::normalize(vertex.normal);
+
+					if (idx.texcoord_index >= 0)
+					{
+						vertex.uv.x = attrib.texcoords[2 * size_t(idx.texcoord_index) + 0];
+						vertex.uv.y = attrib.texcoords[2 * size_t(idx.texcoord_index) + 1];
+					}
+					else return std::unexpected(Utils::Error(
+						"Mesh loading failed, error: uv data is required but not found, file path: {}", 
+						path.string()));
+
+					ObjIndexKey key
+					{
+						static_cast<int32_t>(idx.vertex_index),
+						static_cast<int32_t>(idx.texcoord_index),
+						static_cast<int32_t>(idx.normal_index)
+					};
+
+					auto [it, inserted] = builder.indexMap.try_emplace(key, static_cast<uint32_t>(builder.vertices.size()));
+
+					if (inserted)
+						builder.vertices.push_back(vertex);
+
+					builder.indices.push_back(it->second);
+				}
+				indexOffset += fv;
+			}
+
+			for (auto& [matId, builder] : submeshes)
+			{
+				Utils::Math::GenerateTangentSpace(builder.vertices, builder.indices);
+
+				meshes.push_back(ParsedMesh
+				{
+					.index = static_cast<uint32_t>(meshes.size()),
+					.vertices = std::move(builder.vertices),
+					.indices = std::move(builder.indices),
+					.materialIndex = matId >= 0
+						? std::make_optional<uint32_t>(matId)
+						: std::nullopt
+				});
+			}
+		}
+		
+		auto& materialSources = reader.GetMaterials();
+
+		if (materialSources.empty())
+			spdlog::warn("No materials were loaded for '{}'. Faces referencing materials will be ignored.", path.string());
+		
+		std::vector<ParsedMaterial> materials;
+
+		for (auto& source : materialSources)
+		{
+			auto it = source.unknown_parameter.find(SurfaceModelKey);
+			Graphics::Common::SurfaceModel surface = Graphics::Common::MaterialDefaults::DefaultSurfaceModel;
+
+			if (it != source.unknown_parameter.end())
+			{
+				bool found = false;
+				const std::string& surfaceValue = it->second;
+
+				for (const auto& [key, model] : SurfaceModels)
+				{
+					if (surfaceValue == key)
+					{
+						surface = model;
+						found = true;
+						break;
+					}
+				}
+
+				if (!found)	
+					spdlog::warn(
+						"Unknown shader value '{}' for material '{}', defaulting to Unlit shader. File path: {}",
+						surfaceValue,
+						source.name,
+						path.string());
+			}
+
+			materials.push_back(ParsedMaterial{
+				.name = source.name,
+				.surface = surface,
+				.albedo = { source.diffuse[0], source.diffuse[1], source.diffuse[2] },
+				.roughness = source.roughness,
+				.metallic = source.metallic,
+				.albedoTexture = source.diffuse_texname.empty() ? std::nullopt : std::make_optional(source.diffuse_texname),
+				.roughnessTexture = source.roughness_texname.empty() ? std::nullopt : std::make_optional(source.roughness_texname),
+				.metallicTexture = source.metallic_texname.empty() ? std::nullopt : std::make_optional(source.metallic_texname),
+				.aoTexture = source.ambient_texname.empty() ? std::nullopt : std::make_optional(source.ambient_texname),
+				.normalTexture = source.normal_texname.empty() ? std::nullopt : std::make_optional(source.normal_texname)
+			});
+		}
+
+
+		return ParsedModel
+		{
+			.meshes = std::move(meshes),
+			.materials = std::move(materials)
+		};
+	}
+}

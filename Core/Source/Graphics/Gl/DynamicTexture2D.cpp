@@ -1,5 +1,5 @@
 #include <glad/gl.h>
-#include "Graphics/Gl/DynamicTexture2D.hpp"
+#include <Core/Graphics/Gl/DynamicTexture2D.hpp>
 
 namespace Core::Graphics::Gl
 {

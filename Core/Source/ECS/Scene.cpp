@@ -1,24 +1,24 @@
-#include "ECS/Scene.hpp"
+#include <Core/ECS/Scene.hpp>
 #include <spdlog/spdlog.h>
 #include <stack>
-#include "ECS/Components/Camera.hpp"
-#include "Utils/Yaml.hpp"
-#include "ECS/Components/Transform.hpp"
-#include "ECS/Components/Hierarchy.hpp"
+#include <Core/ECS/Components/Camera.hpp>
+#include <Core/Utils/Yaml.hpp>
+#include <Core/ECS/Components/Transform.hpp>
+#include <Core/ECS/Components/Hierarchy.hpp>
 
 namespace Core::ECS
 {
 	std::expected<Scene, Utils::Error> Scene::Create(
-		IO::Scene scene,
-		const ECS::SceneResolverRegistry& resolverRegistry,
+		Import::Scene scene,
+		const ECS::SceneNodes::BuilderRegistry& builderRegistry,
 		Assets::Manager& assetManager)
 	{
 		entt::registry registry;
-		std::stack<SceneNodeContext> nodes;
+		std::stack<SceneNodes::BuildContext> nodes;
 
 		for (const auto& rootNode : scene.sceneRoot)
 		{
-			nodes.push(SceneNodeContext{
+			nodes.push(SceneNodes::BuildContext{
 				.node = rootNode,
 				.entity = registry.create(),
 				.parent = entt::null
@@ -27,7 +27,7 @@ namespace Core::ECS
 
 		while (!nodes.empty())
 		{
-			SceneNodeContext current = nodes.top();
+			SceneNodes::BuildContext current = nodes.top();
 			nodes.pop();
 
 			YAML::Node components = current.node["components"];
@@ -49,21 +49,21 @@ namespace Core::ECS
 						return std::unexpected(Utils::Error(std::move(typeResult).error()));
 
 					std::string typeStr = std::move(typeResult).value();
-					Utils::Guid resolverId = Utils::Hasher::MakeId(typeStr);
+					Utils::Guid builderId = Utils::Hasher::MakeId(typeStr);
 					
-					auto resolverResult = resolverRegistry.GetResolver(resolverId);
-					if (!resolverResult)
-						return std::unexpected(Utils::Error(resolverResult.error().Message()));
+					auto builderResult = builderRegistry.Get(builderId);
+					if (!builderResult)
+						return std::unexpected(Utils::Error(builderResult.error().Message()));
 
-					const SceneNodeResolver& resolver = resolverResult.value();
+					const SceneNodes::Builder& builder = builderResult.value();
 
-					SceneNodeContext context{
+					SceneNodes::BuildContext context{
 						.node = componentNode,
 						.entity = current.entity,
 						.parent = current.parent
 					};
 
-					auto ok = resolver.Resolve(context, registry, assetManager);
+					auto ok = builder.Build(context, registry, assetManager);
 
 					if (!ok)
 						return std::unexpected(ok.error());
@@ -86,7 +86,7 @@ namespace Core::ECS
 					registry.emplace<Components::Parent>(childEntity, current.entity);
 
 					childEntities.emplace_back(childEntity);
-					nodes.push(SceneNodeContext{
+					nodes.push(SceneNodes::BuildContext{
 						.node = childNode,
 						.entity = childEntity,
 						.parent = current.entity

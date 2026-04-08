@@ -1,7 +1,7 @@
 #include <glad/gl.h>
-#include "Graphics/Gl/VertexLayout.hpp"
+#include <Core/Graphics/Gl/Resources/VertexLayout.hpp>
 
-namespace Core::Graphics::Gl
+namespace Core::Graphics::Gl::Resources
 {
 	uint32_t VertexAttribute::GetSizeOfType(uint32_t type)
 	{

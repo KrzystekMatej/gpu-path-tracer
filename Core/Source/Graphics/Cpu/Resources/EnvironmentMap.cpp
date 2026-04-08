@@ -1,6 +1,6 @@
-#include "Graphics/Cpu/Resources/EnvironmentMap.hpp"
+#include <Core/Graphics/Cpu/Resources/EnvironmentMap.hpp>
 
-namespace Core::Graphics::Cpu
+namespace Core::Graphics::Cpu::Resources
 {
 	EnvironmentMap EnvironmentMap::Create(Texture background)
 	{

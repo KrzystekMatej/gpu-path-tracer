@@ -1,7 +1,7 @@
-#include "ECS/Systems/Transform.hpp"
+#include <Core/ECS/Systems/Transform.hpp>
 #include <stack>
-#include "ECS/Components/Transform.hpp"
-#include "ECS/Components/Hierarchy.hpp"
+#include <Core/ECS/Components/Transform.hpp>
+#include <Core/ECS/Components/Hierarchy.hpp>
 
 namespace Core::ECS::Systems
 {

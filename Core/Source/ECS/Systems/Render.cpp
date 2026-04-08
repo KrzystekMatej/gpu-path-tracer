@@ -1,8 +1,8 @@
-#include "ECS/Systems/Render.hpp"
-#include "ECS/Components/Graphics.hpp"
-#include "ECS/Components/Camera.hpp"
-#include "ECS/Components/Transform.hpp"
-#include "Graphics/Gl/Material.hpp"
+#include <Core/ECS/Systems/Render.hpp>
+#include <Core/ECS/Components/Graphics.hpp>
+#include <Core/ECS/Components/Camera.hpp>
+#include <Core/ECS/Components/Transform.hpp>
+#include <Core/Graphics/Gl/Material.hpp>
 
 namespace Core::ECS::Systems
 {
@@ -18,7 +18,7 @@ namespace Core::ECS::Systems
 		glm::mat4 cameraModel = cameraTransform.GetMatrix();
 		glm::mat4 view = glm::inverse(cameraModel);
 
-		std::vector<Graphics::Light> lights;
+		std::vector<Graphics::Common::Light> lights;
 
 		registry.view<WorldTransform, Light>().each([&](const WorldTransform& transform, const Light& light)
 		{
@@ -31,7 +31,7 @@ namespace Core::ECS::Systems
 		});
 
 
-		const Graphics::Gl::EnvironmentMap* environmentMap = nullptr;
+		const Graphics::Gl::Resources::EnvironmentMap* environmentMap = nullptr;
 		registry.view<Background>().each([&](const Background& background)
 		{
 			environmentMap = &storage.Get(background.handle).value().get().gl;
@@ -41,7 +41,7 @@ namespace Core::ECS::Systems
 		{
 			glm::mat4 model = transform.GetMatrix();
 
-			const Graphics::Gl::Mesh& glMesh = storage.Get(mesh.handle).value().get().gl;
+			const Graphics::Gl::Resources::Mesh& glMesh = storage.Get(mesh.handle).value().get().gl;
 			const Assets::Material& materialAsset = storage.Get(material.handle).value().get();
 			const Graphics::Gl::Material glMaterial = 
 			{
