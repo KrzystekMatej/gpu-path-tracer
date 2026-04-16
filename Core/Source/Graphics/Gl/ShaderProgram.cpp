@@ -29,7 +29,10 @@ namespace Core::Graphics::Gl
 	ShaderProgram::~ShaderProgram()
 	{
 		if (m_Id)
+		{
 			glDeleteProgram(m_Id);
+			m_Id = 0;
+		}
 	}
 
 	std::expected<ShaderProgram, Utils::Error> ShaderProgram::Create(std::span<Shader> shaders)

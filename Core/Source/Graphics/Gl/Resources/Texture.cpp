@@ -79,8 +79,10 @@ namespace Core::Graphics::Gl::Resources
 	}
 	
 	Texture::Texture(Texture&& other) noexcept
-		: m_Id(std::exchange(other.m_Id, 0)), 
-		m_Target(std::exchange(other.m_Target, 0)) { }
+		: m_Id(std::exchange(other.m_Id, 0)),
+		m_Target(other.m_Target)
+	{ 
+	}
 
 	Texture& Texture::operator=(Texture&& other) noexcept
 	{
@@ -90,7 +92,7 @@ namespace Core::Graphics::Gl::Resources
 				glDeleteTextures(1, &m_Id);
 
 			m_Id = std::exchange(other.m_Id, 0);
-			m_Target = std::exchange(other.m_Target, 0);
+			m_Target = other.m_Target;
 		}
 		return *this;
 	}
@@ -98,7 +100,10 @@ namespace Core::Graphics::Gl::Resources
 	Texture::~Texture()
 	{
 		if (m_Id)
+		{
 			glDeleteTextures(1, &m_Id);
+			m_Id = 0;
+		}
 	}
 
 	std::expected<Texture, Utils::Error> Texture::Create2D(const Import::Image& image)
@@ -145,7 +150,6 @@ namespace Core::Graphics::Gl::Resources
 		uint32_t internalFormat = internalFormatResult.value();
 		uint32_t externalFormat = GetExternalFormat(mipChain.format);
 		uint32_t pixelType = GetPixelType(mipChain.format);
-		uint32_t id;
 
 		Texture texture(GL_TEXTURE_2D);
 		texture.Bind();
@@ -190,7 +194,6 @@ namespace Core::Graphics::Gl::Resources
 		uint32_t internalFormat = internalFormatResult.value();
 		uint32_t externalFormat = GetExternalFormat(cubemap.format);
 		uint32_t pixelType = GetPixelType(cubemap.format);
-		uint32_t id;
 
 		Texture texture(GL_TEXTURE_CUBE_MAP);
 		texture.Bind();
@@ -241,7 +244,6 @@ namespace Core::Graphics::Gl::Resources
 		uint32_t internalFormat = internalFormatResult.value();
 		uint32_t externalFormat = GetExternalFormat(mipChain.format);
 		uint32_t pixelType = GetPixelType(mipChain.format);
-		uint32_t id;
 
 		Texture texture(GL_TEXTURE_CUBE_MAP);
 		texture.Bind();

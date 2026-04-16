@@ -30,9 +30,9 @@ namespace Core::Runtime
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	}
 
-	void ImGuiClient::Shutdown()
+	void ImGuiClient::Shutdown(const Context& context)
 	{
-		ImGuiShutdown();
+		ImGuiShutdown(context);
 		ImGui_ImplOpenGL3_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
 		ImGui::DestroyContext();

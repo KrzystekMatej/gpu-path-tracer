@@ -52,7 +52,10 @@ namespace Core::Graphics::Gl
 	Shader::~Shader()
 	{
 		if (m_Id)
+		{
 			glDeleteShader(m_Id);
+			m_Id = 0;
+		}
 	}
 
 	std::expected<Shader, Utils::Error> Shader::Create(const Import::Shader& shader)

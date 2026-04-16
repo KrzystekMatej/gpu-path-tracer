@@ -21,6 +21,7 @@ namespace Core::Graphics::Gl
 		DynamicTexture2D& operator=(DynamicTexture2D&&) noexcept = default;
 
         void Allocate(uint32_t width, uint32_t height);
+		void Upload(const void* data) const;
         const Resources::Texture& GetTexture() const { return m_Texture; }
         uint32_t GetWidth() const { return m_Width; }
         uint32_t GetHeight() const { return m_Height; }

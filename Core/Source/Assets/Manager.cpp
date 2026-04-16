@@ -100,12 +100,16 @@ namespace Core::Assets
 
 		auto glResult = Graphics::Gl::Resources::Texture::Create2D(image);
 		if (!glResult)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(glResult.error()), "Failed to create GL texture from pixel"));
+			return std::unexpected(Utils::Error(std::move(glResult).error()));
+
+		auto cudaResult = Graphics::Cuda::Resources::Texture::Create2D(image);
+		if (!cudaResult)
+			return std::unexpected(Utils::Error(std::move(cudaResult).error()));
 
 		Texture asset(
-			Graphics::Cpu::Resources::Texture::Create(std::move(image)), 
-			std::move(glResult.value()),
-			Graphics::Cuda::Resources::Texture{});
+			Graphics::Cpu::Resources::Texture::Create(std::move(image)),
+			std::move(glResult).value(),
+			std::move(cudaResult).value());
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		return handle.value();
@@ -212,10 +216,17 @@ namespace Core::Assets
 				"Failed to create GL texture, file path: {}", 
 				absoluteStr));
 
+		auto cudaResult = Graphics::Cuda::Resources::Texture::Create2D(image);
+		if (!cudaResult)
+			return std::unexpected(Utils::Error(
+				std::make_shared<Utils::Error>(cudaResult.error()), 
+				"Failed to create GL texture, file path: {}", 
+				absoluteStr));
+
 		Texture asset(
-			Graphics::Cpu::Resources::Texture::Create(std::move(image)), 
-			std::move(glResult.value()), 
-			Graphics::Cuda::Resources::Texture{});
+			Graphics::Cpu::Resources::Texture::Create(std::move(image)),
+			std::move(glResult).value(),
+			std::move(cudaResult).value());
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		return handle.value();

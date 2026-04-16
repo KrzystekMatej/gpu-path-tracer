@@ -6,6 +6,7 @@
 #include <Core/Runtime/UiClient.hpp>
 #include <Core/Project/Descriptor.hpp>
 #include <Core/Graphics/Gl/Renderer.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Renderer.hpp>
 #include <Core/Assets/Manager.hpp>
 #include <Core/Runtime/Time.hpp>
 #include <Core/Scripts/Catalog.hpp>

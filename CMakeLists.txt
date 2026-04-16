@@ -9,6 +9,19 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
+if (MSVC)
+    # Enable warning level 4
+    add_compile_options("$<$<COMPILE_LANGUAGE:C,CXX>:/W4>")
+    # Enable ASan in debug builds
+    string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+    string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+
+    add_compile_options("$<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:C,CXX>>:/fsanitize=address>")
+    
+    add_link_options("$<$<CONFIG:Debug>:/fsanitize=address>")
+    add_link_options("$<$<CONFIG:Debug>:/INCREMENTAL:NO>")
+endif()
+
 find_package(CUDAToolkit REQUIRED)
 
 list(APPEND CMAKE_MODULE_PATH
@@ -30,4 +43,4 @@ endforeach()
 add_subdirectory(Core)
 add_subdirectory(App)
 
-set(VS_FORCE_RECONFIGURE "15" CACHE STRING "noop")
+set(VS_FORCE_RECONFIGURE "17" CACHE STRING "noop")

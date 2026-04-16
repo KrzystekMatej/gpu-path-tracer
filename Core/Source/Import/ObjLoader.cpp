@@ -136,7 +136,7 @@ namespace Core::Import
 					if (inserted)
 						builder.vertices.push_back(vertex);
 
-					builder.indices.push_back(it->second);
+					builder.indices.push_back(static_cast<uint32_t>(it->second));
 				}
 				indexOffset += fv;
 			}

@@ -36,9 +36,7 @@ namespace Core::Window
 					break;
 			}
 
-			spdlog::log(level,
-				"[OpenGL] id={} source=0x{:X} type=0x{:X} msg={}",
-				id, source, type, message);
+			spdlog::log(level, "[OpenGL] id={} source=0x{:X} type=0x{:X} msg={}", id, source, type, message);
 		}
 	}
 

@@ -10,10 +10,7 @@ out vec3 tex_dir;
 void main()
 {
     tex_dir = local_position;
-
-    mat4 view_rot = mat4(mat3(view));
-
-    vec4 clip = projection * view_rot * vec4(local_position, 1.0);
-
+    mat4 view_rotation = mat4(mat3(view));
+    vec4 clip = projection * view_rotation * vec4(local_position, 1.0);
     gl_Position = clip.xyww;
 }

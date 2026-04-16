@@ -1,4 +1,3 @@
-#include <glad/gl.h>
 #include <Core/Runtime/Application.hpp>
 #include <Core/Runtime/Context.hpp>
 #include <Core/ECS/Systems/Render.hpp>
@@ -36,7 +35,9 @@ namespace Core::Runtime
 
 	Application::~Application()
 	{
-		m_Client->Shutdown();
+		Graphics::Services::SceneRenderer sceneRenderService(m_Renderer, m_AssetManager.GetStorage());
+		Context appContext(m_Time, m_Window, m_Renderer, sceneRenderService, m_Input, m_EventDispatcher, m_Scene, m_Project);
+		m_Client->Shutdown(appContext);
 		m_Window.Destroy();
 		Core::Window::NativeWindow::TerminateBackend();
 	}

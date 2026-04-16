@@ -1,6 +1,6 @@
 #include <expected>
 #include <Core/Runtime/Application.hpp>
-#include <App/SceneViewerApp.hpp>
+#include <App/Ui/SceneViewerApp.hpp>
 
 
 int main()
@@ -9,7 +9,7 @@ int main()
 
 	auto appResult = Core::Runtime::Application::Create
 	(
-		std::make_unique<App::SceneViewerApp>(),
+		std::make_unique<App::Ui::SceneViewerApp>(),
 		Core::Window::Attributes::DefaultAttributes(),
 		projectConfigPath
 	);

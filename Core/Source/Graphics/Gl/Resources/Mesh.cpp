@@ -16,7 +16,7 @@ namespace Core::Graphics::Gl::Resources
 		: m_VertexArray(std::exchange(other.m_VertexArray, 0)),
 		m_VertexBuffer(std::exchange(other.m_VertexBuffer, 0)),
 		m_IndexBuffer(std::exchange(other.m_IndexBuffer, 0)),
-		m_VertexCount(std::exchange(other.m_VertexCount, 0)) { }
+		m_VertexCount(other.m_VertexCount) { }
 
 	Mesh& Mesh::operator=(Mesh&& other) noexcept
 	{
@@ -32,7 +32,7 @@ namespace Core::Graphics::Gl::Resources
 			m_VertexArray = std::exchange(other.m_VertexArray, 0);
 			m_VertexBuffer = std::exchange(other.m_VertexBuffer, 0);
 			m_IndexBuffer = std::exchange(other.m_IndexBuffer, 0);
-			m_VertexCount = std::exchange(other.m_VertexCount, 0);
+			m_VertexCount = other.m_VertexCount;
 		}
 		return *this;
 	}
@@ -40,11 +40,20 @@ namespace Core::Graphics::Gl::Resources
 	Mesh::~Mesh()
 	{
 		if (m_VertexArray)
+		{
 			glDeleteVertexArrays(1, &m_VertexArray);
+			m_VertexArray = 0;
+		}
 		if (m_VertexBuffer)
+		{
 			glDeleteBuffers(1, &m_VertexBuffer);
+			m_VertexBuffer = 0;
+		}
 		if (m_IndexBuffer)
+		{
 			glDeleteBuffers(1, &m_IndexBuffer);
+			m_IndexBuffer = 0;
+		}
 	}
 
 	std::expected<Mesh, Utils::Error> Mesh::Create(const Import::ParsedMesh& parsedMesh)

@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include <cstddef>
 
 namespace Core::Graphics::Common
 {
@@ -49,7 +51,7 @@ namespace Core::Graphics::Common
 
 		uint32_t GetBytesPerPixel() const
 		{
-			return static_cast<size_t>(layout) * GetComponentSize();
+			return static_cast<uint32_t>(layout) * GetComponentSize();
 		}
 
 		bool operator==(const PixelFormat&) const = default;

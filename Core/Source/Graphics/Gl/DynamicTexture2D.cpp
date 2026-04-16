@@ -23,6 +23,24 @@ namespace Core::Graphics::Gl
         Allocate();
 	}
 
+    void DynamicTexture2D::Upload(const void* data) const
+    {
+        assert(m_Texture.GetId() != 0);
+        assert(data != nullptr);
+
+        m_Texture.Bind();
+        glTexSubImage2D(
+            GL_TEXTURE_2D,
+            0,
+            0,
+            0,
+            static_cast<GLsizei>(m_Width),
+            static_cast<GLsizei>(m_Height),
+            m_Format.externalFormat,
+            m_Format.pixelType,
+            data);
+	}
+
     void DynamicTexture2D::Init()
     {
         m_Texture.Bind();
@@ -34,9 +52,7 @@ namespace Core::Graphics::Gl
 
     void DynamicTexture2D::Allocate()
 	{
-        assert(m_Width != 0);
-        assert(m_Height != 0);
-        assert(m_Format.externalFormat != 0);
+        assert(m_Texture.GetId() != 0);
 
 		m_Texture.Bind();
 		glTexImage2D(

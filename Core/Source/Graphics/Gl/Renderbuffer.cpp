@@ -18,11 +18,13 @@ namespace Core::Graphics::Gl
         Allocate();
     }
 
-	Renderbuffer::Renderbuffer(Renderbuffer&& other) noexcept
-		: m_Id(std::exchange(other.m_Id, 0)),
-        m_Width(std::exchange(other.m_Width, 0)),
-        m_Height(std::exchange(other.m_Height, 0)),
-        m_InternalFormat(std::exchange(other.m_InternalFormat, 0)) { }
+    Renderbuffer::Renderbuffer(Renderbuffer&& other) noexcept
+        : m_Id(std::exchange(other.m_Id, 0)),
+        m_Width(other.m_Width),
+        m_Height(other.m_Height),
+        m_InternalFormat(other.m_InternalFormat)
+    {
+    }
 
 	Renderbuffer& Renderbuffer::operator=(Renderbuffer&& other) noexcept
 	{
@@ -32,16 +34,20 @@ namespace Core::Graphics::Gl
 				glDeleteRenderbuffers(1, &m_Id);
 
 			m_Id = std::exchange(other.m_Id, 0);
-			m_Width = std::exchange(other.m_Width, 0);
-			m_Height = std::exchange(other.m_Height, 0);
-			m_InternalFormat = std::exchange(other.m_InternalFormat, 0);
+			m_Width = other.m_Width;
+			m_Height = other.m_Height;
+			m_InternalFormat = other.m_InternalFormat;
 		}
 		return *this;
 	}
 
     Renderbuffer::~Renderbuffer()
     {
-        if (m_Id) glDeleteRenderbuffers(1, &m_Id);
+        if (m_Id)
+        {
+            glDeleteRenderbuffers(1, &m_Id);
+            m_Id = 0;
+        }
     }
 
     void Renderbuffer::Bind() const
@@ -58,9 +64,7 @@ namespace Core::Graphics::Gl
 
     void Renderbuffer::Allocate()
     {
-        assert(m_Width != 0);
-        assert(m_Height != 0);
-        assert(m_InternalFormat != 0);
+        assert(m_Id != 0);
 
         Bind();
         glRenderbufferStorage(GL_RENDERBUFFER, m_InternalFormat, m_Width, m_Height);

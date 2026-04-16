@@ -34,7 +34,7 @@ namespace Core::Graphics::Gl::Resources
 
 	void VertexLayout::Apply() const
 	{
-		uint32_t offset = 0;
+		size_t offset = 0;
 		for (size_t i = 0; i < m_Elements.size(); i++)
 		{
 			const auto& element = m_Elements[i];

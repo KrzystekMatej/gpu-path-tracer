@@ -61,7 +61,7 @@ scene:
     # Background
     - components:
         - type: Background
-          path: Backgrounds/Hansaplatz
+          path: Backgrounds/Restaurant
     # Spheres
     - components:
         - type: Transform

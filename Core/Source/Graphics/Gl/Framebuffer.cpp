@@ -12,7 +12,11 @@ namespace Core::Graphics::Gl
 
     Framebuffer::~Framebuffer()
     {
-        if (m_Id) glDeleteFramebuffers(1, &m_Id);
+        if (m_Id)
+        {
+            glDeleteFramebuffers(1, &m_Id);
+            m_Id = 0;
+        }
     }
 
     Framebuffer::Framebuffer(Framebuffer&& other) noexcept

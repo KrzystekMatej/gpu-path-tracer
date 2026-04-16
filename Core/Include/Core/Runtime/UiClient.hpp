@@ -12,6 +12,6 @@ namespace Core::Runtime
 		virtual void Update(const Context& context) = 0;
 		virtual void BuildUi(const Context& context) = 0;
 		virtual void CommitUi() = 0;
-		virtual void Shutdown() = 0;
+		virtual void Shutdown(const Context& context) = 0;
 	};
 }

@@ -13,7 +13,7 @@ namespace Core::Graphics::Gl::Resources
 	{
 		uint32_t type;
 		uint32_t count;
-		uint32_t normalized;
+		uint8_t normalized;
 		VertexAttributeRepresentation representation;
 
 		static uint32_t GetSizeOfType(uint32_t type);

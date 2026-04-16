@@ -2,9 +2,12 @@ add_executable(app)
 
 target_sources(app PRIVATE
 	"Source/Scripts/CameraController.cpp"
-    "Source/Main.cpp" 
-    "Source/SceneViewerApp.cpp"
- )
+
+    "Source/Ui/SceneViewerApp.cpp"
+    "Source/Ui/Utils.cpp"
+
+    "Source/Main.cpp"
+)
 
 target_include_directories(app PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Include")
 target_link_libraries(app PRIVATE core)
