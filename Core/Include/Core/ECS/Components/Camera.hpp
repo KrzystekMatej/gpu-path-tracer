@@ -1,7 +1,7 @@
 #pragma once
 #include <Core/External/Glm.hpp>
 
-namespace Core::ECS::Components
+namespace Core::Ecs::Components
 {
     struct Camera
     {

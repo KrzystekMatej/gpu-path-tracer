@@ -1,20 +1,20 @@
-#include <Core/ECS/Systems/Capture.hpp>
-#include <Core/ECS/Components/MotionRecorder.hpp>
-#include <Core/ECS/Components/Transform.hpp>
+#include <Core/Ecs/Systems/Capture.hpp>
+#include <Core/Ecs/Components/MotionRecorder.hpp>
+#include <Core/Ecs/Components/Transform.hpp>
 #include <Core/Utils/Math/Transform.hpp>
 #include <Core/Utils/Math/Interpolation.hpp>
 
-namespace Core::ECS::Systems
+namespace Core::Ecs::Systems
 {
 	void UpdateMotionRecording(Scene& scene, float deltaTime)
 	{
 		auto view = scene.GetRegistry().view<Components::MotionRecorder, Components::WorldTransform>();
 		for (auto [entity, recorder, transform] : view.each())
 		{
-			if (recorder.state == Components::MotionRecorderState::Start)
+			if (recorder.state == Components::MotionRecorder::State::Start)
 			{
 				recorder.samples.clear();
-				recorder.state = Components::MotionRecorderState::Active;
+				recorder.state = Components::MotionRecorder::State::Active;
 				recorder.elapsedTime = 0.0f;
 				recorder.nextSampleTime = recorder.sampleInterval;
 
@@ -31,7 +31,7 @@ namespace Core::ECS::Systems
 				continue;
 			}
 
-			if (recorder.state != Components::MotionRecorderState::Active)
+			if (recorder.state != Components::MotionRecorder::State::Active)
 				continue;
 
 			recorder.elapsedTime += deltaTime;

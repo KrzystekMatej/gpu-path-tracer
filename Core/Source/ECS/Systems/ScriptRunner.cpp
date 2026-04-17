@@ -1,8 +1,8 @@
-#include <Core/ECS/Systems/ScriptRunner.hpp>
+#include <Core/Ecs/Systems/ScriptRunner.hpp>
 
-namespace Core::ECS::Systems
+namespace Core::Ecs::Systems
 {
-	std::expected<void, Utils::Error> ScriptRunner::Bind(const Scripts::Catalog& catalog, const ECS::Scene& scene)
+	std::expected<void, Utils::Error> ScriptRunner::Bind(const Scripts::Catalog& catalog, const Ecs::Scene& scene)
 	{
 		m_Awakes.clear();
 		m_Updates.clear();

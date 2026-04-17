@@ -2,14 +2,14 @@
 #include <Core/Graphics/Gl/Renderer.hpp>
 #include <Core/Graphics/Gl/RenderTarget.hpp>
 #include <Core/Assets/Storage.hpp>
-#include <Core/ECS/Scene.hpp>
+#include <Core/Ecs/Scene.hpp>
 
 namespace Core::Graphics::Services
 {
     struct SceneViewDesc
     {
         Gl::RenderTarget& target;
-        const ECS::Scene& scene;
+        const Ecs::Scene& scene;
         glm::vec4 clearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
     };
 

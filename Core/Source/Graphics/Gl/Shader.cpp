@@ -65,8 +65,8 @@ namespace Core::Graphics::Gl
 			return std::unexpected(std::move(typeResult).error());
 		uint32_t glType = typeResult.value();
 		Shader glShader(glType);
-		const char* sourceCStr = shader.source.c_str();
-		glShaderSource(glShader.m_Id, 1, &sourceCStr, nullptr);
+		const char* sourcEcstr = shader.source.c_str();
+		glShaderSource(glShader.m_Id, 1, &sourcEcstr, nullptr);
 		glCompileShader(glShader.m_Id);
 		int compileStatus;
 		glGetShaderiv(glShader.m_Id, GL_COMPILE_STATUS, &compileStatus);

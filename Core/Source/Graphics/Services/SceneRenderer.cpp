@@ -1,5 +1,5 @@
 #include <Core/Graphics/Services/SceneRenderer.hpp>
-#include <Core/ECS/Systems/Render.hpp>
+#include <Core/Ecs/Systems/Render.hpp>
 
 
 namespace Core::Graphics::Services
@@ -13,6 +13,6 @@ namespace Core::Graphics::Services
         m_Renderer.Clear(desc.clearColor.r, desc.clearColor.g, desc.clearColor.b, desc.clearColor.a);
 
         float aspect = desc.target.GetWidth() / static_cast<float>(desc.target.GetHeight());
-        ECS::Systems::RenderScene(m_Renderer, desc.scene, m_Storage, aspect);
+        Ecs::Systems::RenderScene(m_Renderer, desc.scene, m_Storage, aspect);
     }
 }

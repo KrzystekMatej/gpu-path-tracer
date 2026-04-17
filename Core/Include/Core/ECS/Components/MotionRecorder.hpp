@@ -2,7 +2,7 @@
 #include <Core/Capture/Types.hpp>
 #include <vector>
 
-namespace Core::ECS
+namespace Core::Ecs
 {
     class Scene;
 
@@ -12,30 +12,31 @@ namespace Core::ECS
     }
 }
 
-namespace Core::ECS::Components
+namespace Core::Ecs::Components
 {
-	enum class MotionRecorderState
-	{
-		Idle,
-		Start,
-		Active,
-		Finished,
-	};
 
 	struct MotionRecorder
 	{
 	public:
+		enum class State
+		{
+			Idle,
+			Start,
+			Active,
+			Finished,
+		};
+
 		MotionRecorder() = default;
 		MotionRecorder(float sampleInterval)
 			: sampleInterval(sampleInterval) {}
-		MotionRecorder(float sampleInterval, MotionRecorderState state)
+		MotionRecorder(float sampleInterval, State state)
 			: sampleInterval(sampleInterval), state(state) {}
 
 		const std::vector<Capture::MotionSample>& GetSamples() const { return samples; }
 		void ClearSamples() { samples.clear(); }
 
 		float sampleInterval = 1.0f / 60.0f;
-		MotionRecorderState state = MotionRecorderState::Idle;
+		State state = State::Idle;
 	private:
 		friend void Systems::UpdateMotionRecording(Scene& scene, float deltaTime);
 

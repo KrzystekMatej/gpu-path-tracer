@@ -1,7 +1,7 @@
 #pragma once
 #include <Core/External/Glm.hpp>
-#include <Core/ECS/SceneNodes/Builder.hpp>
-#include <Core/ECS/Context.hpp>
+#include <Core/Ecs/SceneNodes/Builder.hpp>
+#include <Core/Ecs/Context.hpp>
 
 namespace App::Scripts
 {
@@ -17,15 +17,15 @@ namespace App::Scripts
 			: speed(speed), sensitivity(sensitivity) {}
 	};
 
-	class CameraControllerBuilder : public Core::ECS::SceneNodes::Builder
+	class CameraControllerBuilder : public Core::Ecs::SceneNodes::Builder
 	{
 	public:
 		virtual std::expected<void, Core::Utils::Error> Build(
-			const Core::ECS::SceneNodes::BuildContext& context,
+			const Core::Ecs::SceneNodes::BuildContext& context,
 			entt::registry& registry,
 			Core::Assets::Manager& assetManager) const override;
 	};
 
-	void AwakeCameraController(const Core::ECS::Context& context);
-	void UpdateCameraController(const Core::ECS::Context& context);
+	void AwakeCameraController(const Core::Ecs::Context& context);
+	void UpdateCameraController(const Core::Ecs::Context& context);
 }

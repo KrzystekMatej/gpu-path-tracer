@@ -1,11 +1,11 @@
 #include <App/Scripts/CameraController.hpp>
 #include <Core/Utils/Yaml.hpp>
-#include <Core/ECS/Components/Transform.hpp>
+#include <Core/Ecs/Components/Transform.hpp>
 
 namespace App::Scripts
 {
 	std::expected<void, Core::Utils::Error> CameraControllerBuilder::Build(
-		const Core::ECS::SceneNodes::BuildContext& context,
+		const Core::Ecs::SceneNodes::BuildContext& context,
 		entt::registry& registry,
 		Core::Assets::Manager& assetManager) const
 	{
@@ -31,15 +31,16 @@ namespace App::Scripts
 	}
 
 
-	void AwakeCameraController(const Core::ECS::Context& context)
+	void AwakeCameraController(const Core::Ecs::Context& context)
 	{
-		auto [transform, controller] = context.scene.GetRegistry().get<Core::ECS::Components::Transform, CameraController>(context.scene.GetActiveCamera());
+		auto [transform, controller] = context.scene.GetRegistry()
+			.get<Core::Ecs::Components::Transform, CameraController>(context.scene.GetActiveCamera());
 		glm::vec3 forward = transform.GetForward();
 		controller.pitch = asinf(forward.y);
 		controller.yaw   = atan2f(-forward.x, -forward.z);
 	}
 
-	void UpdateCameraController(const Core::ECS::Context& context)
+	void UpdateCameraController(const Core::Ecs::Context& context)
 	{
 		if (context.input.IsKeyDown(Core::Input::KeyCode::LeftControl))
 		{
@@ -63,7 +64,8 @@ namespace App::Scripts
 		}
 
 
-		auto [transform, controller] = context.scene.GetRegistry().get<Core::ECS::Components::Transform, CameraController>(context.scene.GetActiveCamera());
+		auto [transform, controller] = context.scene.GetRegistry()
+			.get<Core::Ecs::Components::Transform, CameraController>(context.scene.GetActiveCamera());
 
 		glm::vec3 direction(0.0f);
 		if (context.input.IsKeyDown(Core::Input::KeyCode::W))

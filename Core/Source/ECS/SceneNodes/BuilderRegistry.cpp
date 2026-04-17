@@ -1,11 +1,11 @@
-#include <Core/ECS/SceneNodes/BuilderRegistry.hpp>
-#include <Core/ECS/SceneNodes/Camera.hpp>
-#include <Core/ECS/SceneNodes/Model.hpp>
-#include <Core/ECS/SceneNodes/Transform.hpp>
-#include <Core/ECS/SceneNodes/Background.hpp>
-#include <Core/ECS/SceneNodes/Light.hpp>
+#include <Core/Ecs/SceneNodes/BuilderRegistry.hpp>
+#include <Core/Ecs/SceneNodes/Camera.hpp>
+#include <Core/Ecs/SceneNodes/Model.hpp>
+#include <Core/Ecs/SceneNodes/Transform.hpp>
+#include <Core/Ecs/SceneNodes/Background.hpp>
+#include <Core/Ecs/SceneNodes/Light.hpp>
 
-namespace Core::ECS::SceneNodes
+namespace Core::Ecs::SceneNodes
 {
 	void BuilderRegistry::RegisterCoreBuilders()
 	{

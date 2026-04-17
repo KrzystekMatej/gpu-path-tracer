@@ -1,8 +1,8 @@
-#include <Core/ECS/SceneNodes/Transform.hpp>
-#include <Core/ECS/Components/Transform.hpp>
+#include <Core/Ecs/SceneNodes/Transform.hpp>
+#include <Core/Ecs/Components/Transform.hpp>
 #include <Core/Utils/Yaml.hpp>
 
-namespace Core::ECS::SceneNodes
+namespace Core::Ecs::SceneNodes
 {
 	std::expected<void, Utils::Error> TransformBuilder::Build(
 		const BuildContext& context,

@@ -1,9 +1,9 @@
-#include <Core/ECS/Systems/Transform.hpp>
+#include <Core/Ecs/Systems/Transform.hpp>
 #include <stack>
-#include <Core/ECS/Components/Transform.hpp>
-#include <Core/ECS/Components/Hierarchy.hpp>
+#include <Core/Ecs/Components/Transform.hpp>
+#include <Core/Ecs/Components/Hierarchy.hpp>
 
-namespace Core::ECS::Systems
+namespace Core::Ecs::Systems
 {
 	
 	void PropagateTransform(entt::registry& registry, entt::entity entity, const glm::mat4& parentTransform)

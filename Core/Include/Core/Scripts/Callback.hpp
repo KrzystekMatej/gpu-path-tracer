@@ -1,7 +1,7 @@
 #pragma once
-#include <Core/ECS/Context.hpp>
+#include <Core/Ecs/Context.hpp>
 
 namespace Core::Scripts
 {
-	using Callback = void(*)(const ECS::Context& context);
+	using Callback = void(*)(const Ecs::Context& context);
 }

@@ -20,6 +20,14 @@ namespace Core::Graphics::Cuda::PathTracing
     class Renderer
     {
     public:
+		enum class State
+		{
+			Idle,
+			Active,
+            Stopping,
+			Finished
+		};
+
         class LockedFrameView
         {
         public:

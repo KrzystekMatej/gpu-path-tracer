@@ -1,9 +1,9 @@
-#include <Core/ECS/SceneNodes/Camera.hpp>
-#include <Core/ECS/Components/Transform.hpp>
-#include <Core/ECS/Components/Camera.hpp>
+#include <Core/Ecs/SceneNodes/Camera.hpp>
+#include <Core/Ecs/Components/Transform.hpp>
+#include <Core/Ecs/Components/Camera.hpp>
 #include <Core/Utils/Yaml.hpp>
 
-namespace Core::ECS::SceneNodes
+namespace Core::Ecs::SceneNodes
 {
 	std::expected<void, Utils::Error> CameraBuilder::Build(
 		const BuildContext& context,

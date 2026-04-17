@@ -3,7 +3,7 @@
 #include <Core/External/Glm.hpp>
 #include <Core/Utils/Math/CoordinateSystem.hpp>
 
-namespace Core::ECS
+namespace Core::Ecs
 {
     class Scene;
 
@@ -13,7 +13,7 @@ namespace Core::ECS
     }
 }
 
-namespace Core::ECS::Components
+namespace Core::Ecs::Components
 {
 
     struct WorldTransform

@@ -19,19 +19,19 @@ target_sources(core PRIVATE
     "Source/Capture/Recording.cpp"
     "Source/Capture/Resampling.cpp"
 
-    "Source/ECS/SceneNodes/Background.cpp" 
-    "Source/ECS/SceneNodes/Camera.cpp"
-    "Source/ECS/SceneNodes/Light.cpp" 
-    "Source/ECS/SceneNodes/Model.cpp" 
-    "Source/ECS/SceneNodes/BuilderRegistry.cpp"
-    "Source/ECS/SceneNodes/Transform.cpp"
+    "Source/Ecs/SceneNodes/Background.cpp" 
+    "Source/Ecs/SceneNodes/Camera.cpp"
+    "Source/Ecs/SceneNodes/Light.cpp" 
+    "Source/Ecs/SceneNodes/Model.cpp" 
+    "Source/Ecs/SceneNodes/BuilderRegistry.cpp"
+    "Source/Ecs/SceneNodes/Transform.cpp"
 
-    "Source/ECS/Systems/Capture.cpp"
-    "Source/ECS/Systems/Render.cpp"
-	"Source/ECS/Systems/ScriptRunner.cpp"
-    "Source/ECS/Systems/Transform.cpp" 
+    "Source/Ecs/Systems/Capture.cpp"
+    "Source/Ecs/Systems/Render.cpp"
+	"Source/Ecs/Systems/ScriptRunner.cpp"
+    "Source/Ecs/Systems/Transform.cpp" 
 
-    "Source/ECS/Scene.cpp" 
+    "Source/Ecs/Scene.cpp" 
 
     "Source/External/TinyObjLoader.cpp"
 
@@ -69,7 +69,7 @@ target_sources(core PRIVATE
 
     "Source/Runtime/Application.cpp"
     "Source/Runtime/Time.cpp"
-    "Source/Runtime/ImGuiClient.cpp" 
+    "Source/Runtime/ImGuiLayer.cpp" 
 
     "Source/Scripts/Catalog.cpp"
 

@@ -3,7 +3,7 @@
 #include <optional>
 #include <Core/Scripts/Catalog.hpp>
 
-namespace Core::ECS::Systems
+namespace Core::Ecs::Systems
 {
 	class ScriptRunner
 	{
@@ -25,7 +25,7 @@ namespace Core::ECS::Systems
 			}
 		}
 
-		std::expected<void, Utils::Error> Bind(const Scripts::Catalog& catalog, const ECS::Scene& scene);
+		std::expected<void, Utils::Error> Bind(const Scripts::Catalog& catalog, const Ecs::Scene& scene);
 	private:
 		std::vector<Scripts::Callback> m_Awakes;
 		std::vector<Scripts::Callback> m_Updates;

@@ -1,10 +1,13 @@
 add_executable(app)
 
 target_sources(app PRIVATE
-	"Source/Scripts/CameraController.cpp"
+	
+    "Source/SceneViewer/Domain/AppModule.cpp"
 
-    "Source/Ui/SceneViewerApp.cpp"
-    "Source/Ui/Utils.cpp"
+    "Source/SceneViewer/Ui/UiLayer.cpp"
+    "Source/SceneViewer/Ui/Utils.cpp"
+
+	"Source/Scripts/CameraController.cpp"
 
     "Source/Main.cpp"
 )

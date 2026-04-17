@@ -1,16 +1,16 @@
-#include <Core/ECS/Scene.hpp>
+#include <Core/Ecs/Scene.hpp>
 #include <spdlog/spdlog.h>
 #include <stack>
-#include <Core/ECS/Components/Camera.hpp>
+#include <Core/Ecs/Components/Camera.hpp>
 #include <Core/Utils/Yaml.hpp>
-#include <Core/ECS/Components/Transform.hpp>
-#include <Core/ECS/Components/Hierarchy.hpp>
+#include <Core/Ecs/Components/Transform.hpp>
+#include <Core/Ecs/Components/Hierarchy.hpp>
 
-namespace Core::ECS
+namespace Core::Ecs
 {
 	std::expected<Scene, Utils::Error> Scene::Create(
 		Import::Scene scene,
-		const ECS::SceneNodes::BuilderRegistry& builderRegistry,
+		const Ecs::SceneNodes::BuilderRegistry& builderRegistry,
 		Assets::Manager& assetManager)
 	{
 		entt::registry registry;

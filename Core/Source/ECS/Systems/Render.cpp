@@ -1,10 +1,10 @@
-#include <Core/ECS/Systems/Render.hpp>
-#include <Core/ECS/Components/Graphics.hpp>
-#include <Core/ECS/Components/Camera.hpp>
-#include <Core/ECS/Components/Transform.hpp>
+#include <Core/Ecs/Systems/Render.hpp>
+#include <Core/Ecs/Components/Graphics.hpp>
+#include <Core/Ecs/Components/Camera.hpp>
+#include <Core/Ecs/Components/Transform.hpp>
 #include <Core/Graphics/Gl/Material.hpp>
 
-namespace Core::ECS::Systems
+namespace Core::Ecs::Systems
 {
 	using namespace Components;
 

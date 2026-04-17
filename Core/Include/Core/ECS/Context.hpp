@@ -1,10 +1,10 @@
 #pragma once
 #include <Core/Runtime/Time.hpp>
-#include <Core/ECS/Scene.hpp>
+#include <Core/Ecs/Scene.hpp>
 #include <Core/Window/NativeWindow.hpp>
 #include <Core/Input/State.hpp>	
 
-namespace Core::ECS
+namespace Core::Ecs
 {
 	struct Context
 	{

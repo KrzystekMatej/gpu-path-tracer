@@ -1,12 +1,12 @@
 #pragma once
 #include <expected>
 #include <unordered_map>
-#include <Core/ECS/SceneNodes/Builder.hpp>
+#include <Core/Ecs/SceneNodes/Builder.hpp>
 #include <Core/Utils/Error.hpp>
 #include <Core/Utils/Guid.hpp>
 #include <Core/Utils/Hash.hpp>
 
-namespace Core::ECS::SceneNodes
+namespace Core::Ecs::SceneNodes
 {
 	class BuilderRegistry 
 	{

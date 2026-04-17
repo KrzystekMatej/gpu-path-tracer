@@ -4,11 +4,11 @@
 #include <Core/Utils/Error.hpp>
 #include <Core/Scripts/Binding.hpp>
 #include <Core/Scripts/Phase.hpp>
-#include <Core/ECS/SceneNodes/BuilderRegistry.hpp>
+#include <Core/Ecs/SceneNodes/BuilderRegistry.hpp>
 #include <Core/Import/Scene.hpp>
 #include <Core/Assets/Manager.hpp>
 
-namespace Core::ECS
+namespace Core::Ecs
 {
     enum class SceneState
     {
@@ -28,7 +28,7 @@ namespace Core::ECS
 
 		static std::expected<Scene, Utils::Error> Create(
             Import::Scene scene,
-            const ECS::SceneNodes::BuilderRegistry& builderRegistry,
+            const Ecs::SceneNodes::BuilderRegistry& builderRegistry,
             Assets::Manager& assetManager);
 
         entt::registry& GetRegistry() { return m_Registry; }

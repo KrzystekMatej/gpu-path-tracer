@@ -1,8 +1,8 @@
-#include <Core/ECS/SceneNodes/Light.hpp>
+#include <Core/Ecs/SceneNodes/Light.hpp>
 #include <Core/Utils/Yaml.hpp>
-#include <Core/ECS/Components/Graphics.hpp>
+#include <Core/Ecs/Components/Graphics.hpp>
 
-namespace Core::ECS::SceneNodes
+namespace Core::Ecs::SceneNodes
 {
 	std::expected<void, Utils::Error> LightBuilder::Build(
 		const BuildContext& context,

@@ -1,7 +1,7 @@
 #pragma once
 #include <Core/Assets/Types.hpp>
 
-namespace Core::ECS::Components
+namespace Core::Ecs::Components
 {
     struct Mesh
     {

@@ -1,21 +1,23 @@
 #include <Core/Runtime/Application.hpp>
 #include <Core/Runtime/Context.hpp>
-#include <Core/ECS/Systems/Render.hpp>
+#include <Core/Ecs/Systems/Render.hpp>
 #include <Core/Import/SceneLoader.hpp>
-#include <Core/ECS/Context.hpp>
-#include <Core/ECS/Systems/Transform.hpp>
+#include <Core/Ecs/Context.hpp>
+#include <Core/Ecs/Systems/Transform.hpp>
 
 namespace Core::Runtime
 {
 	Application::Application(
-		std::unique_ptr<UiClient> client, 
+		std::unique_ptr<AppModule> appModule, 
+		std::unique_ptr<UiLayer> uiLayer,
 		Window::NativeWindow window,
 		Graphics::Gl::Renderer renderer,
 		Scripts::Catalog catalog,
-		ECS::SceneNodes::BuilderRegistry builderRegistry,
+		Ecs::SceneNodes::BuilderRegistry builderRegistry,
 		Assets::Manager assetManager, 
 		Project::Descriptor project)
-		: m_Client(std::move(client)), 
+		: m_AppModule(std::move(appModule)),
+		m_UiLayer(std::move(uiLayer)),
 		m_Time(),
 		m_Window(std::move(window)),
 		m_Input(),
@@ -35,16 +37,16 @@ namespace Core::Runtime
 
 	Application::~Application()
 	{
-		Graphics::Services::SceneRenderer sceneRenderService(m_Renderer, m_AssetManager.GetStorage());
-		Context appContext(m_Time, m_Window, m_Renderer, sceneRenderService, m_Input, m_EventDispatcher, m_Scene, m_Project);
-		m_Client->Shutdown(appContext);
+		m_UiLayer->Shutdown();
+		m_AppModule->Shutdown();
 		m_Window.Destroy();
 		Core::Window::NativeWindow::TerminateBackend();
 	}
 
 	std::expected<std::unique_ptr<Application>, Utils::Error> Application::Create
 	(
-		std::unique_ptr<UiClient> client, 
+		std::unique_ptr<AppModule> appModule, 
+		std::unique_ptr<UiLayer> uiLayer,
 		Window::Attributes windowAttributes, 
 		const std::filesystem::path& projectConfigPath
 	)
@@ -63,7 +65,7 @@ namespace Core::Runtime
 
 		Scripts::Catalog scriptCatalog;
 
-		ECS::SceneNodes::BuilderRegistry builderRegistry;
+		Ecs::SceneNodes::BuilderRegistry builderRegistry;
 		builderRegistry.RegisterCoreBuilders();
 
 		auto projectResult = Project::Descriptor::Create(projectConfigPath);
@@ -84,7 +86,8 @@ namespace Core::Runtime
 			return std::unexpected(std::move(rendererResult).error());
 
 		std::unique_ptr<Application> app = std::unique_ptr<Application>(new Application(
-			std::move(client),
+			std::move(appModule),
+			std::move(uiLayer),
 			std::move(window),
 			std::move(std::move(rendererResult).value()),
 			std::move(scriptCatalog),
@@ -92,14 +95,16 @@ namespace Core::Runtime
 			std::move(assetManager), 
 			std::move(project)));
 
-		InitContext context(
+		ConfigureContext context(
 			app->m_Window, 
 			app->m_EventDispatcher, 
 			app->m_ScriptCatalog,
 			app->m_BuilderRegistry, 
 			app->m_Project);
 
-		app->m_Client->Init(context);
+		auto configureResult = app->m_AppModule->Configure(context);
+		if (!configureResult)
+			return std::unexpected(std::move(configureResult).error());
 		
 		auto initSceneResult = app->SetScene(app->m_Project.GetStartScenePath());
 
@@ -115,7 +120,7 @@ namespace Core::Runtime
 		if (!loadedScene)
 			return std::unexpected(std::move(loadedScene).error());
 		Import::Scene scene = std::move(loadedScene).value();
-		auto resolvedScene = ECS::Scene::Create(std::move(scene), m_BuilderRegistry, m_AssetManager);
+		auto resolvedScene = Ecs::Scene::Create(std::move(scene), m_BuilderRegistry, m_AssetManager);
 		if (!resolvedScene)
 			return std::unexpected(std::move(resolvedScene).error());
 		m_Scene = std::move(resolvedScene).value();
@@ -142,9 +147,12 @@ namespace Core::Runtime
 
 	void Application::Run()
 	{
-		Graphics::Services::SceneRenderer sceneRenderService(m_Renderer, m_AssetManager.GetStorage());
-		Context appContext(m_Time, m_Window, m_Renderer, sceneRenderService, m_Input, m_EventDispatcher, m_Scene, m_Project);
-		ECS::Context sceneContext(m_Time, m_Window, m_Input, m_EventDispatcher, m_Scene);
+		AppContext appContext(m_Time, m_Window, m_Input, m_EventDispatcher, m_Scene, m_Project);
+		UiContext uiContext(m_Time, m_Window, m_Input, m_EventDispatcher, m_Scene, m_Project);
+		Ecs::Context sceneContext(m_Time, m_Window, m_Input, m_EventDispatcher, m_Scene);
+
+		m_AppModule->Start(appContext);
+		m_UiLayer->Start(uiContext);
 
 		m_ScriptRunner.Awake(sceneContext);
 		while (m_Window.IsOpen())
@@ -155,18 +163,30 @@ namespace Core::Runtime
 			m_Window.PollEvents();
 			m_EventDispatcher.update();
 
-			m_Client->Update(appContext);
+			m_AppModule->Update(appContext);
 
 			m_ScriptRunner.Update(sceneContext);
-			ECS::Systems::UpdateWorldTransforms(m_Scene);
+			Ecs::Systems::UpdateWorldTransforms(m_Scene);
 
-			m_Client->BuildUi(appContext);
-
+			m_UiLayer->BuildUi(uiContext);
+			RenderScene();
 			m_Renderer.BindSurface(m_Window.GetRenderSurface());
 			m_Renderer.Clear(0.1f, 0.1f, 0.1f, 1.0f);
-			m_Client->CommitUi();
+			m_UiLayer->CommitUi();
 
 			m_Window.SwapBuffers();
+		}
+	}
+
+	void Application::RenderScene()
+	{
+		auto sceneSurfaceResult = m_AppModule->GetSceneSurface();
+		if (auto sceneSurface = sceneSurfaceResult.value(); sceneSurfaceResult && sceneSurface.GetWidth() > 0 && sceneSurface.GetHeight() > 0)
+		{
+			m_Renderer.BindSurface(sceneSurface);
+			m_Renderer.Clear(0.1f, 0.1f, 0.1f, 1.0f);
+			float aspect = sceneSurface.GetWidth() / static_cast<float>(sceneSurface.GetHeight());
+			Ecs::Systems::RenderScene(m_Renderer, m_Scene, m_AssetManager.GetStorage(), aspect);
 		}
 	}
 }

@@ -1,7 +1,7 @@
 #pragma once
-#include <Core/ECS/Scene.hpp>
+#include <Core/Ecs/Scene.hpp>
 
-namespace Core::ECS::Systems
+namespace Core::Ecs::Systems
 {
 	void UpdateMotionRecording(Scene& scene, float deltaTime);
 }

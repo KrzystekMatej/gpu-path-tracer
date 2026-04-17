@@ -3,16 +3,17 @@
 #include <expected>
 #include <Core/Window/NativeWindow.hpp>
 #include <Core/Utils/Error.hpp>
-#include <Core/Runtime/UiClient.hpp>
 #include <Core/Project/Descriptor.hpp>
 #include <Core/Graphics/Gl/Renderer.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Renderer.hpp>
 #include <Core/Assets/Manager.hpp>
 #include <Core/Runtime/Time.hpp>
 #include <Core/Scripts/Catalog.hpp>
-#include <Core/ECS/Scene.hpp>
-#include <Core/ECS/Systems/ScriptRunner.hpp>
+#include <Core/Ecs/Scene.hpp>
+#include <Core/Ecs/Systems/ScriptRunner.hpp>
 #include <Core/Input/State.hpp>
+#include <Core/Runtime/AppModule.hpp>
+#include <Core/Runtime/UiLayer.hpp>
 
 namespace Core::Runtime
 {
@@ -26,7 +27,8 @@ namespace Core::Runtime
 		~Application();
 
 		static std::expected<std::unique_ptr<Application>, Utils::Error> Create(
-			std::unique_ptr<UiClient> client, 
+			std::unique_ptr<AppModule> appModule, 
+			std::unique_ptr<UiLayer> uiLayer,
 			Window::Attributes windowAttributes, 
 			const std::filesystem::path& projectConfigPath);
 
@@ -35,15 +37,18 @@ namespace Core::Runtime
 		void Run();
 	private:
 		Application(
-			std::unique_ptr<UiClient> client, 
+			std::unique_ptr<AppModule> appModule,
+			std::unique_ptr<UiLayer> uiLayer,
 			Window::NativeWindow window, 
 			Graphics::Gl::Renderer renderer,
 			Scripts::Catalog catalog, 
-			ECS::SceneNodes::BuilderRegistry builderRegistry,
+			Ecs::SceneNodes::BuilderRegistry builderRegistry,
 			Assets::Manager assetManager, 
 			Project::Descriptor project);
+		void RenderScene();
 
-		std::unique_ptr<UiClient> m_Client;
+		std::unique_ptr<AppModule> m_AppModule;
+		std::unique_ptr<UiLayer> m_UiLayer;
 		Time m_Time;
 		Window::NativeWindow m_Window;
 
@@ -53,9 +58,9 @@ namespace Core::Runtime
 		Graphics::Gl::Renderer m_Renderer;
 
 		Scripts::Catalog m_ScriptCatalog;
-		ECS::Scene m_Scene;
-		ECS::SceneNodes::BuilderRegistry m_BuilderRegistry;
-		ECS::Systems::ScriptRunner m_ScriptRunner;
+		Ecs::Scene m_Scene;
+		Ecs::SceneNodes::BuilderRegistry m_BuilderRegistry;
+		Ecs::Systems::ScriptRunner m_ScriptRunner;
 
 		Assets::Manager m_AssetManager;
 		Project::Descriptor m_Project;

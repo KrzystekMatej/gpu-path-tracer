@@ -1,10 +1,10 @@
-#include <Core/ECS/SceneNodes/Model.hpp>
-#include <Core/ECS/Components/Transform.hpp>
+#include <Core/Ecs/SceneNodes/Model.hpp>
+#include <Core/Ecs/Components/Transform.hpp>
 #include <Core/Utils/Yaml.hpp>
-#include <Core/ECS/Components/Graphics.hpp>
-#include <Core/ECS/Components/Hierarchy.hpp>
+#include <Core/Ecs/Components/Graphics.hpp>
+#include <Core/Ecs/Components/Hierarchy.hpp>
 
-namespace Core::ECS::SceneNodes
+namespace Core::Ecs::SceneNodes
 {
 	std::expected<void, Utils::Error> ModelBuilder::Build(
 		const BuildContext& context,

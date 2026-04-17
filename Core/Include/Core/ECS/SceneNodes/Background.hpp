@@ -1,7 +1,7 @@
 #pragma once
-#include <Core/ECS/SceneNodes/Builder.hpp>
+#include <Core/Ecs/SceneNodes/Builder.hpp>
 
-namespace Core::ECS::SceneNodes
+namespace Core::Ecs::SceneNodes
 {
 	class BackgroundBuilder : public Builder
 	{
