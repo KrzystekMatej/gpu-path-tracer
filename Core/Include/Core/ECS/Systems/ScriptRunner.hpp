@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <optional>
+#include <Core/Ecs/Scene.hpp>
 #include <Core/Scripts/Catalog.hpp>
 
 namespace Core::Ecs::Systems
@@ -8,20 +9,20 @@ namespace Core::Ecs::Systems
 	class ScriptRunner
 	{
 	public:
-		void Awake(const Context& context)
+		void Awake()
 		{
 			for (const auto& script : m_Awakes)
 			{
-				script(context);
+				script();
 			}
 		}
 
 
-		void Update(const Context& context)
+		void Update()
 		{
 			for (const auto& script : m_Updates)
 			{
-				script(context);
+				script();
 			}
 		}
 

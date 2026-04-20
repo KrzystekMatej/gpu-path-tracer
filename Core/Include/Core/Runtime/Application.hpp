@@ -12,8 +12,10 @@
 #include <Core/Ecs/Scene.hpp>
 #include <Core/Ecs/Systems/ScriptRunner.hpp>
 #include <Core/Input/State.hpp>
-#include <Core/Runtime/AppModule.hpp>
-#include <Core/Runtime/UiLayer.hpp>
+#include <Core/Runtime/Layer/Stack.hpp>
+#include <Core/Runtime/Layer/CommandQueue.hpp>
+#include <Core/Runtime/ImGuiBackend.hpp>
+#include <Core/Graphics/Services/SceneRenderer.hpp>
 
 namespace Core::Runtime
 {
@@ -26,31 +28,47 @@ namespace Core::Runtime
 		Application& operator=(Application&&) = delete;
 		~Application();
 
+		std::expected<void, Utils::Error> SetScene(const std::filesystem::path& path);
+
+		template <typename T, typename... Args>
+		void PushLayer(std::string_view id, Args&&... args)
+		{
+			m_CommandQueue.PushTop<T>(id, std::forward<Args>(args)...);
+		}
+		
+		Layer::CommandQueue& GetCommandQueue() { return m_CommandQueue; }
+		void PrintInfo() const;
+		void Run();
+
+	public:
 		static std::expected<std::unique_ptr<Application>, Utils::Error> Create(
-			std::unique_ptr<AppModule> appModule, 
-			std::unique_ptr<UiLayer> uiLayer,
 			Window::Attributes windowAttributes, 
 			const std::filesystem::path& projectConfigPath);
 
-		std::expected<void, Utils::Error> SetScene(const std::filesystem::path& path);
-		void PrintInfo() const;
-		void Run();
+		static const Time& Time() { return s_Instance->m_Time; }
+		static Window::NativeWindow& Window() { return s_Instance->m_Window; }
+		static const Input::State& Input() { return s_Instance->m_Input; }
+		static entt::dispatcher& EventDispatcher() { return s_Instance->m_EventDispatcher; }
+		static Scripts::Catalog& ScriptCatalog() { return s_Instance->m_ScriptCatalog; }
+		static Ecs::Scene& Scene() { return s_Instance->m_Scene; }
+		static Ecs::SceneNodes::BuilderRegistry& BuilderRegistry() { return s_Instance->m_BuilderRegistry; }
+		static const Assets::Manager& AssetManager() { return s_Instance->m_AssetManager; }
+		static const Project::Descriptor& Project() { return s_Instance->m_Project; }
+		static Layer::CommandQueue& LayerCommandQueue() { return s_Instance->m_CommandQueue; }
+		static entt::registry& Blackboard() { return s_Instance->m_Blackboard; }
 	private:
 		Application(
-			std::unique_ptr<AppModule> appModule,
-			std::unique_ptr<UiLayer> uiLayer,
 			Window::NativeWindow window, 
 			Graphics::Gl::Renderer renderer,
 			Scripts::Catalog catalog, 
 			Ecs::SceneNodes::BuilderRegistry builderRegistry,
 			Assets::Manager assetManager, 
 			Project::Descriptor project);
-		void RenderScene();
 
-		std::unique_ptr<AppModule> m_AppModule;
-		std::unique_ptr<UiLayer> m_UiLayer;
-		Time m_Time;
+	private:
+		Runtime::Time m_Time;
 		Window::NativeWindow m_Window;
+		ImGuiBackend m_ImGuiBackend;
 
 		Input::State m_Input;
 		entt::dispatcher m_EventDispatcher;
@@ -64,5 +82,11 @@ namespace Core::Runtime
 
 		Assets::Manager m_AssetManager;
 		Project::Descriptor m_Project;
+
+		Layer::Stack m_LayerStack;
+		Layer::CommandQueue m_CommandQueue;
+		entt::registry m_Blackboard;
+	private:
+		static Application* s_Instance;
 	};
 }

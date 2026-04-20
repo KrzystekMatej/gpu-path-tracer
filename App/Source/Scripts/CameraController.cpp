@@ -1,6 +1,7 @@
 #include <App/Scripts/CameraController.hpp>
 #include <Core/Utils/Yaml.hpp>
 #include <Core/Ecs/Components/Transform.hpp>
+#include <Core/Runtime/Application.hpp>
 
 namespace App::Scripts
 {
@@ -31,31 +32,34 @@ namespace App::Scripts
 	}
 
 
-	void AwakeCameraController(const Core::Ecs::Context& context)
+	void AwakeCameraController()
 	{
-		auto [transform, controller] = context.scene.GetRegistry()
-			.get<Core::Ecs::Components::Transform, CameraController>(context.scene.GetActiveCamera());
+		Core::Ecs::Scene& scene = Core::Runtime::Application::Scene();
+		auto [transform, controller] = scene.GetRegistry().get<Core::Ecs::Components::Transform, CameraController>(scene.GetActiveCamera());
 		glm::vec3 forward = transform.GetForward();
 		controller.pitch = asinf(forward.y);
 		controller.yaw   = atan2f(-forward.x, -forward.z);
 	}
 
-	void UpdateCameraController(const Core::Ecs::Context& context)
+	void UpdateCameraController()
 	{
-		if (context.input.IsKeyDown(Core::Input::KeyCode::LeftControl))
+		const auto& input = Core::Runtime::Application::Input();
+		auto& window = Core::Runtime::Application::Window();
+
+		if (input.IsKeyDown(Core::Input::KeyCode::LeftControl))
 		{
-			if (context.input.WasKeyPressed(Core::Input::KeyCode::LeftControl))
+			if (input.WasKeyPressed(Core::Input::KeyCode::LeftControl))
 			{
-				context.window.SetCursorMode(Core::Window::CursorMode::Disabled);
-				context.window.SetRawMouseMotionEnabled(true);
+				window.SetCursorMode(Core::Window::CursorMode::Disabled);
+				window.SetRawMouseMotionEnabled(true);
 			}
 		}
 		else
 		{
-			if (context.input.WasKeyReleased(Core::Input::KeyCode::LeftControl))
+			if (input.WasKeyReleased(Core::Input::KeyCode::LeftControl))
 			{
-				context.window.SetCursorMode(Core::Window::CursorMode::Normal);
-				context.window.SetRawMouseMotionEnabled(false);
+				window.SetCursorMode(Core::Window::CursorMode::Normal);
+				window.SetRawMouseMotionEnabled(false);
 			}
 			else
 			{
@@ -63,26 +67,28 @@ namespace App::Scripts
 			}
 		}
 
+		auto& scene = Core::Runtime::Application::Scene();
 
-		auto [transform, controller] = context.scene.GetRegistry()
-			.get<Core::Ecs::Components::Transform, CameraController>(context.scene.GetActiveCamera());
+		auto [transform, controller] = scene.GetRegistry().get<Core::Ecs::Components::Transform, CameraController>(scene.GetActiveCamera());
 
 		glm::vec3 direction(0.0f);
-		if (context.input.IsKeyDown(Core::Input::KeyCode::W))
+		if (input.IsKeyDown(Core::Input::KeyCode::W))
 			direction += transform.GetForward();
-		if (context.input.IsKeyDown(Core::Input::KeyCode::S))
+		if (input.IsKeyDown(Core::Input::KeyCode::S))
 			direction -= transform.GetForward();
-		if (context.input.IsKeyDown(Core::Input::KeyCode::D))
+		if (input.IsKeyDown(Core::Input::KeyCode::D))
 			direction += transform.GetRight();
-		if (context.input.IsKeyDown(Core::Input::KeyCode::A))
+		if (input.IsKeyDown(Core::Input::KeyCode::A))
 			direction -= transform.GetRight();
 
 		if (glm::length(direction) > 0.0f)
 			direction = glm::normalize(direction);
 
-		transform.translation += direction * controller.speed * context.time.GetDeltaTime();
+		const auto& time = Core::Runtime::Application::Time();
 
-		glm::vec2 cursorDelta = context.input.GetCursorDelta() * controller.sensitivity;
+		transform.translation += direction * controller.speed * time.GetDeltaTime();
+
+		glm::vec2 cursorDelta = input.GetCursorDelta() * controller.sensitivity;
 
 		controller.yaw   -= cursorDelta.x;
 		controller.pitch -= cursorDelta.y;

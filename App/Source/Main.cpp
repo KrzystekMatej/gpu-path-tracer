@@ -1,19 +1,17 @@
 #include <expected>
 #include <Core/Runtime/Application.hpp>
-#include <App/SceneViewer/Ui/UiLayer.hpp>
-#include <App/SceneViewer/Domain/AppModule.hpp>
+#include <App/LayerKeys.hpp>
+#include <App/Scripts/Layer.hpp>
+#include <App/CameraRecorder/Layer.hpp>
+#include <App/PathTracer/Layer.hpp>
+#include <App/Ui/Layer.hpp>
 
 int main()
 {
 	std::filesystem::path projectConfigPath = "../../../project-config.yaml";
 
-	auto appModule = std::make_unique<App::SceneViewer::Domain::AppModule>();
-	auto uiLayer = std::make_unique<App::SceneViewer::Ui::UiLayer>(appModule.get());
-
 	auto appResult = Core::Runtime::Application::Create
 	(
-		std::move(appModule),
-		std::move(uiLayer),
 		Core::Window::Attributes::DefaultAttributes(),
 		projectConfigPath
 	);
@@ -27,6 +25,10 @@ int main()
 	{
 		std::unique_ptr<Core::Runtime::Application> app = std::move(appResult).value();
 		app->PrintInfo();
+		app->PushLayer<App::Scripts::Layer>(App::LayerKeys::Scripts);
+		app->PushLayer<App::CameraRecorder::Layer>(App::LayerKeys::CameraRecorder);
+		app->PushLayer<App::PathTracer::Layer>(App::LayerKeys::PathTracer);
+		app->PushLayer<App::Ui::Layer>(App::LayerKeys::Ui);
 		app->Run();
 	}	
 

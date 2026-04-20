@@ -67,9 +67,11 @@ target_sources(core PRIVATE
 
     "Source/Project/Descriptor.cpp" 
 
+    "Source/Runtime/Layer/CommandQueue.cpp"
+    "Source/Runtime/Layer/Stack.cpp"
     "Source/Runtime/Application.cpp"
+    "Source/Runtime/ImGuiBackend.cpp" 
     "Source/Runtime/Time.cpp"
-    "Source/Runtime/ImGuiLayer.cpp" 
 
     "Source/Scripts/Catalog.cpp"
 

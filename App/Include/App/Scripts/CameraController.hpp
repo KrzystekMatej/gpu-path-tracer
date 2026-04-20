@@ -1,7 +1,6 @@
 #pragma once
 #include <Core/External/Glm.hpp>
 #include <Core/Ecs/SceneNodes/Builder.hpp>
-#include <Core/Ecs/Context.hpp>
 
 namespace App::Scripts
 {
@@ -26,6 +25,6 @@ namespace App::Scripts
 			Core::Assets::Manager& assetManager) const override;
 	};
 
-	void AwakeCameraController(const Core::Ecs::Context& context);
-	void UpdateCameraController(const Core::Ecs::Context& context);
+	void AwakeCameraController();
+	void UpdateCameraController();
 }

@@ -1,63 +1,40 @@
-#include <App/SceneViewer/Ui/UiLayer.hpp>
-#include <algorithm>
-#include <App/SceneViewer/Ui/Utils.hpp>
+#include <App/Ui/Layer.hpp>
+#include <App/Ui/Utils.hpp>
+#include <Core/Runtime/Application.hpp>
+#include <App/CameraRecorder/Status.hpp>
+#include <App/CameraRecorder/Settings.hpp>
+#include <App/PathTracer/Status.hpp>
+#include <App/PathTracer/Settings.hpp>
+#include <App/Ui/Events.hpp>
 
-namespace App::SceneViewer::Ui
+namespace App::Ui
 {
-	namespace
+	std::string_view ToString(ViewMode mode)
 	{
-		using MotionRecorder = Core::Ecs::Components::MotionRecorder;
-		using PathTracer = Core::Graphics::Cuda::PathTracing::Renderer;
-
-		const char* ToString(MotionRecorder::State state)
+		switch (mode)
 		{
-			switch (state)
-			{
-			case MotionRecorder::State::Idle:
-				return "Idle";
-			case MotionRecorder::State::Active:
-				return "Active";
-			case MotionRecorder::State::Start:
-				return "Start";
-			case MotionRecorder::State::Finished:
-				return "Finished";
-			default:
-				return "Unknown";
-			}
-		}
-
-		const char* ToString(PathTracer::State state)
-		{
-			switch (state)
-			{
-			case PathTracer::State::Idle:
-				return "Idle";
-			case PathTracer::State::Active:
-				return "Active";
-			case PathTracer::State::Stopping:
-				return "Stopping";
-			case PathTracer::State::Finished:
-				return "Finished";
-			default:
-				return "Unknown";
-			}
-		}
-
-		const char* ToString(UiLayer::ViewMode mode)
-		{
-			switch (mode)
-			{
-			case UiLayer::ViewMode::LivePreview:
+			case ViewMode::LivePreview:
 				return "Live Preview";
-			case UiLayer::ViewMode::PathTracedOutput:
-				return "Path-Traced Output";
+			case ViewMode::PathTracedOutput:
+				return "Path Traced Output";
 			default:
 				return "Unknown";
-			}
 		}
 	}
 
-	void UiLayer::ImGuiBuild(const Core::Runtime::UiContext& context)
+	void Layer::OnAttach()
+	{
+		Core::Runtime::Application::EventDispatcher().sink<Core::Events::KeyPressed>().connect<&Layer::OnKeyPressed>(*this);
+
+		auto& window = Core::Runtime::Application::Window();
+		m_SceneTarget = std::make_unique<Core::Graphics::Gl::RenderTarget>(window.GetWidth(), window.GetHeight());
+	}
+
+	void Layer::OnUpdate()
+	{
+	}
+
+	void Layer::OnBuildUi()
 	{
 		const ImGuiViewport* viewport = ImGui::GetMainViewport();
 		ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -74,15 +51,38 @@ namespace App::SceneViewer::Ui
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
 		ImGui::Begin("MainLayout", nullptr, hostFlags);
 
-		ImVec2 displaySize = BuildDisplay(context);
+		auto& blackboard = Core::Runtime::Application::Blackboard();
+		CameraRecorder::Status& recorderStatus = blackboard.ctx().get<CameraRecorder::Status>();
+		CameraRecorder::Settings& recorderSettings = blackboard.ctx().get<CameraRecorder::Settings>();
+		PathTracer::Status& pathTracerStatus = blackboard.ctx().get<PathTracer::Status>();
+		PathTracer::Settings& pathTracerSettings = blackboard.ctx().get<PathTracer::Settings>();
+		ImVec2 displaySize = BuildDisplay();
 		ImGui::SameLine();
-		BuildSidePanel(context, displaySize);
+		BuildSidePanel(displaySize);
 
 		ImGui::End();
 		ImGui::PopStyleVar();
 	}
 
-	ImVec2 UiLayer::BuildDisplay(const Core::Runtime::UiContext& context)
+	void Layer::OnRender(Core::Graphics::Services::SceneRenderer renderer)
+	{
+		Core::Graphics::Services::SceneViewDesc sceneViewDesc = {
+			.target = *m_SceneTarget,
+			.scene = Core::Runtime::Application::Scene(),
+			.storage = Core::Runtime::Application::AssetManager().GetStorage(),
+			.clearColor = { 0.1f, 0.1f, 0.1f, 1.0f }
+		};
+
+		renderer.Render(sceneViewDesc);
+	}
+
+	void Layer::OnKeyPressed(const Core::Events::KeyPressed& event)
+	{
+		if (!event.repeat && event.key == Core::Input::KeyCode::Escape)
+			Core::Runtime::Application::Window().Close();
+	}
+
+	ImVec2 Layer::BuildDisplay()
 	{
 		const ImVec2 hostAvail = ImGui::GetContentRegionAvail();
 		const float spacing = ImGui::GetStyle().ItemSpacing.x;
@@ -122,12 +122,16 @@ namespace App::SceneViewer::Ui
 		const ImVec2 displaySize = avail;
 		const ImVec2 cursor = ImGui::GetCursorScreenPos();
 
-		m_Controller->SetSceneTargetSize(static_cast<uint32_t>(displaySize.x), static_cast<uint32_t>(displaySize.y));
-		ImGui::Image(static_cast<ImTextureID>(m_Controller->GetSceneTextureId()), displaySize, ImVec2(0, 1), ImVec2(1, 0));
+		uint32_t sceneWidth = static_cast<uint32_t>(displaySize.x);
+		uint32_t sceneHeight = static_cast<uint32_t>(displaySize.y);
+		if (sceneWidth != m_SceneTarget->GetWidth() || sceneHeight != m_SceneTarget->GetHeight())
+			m_SceneTarget->Resize(sceneWidth, sceneHeight);
+
+		ImGui::Image(static_cast<ImTextureID>(m_SceneTarget->GetTexture().GetId()), displaySize, ImVec2(0, 1), ImVec2(1, 0));
 
 		ImDrawList* drawList = ImGui::GetWindowDrawList();
 		drawList->AddRect(cursor, ImVec2(cursor.x + displaySize.x, cursor.y + displaySize.y), IM_COL32(255, 255, 255, 50));
-		drawList->AddText(ImVec2(cursor.x + 12.0f, cursor.y + 12.0f), IM_COL32(255, 255, 255, 255), ToString(m_ViewMode));
+		drawList->AddText(ImVec2(cursor.x + 12.0f, cursor.y + 12.0f), IM_COL32(255, 255, 255, 255), ToString(m_ViewMode).data());
 
 		ImGui::SetCursorPosY(childCursorPos.y + childAvail.y - actionsHeight);
 
@@ -135,26 +139,24 @@ namespace App::SceneViewer::Ui
 		const float buttonsWidth = ImGui::GetContentRegionAvail().x;
 		const float buttonWidth = std::max(1.0f, (buttonsWidth - style.ItemSpacing.x) * 0.5f);
 
-		const bool recordingRunning = m_Controller->GetCameraRecorderState() == MotionRecorder::State::Active;
-
-		const bool renderingRunning = m_Controller->GetPathTracerState() == PathTracer::State::Active ||
-			m_Controller->GetPathTracerState() == PathTracer::State::Stopping;
-
+		entt::registry& blackboard = Core::Runtime::Application::Blackboard();
+		CameraRecorder::Status& recorderStatus = blackboard.ctx().get<CameraRecorder::Status>();
+		PathTracer::Status& pathTracerStatus = blackboard.ctx().get<PathTracer::Status>();
+		const bool recordingRunning = recorderStatus.state == CameraRecorder::State::Active;
+		const bool renderingRunning = pathTracerStatus.state == PathTracer::State::Active || pathTracerStatus.state == PathTracer::State::Stopping;
 		const char* recordingButtonLabel = recordingRunning ? "Stop recording [R]" : "Start recording [R]";
 		const char* renderingButtonLabel = renderingRunning ? "Stop rendering [T]" : "Start rendering [T]";
 
 		if (ImGui::Button(recordingButtonLabel, ImVec2(buttonWidth, 50.0f)))
 		{
-			auto buttonResult = RecordingButtonPushed(recordingRunning);
-			if (!buttonResult) buttonResult.error().Log();
+			Core::Runtime::Application::EventDispatcher().trigger(Events::CameraRecordingToggled(!recordingRunning));
 		}
 
 		ImGui::SameLine();
 
 		if (ImGui::Button(renderingButtonLabel, ImVec2(buttonWidth, 50.0f)))
 		{
-			auto buttonResult = RenderingButtonPushed(renderingRunning);
-			if (!buttonResult) buttonResult.error().Log();
+			Core::Runtime::Application::EventDispatcher().trigger(Events::PathTracingToggled(!renderingRunning));
 		}
 
 		ImGui::EndChild();
@@ -163,27 +165,7 @@ namespace App::SceneViewer::Ui
 		return displaySize;
 	}
 
-	std::expected<void, Core::Utils::Error> UiLayer::RecordingButtonPushed(bool recordingRunning)
-	{
-		if (recordingRunning)
-			return m_Controller->StopRecording();
-
-		auto controllerResult = m_Controller->SetRecordingSettings(m_TargetFps);
-		if (!controllerResult) return std::unexpected(std::move(controllerResult).error());
-		return m_Controller->StartRecording();
-	}
-
-	std::expected<void, Core::Utils::Error> UiLayer::RenderingButtonPushed(bool renderingRunning)
-	{
-		if (renderingRunning)
-			return m_Controller->StopRendering();
-
-		auto controllerResult = m_Controller->SetRenderingSettings(m_FrameWidth, m_FrameHeight, m_SamplesPerPixel, m_PathDepth);
-		if (!controllerResult) return std::unexpected(std::move(controllerResult).error());
-		return m_Controller->StartRendering();
-	}
-
-	float UiLayer::GetMaxResponsiveLabelWidth() const
+	float Layer::GetMaxResponsiveLabelWidth() const
 	{
 		return std::max({
 			ImGui::CalcTextSize("View Mode").x,
@@ -195,7 +177,7 @@ namespace App::SceneViewer::Ui
 		});
 	}
 
-	bool UiLayer::ShouldExpandInputs(float panelContentWidth) const
+	bool Layer::ShouldExpandInputs(float panelContentWidth) const
 	{
 		const ImGuiStyle& style = ImGui::GetStyle();
 
@@ -219,21 +201,21 @@ namespace App::SceneViewer::Ui
 		return settingsChildContentWidth < requiredInlineWidth;
 	}
 
-	void UiLayer::BuildSidePanel(const Core::Runtime::UiContext& context, const ImVec2& displaySize)
+	void Layer::BuildSidePanel(const ImVec2& displaySize)
 	{
 		ImGui::BeginChild("SidePanel", ImVec2(0.0f, 0.0f), true);
 
 		const float panelContentWidth = ImGui::GetContentRegionAvail().x;
 		const bool expandInputs = ShouldExpandInputs(panelContentWidth);
 
-		BuildDisplaySection(displaySize, context.time, expandInputs);
+		BuildDisplaySection(displaySize, expandInputs);
 		BuildCameraRecordingSection(expandInputs);
 		BuildPathTracingSection(expandInputs);
 
 		ImGui::EndChild();
 	}
 
-	void UiLayer::BuildDisplaySection(ImVec2 displaySize, const Core::Runtime::Time& time, bool expandInputs)
+	void Layer::BuildDisplaySection(ImVec2 displaySize, bool expandInputs)
 	{
 		const ImGuiStyle& style = ImGui::GetStyle();
 		const float textHeight = ImGui::GetTextLineHeight();
@@ -255,6 +237,7 @@ namespace App::SceneViewer::Ui
 
 		if (ImGui::CollapsingHeader("Display", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			const auto& time = Core::Runtime::Application::Time();
 			ImGui::BeginChild("DisplayStatus", ImVec2(0.0f, displayStatusHeight), true);
 			ImGui::Text("Width: %.0f px", displaySize.x);
 			ImGui::Text("Height: %.0f px", displaySize.y);
@@ -268,7 +251,7 @@ namespace App::SceneViewer::Ui
 			ImGui::BeginChild("DisplaySettings", ImVec2(0.0f, displaySettingsHeight), true);
 			ImGui::Checkbox("Lock to 16:9", &m_LockDisplayRatio);
 
-			if (Utils::BeginResponsiveCombo("View Mode", "##ViewMode", ToString(m_ViewMode), expandInputs))
+			if (Utils::BeginResponsiveCombo("View Mode", "##ViewMode", ToString(m_ViewMode).data(), expandInputs))
 			{
 				const ViewMode modes[] = { ViewMode::LivePreview, ViewMode::PathTracedOutput };
 
@@ -276,7 +259,7 @@ namespace App::SceneViewer::Ui
 				{
 					const bool selected = m_ViewMode == mode;
 
-					if (ImGui::Selectable(ToString(mode), selected))
+					if (ImGui::Selectable(ToString(mode).data(), selected))
 						m_ViewMode = mode;
 
 					if (selected)
@@ -290,7 +273,7 @@ namespace App::SceneViewer::Ui
 		}
 	}
 
-	void UiLayer::BuildCameraRecordingSection(bool expandInputs)
+	void Layer::BuildCameraRecordingSection(bool expandInputs)
 	{
 		const ImGuiStyle& style = ImGui::GetStyle();
 		const float textHeight = ImGui::GetTextLineHeight();
@@ -308,23 +291,26 @@ namespace App::SceneViewer::Ui
 			style.ItemSpacing.y,
 			style.WindowPadding.y);
 
+		entt::registry& blackboard = Core::Runtime::Application::Blackboard();
+		CameraRecorder::Status& recorderStatus = blackboard.ctx().get<CameraRecorder::Status>();
+		CameraRecorder::Settings& recorderSettings = blackboard.ctx().get<CameraRecorder::Settings>();
+
 		if (ImGui::CollapsingHeader("Camera Recording", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			ImGui::BeginChild("CameraRecordingStatus", ImVec2(0.0f, cameraRecordingStatusHeight), true);
-			ImGui::Text("State: %s", ToString(m_Controller->GetCameraRecorderState()));
-			ImGui::Text("Recorded frames: %d", m_Controller->GetRecordedFrames());
+			ImGui::Text("State: %s", ToString(recorderStatus.state).data());
+			ImGui::Text("Recorded frames: %d", recorderStatus.doneFrames);
 			ImGui::EndChild();
 
 			ImGui::Spacing();
 
 			ImGui::BeginChild("CameraRecordingSettings", ImVec2(0.0f, cameraRecordingSettingsHeight), true);
-			Utils::BuildResponsiveInputInt("Target FPS", "##TargetFps", &m_TargetFps, expandInputs);
-			m_TargetFps = std::max(m_TargetFps, 1);
+			Utils::BuildResponsiveInputInt("Target FPS", "##TargetFps", reinterpret_cast<int*>(&recorderSettings.targetFps), expandInputs);
 			ImGui::EndChild();
 		}
 	}
 
-	void UiLayer::BuildPathTracingSection(bool expandInputs)
+	void Layer::BuildPathTracingSection(bool expandInputs)
 	{
 		const ImGuiStyle& style = ImGui::GetStyle();
 		const float textHeight = ImGui::GetTextLineHeight();
@@ -349,36 +335,35 @@ namespace App::SceneViewer::Ui
 			style.ItemSpacing.y,
 			style.WindowPadding.y);
 
+		entt::registry& blackboard = Core::Runtime::Application::Blackboard();
+		PathTracer::Status& pathTracerStatus = blackboard.ctx().get<PathTracer::Status>();
+		PathTracer::Settings& pathTracerSettings = blackboard.ctx().get<PathTracer::Settings>();
+
 		if (ImGui::CollapsingHeader("Path Tracing", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			const float frameProgress = m_Controller->GetTotalFrames() > 0
-				? std::clamp(static_cast<float>(m_Controller->GetDoneFrames()) / static_cast<float>(m_Controller->GetTotalFrames()), 0.0f, 1.0f)
+			const float frameProgress = pathTracerStatus.totalFrames > 0
+				? std::clamp(static_cast<float>(pathTracerStatus.doneFrames) / static_cast<float>(pathTracerStatus.totalFrames), 0.0f, 1.0f)
 				: 0.0f;
 
-			const float sampleProgress = m_Controller->GetTotalSamples() > 0
-				? std::clamp(static_cast<float>(m_Controller->GetDoneSamples()) / static_cast<float>(m_Controller->GetTotalSamples()), 0.0f, 1.0f)
+			const float sampleProgress = pathTracerStatus.totalSamples > 0
+				? std::clamp(static_cast<float>(pathTracerStatus.doneSamples) / static_cast<float>(pathTracerStatus.totalSamples), 0.0f, 1.0f)
 				: 0.0f;
 
 			ImGui::BeginChild("PathTracingStatus", ImVec2(0.0f, pathTracingStatusHeight), true);
-			ImGui::Text("State: %s", ToString(m_Controller->GetPathTracerState()));
-			ImGui::Text("Frames: %d / %d", m_Controller->GetDoneFrames(), m_Controller->GetTotalFrames());
+			ImGui::Text("State: %s", ToString(pathTracerStatus.state).data());
+			ImGui::Text("Frames: %d / %d", pathTracerStatus.doneFrames, pathTracerStatus.totalFrames);
 			ImGui::ProgressBar(frameProgress, ImVec2(-1.0f, 0.0f));
-			ImGui::Text("Current frame samples: %d / %d", m_Controller->GetDoneSamples(), m_Controller->GetTotalSamples());
+			ImGui::Text("Current frame samples: %d / %d", pathTracerStatus.doneSamples, pathTracerStatus.totalSamples);
 			ImGui::ProgressBar(sampleProgress, ImVec2(-1.0f, 0.0f));
 			ImGui::EndChild();
 
 			ImGui::Spacing();
 
 			ImGui::BeginChild("PathTracingSettings", ImVec2(0.0f, pathTracingSettingsHeight), true);
-			Utils::BuildResponsiveInputInt("Frame width", "##FrameWidth", &m_FrameWidth, expandInputs);
-			Utils::BuildResponsiveInputInt("Frame height", "##FrameHeight", &m_FrameHeight, expandInputs);
-			Utils::BuildResponsiveInputInt("SPP", "##SamplesPerPixel", &m_SamplesPerPixel, expandInputs);
-			Utils::BuildResponsiveInputInt("Path depth", "##PathDepth", &m_PathDepth, expandInputs);
-
-			m_SamplesPerPixel = std::max(m_SamplesPerPixel, 1);
-			m_FrameWidth = std::max(m_FrameWidth, 1);
-			m_FrameHeight = std::max(m_FrameHeight, 1);
-			m_PathDepth = std::max(m_PathDepth, 1);
+			Utils::BuildResponsiveInputInt("Frame width", "##FrameWidth", reinterpret_cast<int*>(&pathTracerSettings.frameWidth), expandInputs);
+			Utils::BuildResponsiveInputInt("Frame height", "##FrameHeight", reinterpret_cast<int*>(&pathTracerSettings.frameHeight), expandInputs);
+			Utils::BuildResponsiveInputInt("SPP", "##SamplesPerPixel", reinterpret_cast<int*>(&pathTracerSettings.samplesPerPixel), expandInputs);
+			Utils::BuildResponsiveInputInt("Path depth", "##PathDepth", reinterpret_cast<int*>(&pathTracerSettings.pathDepth), expandInputs);
 			ImGui::EndChild();
 		}
 	}

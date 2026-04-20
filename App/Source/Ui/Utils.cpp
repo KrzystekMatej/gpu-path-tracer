@@ -1,7 +1,8 @@
-#include <App/SceneViewer/Ui/Utils.hpp>
+#include <App/Ui/Utils.hpp>
 #include <cmath>
+#include "imgui.h"
 
-namespace App::SceneViewer::Ui::Utils
+namespace App::Ui::Utils
 {
 	float GetStackHeight(std::initializer_list<float> itemHeights, float itemSpacingY, float paddingY)
 	{

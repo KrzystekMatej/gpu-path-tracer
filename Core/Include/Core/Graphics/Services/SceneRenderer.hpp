@@ -10,18 +10,18 @@ namespace Core::Graphics::Services
     {
         Gl::RenderTarget& target;
         const Ecs::Scene& scene;
+		const Assets::Storage& storage;
         glm::vec4 clearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
     };
 
     class SceneRenderer
     {
     public:
-        SceneRenderer(Gl::Renderer& renderer, const Assets::Storage& storage)
-            : m_Renderer(renderer), m_Storage(storage) { }
+        SceneRenderer(Gl::Renderer& renderer)
+            : m_Renderer(renderer) { }
 
         void Render(const SceneViewDesc& desc) const;
     private:
         Gl::Renderer& m_Renderer;
-		const Assets::Storage& m_Storage;
     };
 }
