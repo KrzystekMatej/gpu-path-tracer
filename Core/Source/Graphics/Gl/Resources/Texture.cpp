@@ -1,31 +1,31 @@
 #include <glad/gl.h>
 #include <Core/Graphics/Gl/Resources/Texture.hpp>
 
-namespace Core::Graphics::Gl::Resources
+namespace Core::Graphics::Gl
 {
 	namespace
 	{
-		std::expected<uint32_t, Utils::Error> GetInternalFormat(const Common::PixelFormat& format)
+		std::expected<uint32_t, Utils::Error> GetInternalFormat(const PixelFormat& format)
 		{
-			if (format.layout == Common::ChannelLayout::R && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::UInt8)
+			if (format.layout == ChannelLayout::R && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::UInt8)
 				return GL_R8;
-			if (format.layout == Common::ChannelLayout::R && format.colorSpace == Common::ColorSpace::SRGB && format.componentType == Common::ComponentType::UInt8)
+			if (format.layout == ChannelLayout::R && format.colorSpace == ColorSpace::SRGB && format.componentType == ComponentType::UInt8)
 				return GL_R8;
-			if (format.layout == Common::ChannelLayout::RGB && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::UInt8)
+			if (format.layout == ChannelLayout::RGB && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::UInt8)
 				return GL_RGB8;
-			if (format.layout == Common::ChannelLayout::RGB && format.colorSpace == Common::ColorSpace::SRGB && format.componentType == Common::ComponentType::UInt8)
+			if (format.layout == ChannelLayout::RGB && format.colorSpace == ColorSpace::SRGB && format.componentType == ComponentType::UInt8)
 				return GL_SRGB8;
-			if (format.layout == Common::ChannelLayout::RGB && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::Float16)
+			if (format.layout == ChannelLayout::RGB && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::Float16)
 				return GL_RGB16F;
-			if (format.layout == Common::ChannelLayout::RGB && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::Float32)
+			if (format.layout == ChannelLayout::RGB && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::Float32)
 				return GL_RGB32F;
-			if (format.layout == Common::ChannelLayout::RGBA && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::UInt8)
+			if (format.layout == ChannelLayout::RGBA && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::UInt8)
 				return GL_RGBA8;
-			if (format.layout == Common::ChannelLayout::RGBA && format.colorSpace == Common::ColorSpace::SRGB && format.componentType == Common::ComponentType::UInt8)
+			if (format.layout == ChannelLayout::RGBA && format.colorSpace == ColorSpace::SRGB && format.componentType == ComponentType::UInt8)
 				return GL_SRGB8_ALPHA8;
-			if (format.layout == Common::ChannelLayout::RGBA && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::Float16)
+			if (format.layout == ChannelLayout::RGBA && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::Float16)
 				return GL_RGBA16F;
-			if (format.layout == Common::ChannelLayout::RGBA && format.colorSpace == Common::ColorSpace::Linear && format.componentType == Common::ComponentType::Float32)
+			if (format.layout == ChannelLayout::RGBA && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::Float32)
 				return GL_RGBA32F;
 
 			return std::unexpected(Utils::Error(
@@ -35,15 +35,15 @@ namespace Core::Graphics::Gl::Resources
 		}
 
 
-		uint32_t GetExternalFormat(const Common::PixelFormat& format)
+		uint32_t GetExternalFormat(const PixelFormat& format)
 		{
 			switch (format.layout)
 			{
-				case Common::ChannelLayout::R:
+				case ChannelLayout::R:
 					return GL_RED;
-				case Common::ChannelLayout::RGB:
+				case ChannelLayout::RGB:
 					return GL_RGB;
-				case Common::ChannelLayout::RGBA:
+				case ChannelLayout::RGBA:
 					return GL_RGBA;
 				default:
 					return 0;
@@ -51,15 +51,15 @@ namespace Core::Graphics::Gl::Resources
 		}
 
 
-		uint32_t GetPixelType(const Common::PixelFormat& format)
+		uint32_t GetPixelType(const PixelFormat& format)
 		{
 			switch (format.componentType)
 			{
-				case Common::ComponentType::UInt8:
+				case ComponentType::UInt8:
 					return GL_UNSIGNED_BYTE;
-				case Common::ComponentType::Float16:
+				case ComponentType::Float16:
 					return GL_HALF_FLOAT;
-				case Common::ComponentType::Float32:
+				case ComponentType::Float32:
 					return GL_FLOAT;
 				default:
 					return 0;

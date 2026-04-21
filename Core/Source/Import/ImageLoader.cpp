@@ -7,7 +7,7 @@
 
 namespace Core::Import
 {
-	std::expected<Image, Utils::Error> LoadImage(const std::filesystem::path& path, Graphics::Common::ColorSpace colorSpace)
+	std::expected<Image, Utils::Error> LoadImage(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
 	{
 		std::unique_ptr<OIIO::ImageInput> imageInput = OIIO::ImageInput::open(path);
 
@@ -21,19 +21,19 @@ namespace Core::Import
 		uint32_t width = static_cast<uint32_t>(spec.width);
 		uint32_t height = static_cast<uint32_t>(spec.height);
 		uint8_t channels = static_cast<uint8_t>(spec.nchannels);
-		Graphics::Common::PixelFormat format;
+		Graphics::PixelFormat format;
 		format.colorSpace = colorSpace;
 
 		switch (channels)
 		{
 			case 1:
-				format.layout = Graphics::Common::ChannelLayout::R;
+				format.layout = Graphics::ChannelLayout::R;
 				break;
 			case 3:
-				format.layout = Graphics::Common::ChannelLayout::RGB;
+				format.layout = Graphics::ChannelLayout::RGB;
 				break;
 			case 4:
-				format.layout = Graphics::Common::ChannelLayout::RGBA;
+				format.layout = Graphics::ChannelLayout::RGBA;
 				break;
 			default:
 				return std::unexpected(Utils::Error("Unsupported number of channels: {}, file path: {}", spec.nchannels, path.string()));
@@ -45,15 +45,15 @@ namespace Core::Import
 		{
 			case OIIO::TypeDesc::UINT8:
 			case OIIO::TypeDesc::UINT16:
-				format.componentType = Graphics::Common::ComponentType::UInt8;
+				format.componentType = Graphics::ComponentType::UInt8;
 				readFormat = OIIO::TypeDesc::UINT8;
 				break;
 			case OIIO::TypeDesc::HALF:
-				format.componentType = Graphics::Common::ComponentType::Float16;
+				format.componentType = Graphics::ComponentType::Float16;
 				readFormat = OIIO::TypeDesc::HALF;
 				break;
 			case OIIO::TypeDesc::FLOAT:
-				format.componentType = Graphics::Common::ComponentType::Float32;
+				format.componentType = Graphics::ComponentType::Float32;
 				readFormat = OIIO::TypeDesc::FLOAT;
 				break;
 			default:
@@ -76,7 +76,7 @@ namespace Core::Import
 		};
 	}
 
-	std::expected<ImageMipChain, Utils::Error> LoadImageMipChainFromFiles(const std::vector<std::filesystem::path>& mipPaths, Graphics::Common::ColorSpace colorSpace)
+	std::expected<ImageMipChain, Utils::Error> LoadImageMipChainFromFiles(const std::vector<std::filesystem::path>& mipPaths, Graphics::ColorSpace colorSpace)
 	{
 		uint32_t width = 1;
 		uint32_t height = 1;
@@ -139,7 +139,7 @@ namespace Core::Import
 	}
 
 
-	std::expected<ImageMipChain, Utils::Error> LoadImageMipChainFromFolder(const std::filesystem::path& folderPath, Graphics::Common::ColorSpace colorSpace)
+	std::expected<ImageMipChain, Utils::Error> LoadImageMipChainFromFolder(const std::filesystem::path& folderPath, Graphics::ColorSpace colorSpace)
 	{
 		if (!std::filesystem::exists(folderPath))
 			return std::unexpected(Utils::Error("Path {} does not exist", folderPath.string()));
@@ -224,7 +224,7 @@ namespace Core::Import
 		return -1;
 	}
 
-	std::expected<Cubemap, Utils::Error> LoadCubemapFromFiles(const std::array<std::filesystem::path, 6>& facePaths, Graphics::Common::ColorSpace colorSpace)
+	std::expected<Cubemap, Utils::Error> LoadCubemapFromFiles(const std::array<std::filesystem::path, 6>& facePaths, Graphics::ColorSpace colorSpace)
 	{
 		Cubemap result{};
 		bool initialized = false;
@@ -290,7 +290,7 @@ namespace Core::Import
 		return result;
 	}
 
-	std::expected<Cubemap, Utils::Error> LoadCubemapFromFolder(const std::filesystem::path& folderPath, Graphics::Common::ColorSpace colorSpace, const std::string& prefix)
+	std::expected<Cubemap, Utils::Error> LoadCubemapFromFolder(const std::filesystem::path& folderPath, Graphics::ColorSpace colorSpace, const std::string& prefix)
 	{
 		if (!std::filesystem::exists(folderPath))
 			return std::unexpected(Utils::Error("Path {} does not exist", folderPath.string()));
@@ -350,7 +350,7 @@ namespace Core::Import
 		return LoadCubemapFromFiles(facePaths, colorSpace);
 	}
 
-	std::expected<CubemapMipChain, Utils::Error> LoadCubemapMipChainFromFolder(const std::filesystem::path& folderPath, Graphics::Common::ColorSpace colorSpace)
+	std::expected<CubemapMipChain, Utils::Error> LoadCubemapMipChainFromFolder(const std::filesystem::path& folderPath, Graphics::ColorSpace colorSpace)
 	{
 		if (!std::filesystem::exists(folderPath))
 			return std::unexpected(Utils::Error("Path {} does not exist", folderPath.string()));

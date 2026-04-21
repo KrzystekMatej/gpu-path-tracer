@@ -25,9 +25,9 @@ namespace Core::Assets
 		std::expected<Handle<Model>, Utils::Error> ImportObj(const std::filesystem::path& path);
 		std::expected<Handle<Texture>, Utils::Error> ImportTexture(
 			const std::filesystem::path& path, 
-			Graphics::Common::ColorSpace colorSpace, 
+			Graphics::ColorSpace colorSpace, 
 			std::optional<std::filesystem::path> root = std::nullopt);
-		std::expected<Handle<EnvironmentMap>, Utils::Error> ImportEnvironmentMap(const std::filesystem::path& path, Graphics::Common::ColorSpace colorSpace);
+		std::expected<Handle<EnvironmentMap>, Utils::Error> ImportEnvironmentMap(const std::filesystem::path& path, Graphics::ColorSpace colorSpace);
 		std::expected<Handle<ShaderProgram>, Utils::Error> ImportShaderProgram(
 			std::span<std::pair<std::filesystem::path, Graphics::Gl::ShaderType>> shaderPaths);
 	private:
@@ -37,7 +37,7 @@ namespace Core::Assets
 		std::expected<Handle<Material>, Utils::Error> ImportMaterial(const Utils::Path::ResolvedPath& objPath, const Import::ParsedMaterial& material);
 
 		std::expected<Handle<Material>, Utils::Error> ImportDefaultMaterial();
-		std::expected<Handle<Texture>, Utils::Error> ImportPixelTexture(const Graphics::Common::PixelFormat& format, std::span<const uint8_t> data);
+		std::expected<Handle<Texture>, Utils::Error> ImportPixelTexture(const Graphics::PixelFormat& format, std::span<const uint8_t> data);
 
 		Storage m_Storage;
 		std::filesystem::path m_Root;

@@ -22,14 +22,14 @@ namespace Core::Graphics::Gl
 
         void Allocate(uint32_t width, uint32_t height);
 		void Upload(const void* data) const;
-        const Resources::Texture& GetTexture() const { return m_Texture; }
+        const Texture& GetTexture() const { return m_Texture; }
         uint32_t GetWidth() const { return m_Width; }
         uint32_t GetHeight() const { return m_Height; }
     private:
         void Init();
         void Allocate();
 
-        Resources::Texture m_Texture;
+        Texture m_Texture;
         uint32_t m_Width;
         uint32_t m_Height;
         TextureFormat m_Format;

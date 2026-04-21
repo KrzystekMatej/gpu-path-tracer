@@ -11,7 +11,7 @@ namespace Core::Import
 	{
 		uint32_t index;
 
-		std::vector<Graphics::Common::Vertex> vertices;
+		std::vector<Graphics::Vertex> vertices;
 		std::vector<uint32_t> indices;
 
 		std::optional<uint32_t> materialIndex;
@@ -21,7 +21,7 @@ namespace Core::Import
 	{
 		std::string name;
 
-		Graphics::Common::SurfaceModel surface;
+		Graphics::SurfaceModel surface;
 
 		float albedo[3];
 		float roughness;

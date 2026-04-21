@@ -24,6 +24,8 @@ namespace Core::Graphics::Cuda::Memory
         std::expected<void, Core::Utils::Error> Allocate(size_t width, size_t height, size_t elementSize);
         std::expected<void, Core::Utils::Error> UploadSync(const void* hostData, size_t hostRowPitch) const;
         std::expected<void, Core::Utils::Error> UploadAsync(const void* hostData, size_t hostRowPitch, void* stream) const;
+        std::expected<void, Core::Utils::Error> MemsetBytesSync(uint8_t value = 0) const;
+        std::expected<void, Core::Utils::Error> MemsetBytesAsync(uint8_t value, void* stream) const;
         std::expected<void, Core::Utils::Error> Free();
 
         void* GetData() const { return m_Data; }

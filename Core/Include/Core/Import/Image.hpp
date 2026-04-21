@@ -9,7 +9,7 @@ namespace Core::Import
 	{
 		uint32_t width;
 		uint32_t height;
-		Graphics::Common::PixelFormat format;
+		Graphics::PixelFormat format;
 		std::vector<uint8_t> data;
 	};
 
@@ -22,7 +22,7 @@ namespace Core::Import
 
 	struct ImageMipChain
 	{
-		Graphics::Common::PixelFormat format;
+		Graphics::PixelFormat format;
 		std::vector<ImageMip> mipMaps;
 	};
 
@@ -30,7 +30,7 @@ namespace Core::Import
 	struct Cubemap
 	{
 		uint32_t size;
-		Graphics::Common::PixelFormat format;
+		Graphics::PixelFormat format;
 		std::array<std::vector<uint8_t>, 6> faces;
 	};
 
@@ -42,7 +42,7 @@ namespace Core::Import
 
 	struct CubemapMipChain
 	{
-		Graphics::Common::PixelFormat format;
+		Graphics::PixelFormat format;
 		std::vector<CubemapMip> mipMaps;
 	};
 }

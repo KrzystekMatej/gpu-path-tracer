@@ -1,7 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 
-namespace Core::Graphics::Common
+namespace Core::Graphics
 {
 	struct Vertex
 	{

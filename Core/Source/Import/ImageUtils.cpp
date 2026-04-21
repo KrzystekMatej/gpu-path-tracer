@@ -36,8 +36,8 @@ namespace Core::Import
 
     std::optional<Image> ConvertRgbToRgba(const Image& image)
     {
-        using Graphics::Common::ChannelLayout;
-        using Graphics::Common::ComponentType;
+        using Graphics::ChannelLayout;
+        using Graphics::ComponentType;
 
         if (image.format.layout == ChannelLayout::RGBA)
             return image;

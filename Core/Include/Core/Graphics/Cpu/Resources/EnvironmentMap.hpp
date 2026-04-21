@@ -1,7 +1,7 @@
 #pragma once
 #include <Core/Graphics/Cpu/Resources/Texture.hpp>
 
-namespace Core::Graphics::Cpu::Resources
+namespace Core::Graphics::Cpu
 {
 	class EnvironmentMap
 	{

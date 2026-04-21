@@ -1,7 +1,8 @@
 #pragma once
+#include <Core/Ecs/Builder.hpp>
 #include <Core/External/Glm.hpp>
 
-namespace Core::Ecs::Components
+namespace Core::Graphics::Ecs
 {
     struct Camera
     {
@@ -18,4 +19,13 @@ namespace Core::Ecs::Components
         float nearPlane;
         float farPlane;
     };
+
+	class CameraBuilder : public Core::Ecs::Builder
+	{
+	public:
+		virtual std::expected<void, Utils::Error> Build(
+			const Core::Ecs::BuildContext& context,
+			entt::registry& registry,
+			Assets::Manager& assetManager) const override;
+	};
 }

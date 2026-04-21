@@ -31,7 +31,7 @@ namespace Core::Assets
 
     struct SourcePixel
     {
-		Graphics::Common::PixelFormat format;
+		Graphics::PixelFormat format;
         std::span<const uint8_t> data;
     };
 

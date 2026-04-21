@@ -3,7 +3,7 @@
 #include <cuda_runtime.h>
 #include <cstdio>
 
-namespace Core::Graphics::Cuda::PathTracing::Kernels
+namespace Core::Graphics::Cuda::Kernels
 {
 	#define TPB_1D 256
 

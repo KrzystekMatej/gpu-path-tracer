@@ -7,7 +7,7 @@ namespace Core::Utils::Math
 	{
 		struct MikkContext
 		{
-			std::vector<Graphics::Common::Vertex>& vertices;
+			std::vector<Graphics::Vertex>& vertices;
 			const std::vector<uint32_t>& indices;
 		};
 
@@ -82,7 +82,7 @@ namespace Core::Utils::Math
 		}
 	}
 
-	void GenerateTangentSpace(std::vector<Graphics::Common::Vertex>& vertices, const std::vector<uint32_t>& indices)
+	void GenerateTangentSpace(std::vector<Graphics::Vertex>& vertices, const std::vector<uint32_t>& indices)
 	{
 		MikkContext userData { vertices, indices };
 		ComputeTangents(userData);

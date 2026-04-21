@@ -43,26 +43,26 @@ namespace Core::Assets
 			return static_cast<uint8_t>(std::lround(x * 255.0f));
 		}
 
-		bool IsUint8Texture(const Graphics::Common::PixelFormat& f)
+		bool IsUint8Texture(const Graphics::PixelFormat& f)
 		{
-			return f.componentType == Graphics::Common::ComponentType::UInt8;
+			return f.componentType == Graphics::ComponentType::UInt8;
 		}
 
-		bool IsHdrTexture(const Graphics::Common::PixelFormat& f)
+		bool IsHdrTexture(const Graphics::PixelFormat& f)
 		{
-			return f.componentType == Graphics::Common::ComponentType::Float16 || f.componentType == Graphics::Common::ComponentType::Float32;
+			return f.componentType == Graphics::ComponentType::Float16 || f.componentType == Graphics::ComponentType::Float32;
 		}
 
-		std::expected<Core::Graphics::Gl::Resources::Texture, Utils::Error> LoadCubemapTexture(const std::filesystem::path& folder, Graphics::Common::ColorSpace colorSpace)
+		std::expected<Core::Graphics::Gl::Texture, Utils::Error> LoadCubemapTexture(const std::filesystem::path& folder, Graphics::ColorSpace colorSpace)
 		{
 			auto mipChain = Import::LoadCubemapMipChainFromFolder(folder, colorSpace);
 			if (mipChain)
-				return Core::Graphics::Gl::Resources::Texture::CreateCubemapFromMipmaps(mipChain.value());
+				return Core::Graphics::Gl::Texture::CreateCubemapFromMipmaps(mipChain.value());
 			auto cubemap = Import::LoadCubemapFromFolder(folder, colorSpace, "");
 			if (!cubemap)
 				return std::unexpected(cubemap.error());
 
-			return Core::Graphics::Gl::Resources::Texture::CreateCubemap(cubemap.value());
+			return Core::Graphics::Gl::Texture::CreateCubemap(cubemap.value());
 		}
 	}
 
@@ -82,7 +82,7 @@ namespace Core::Assets
 		return manager;
 	}
 
-	std::expected<Handle<Texture>, Utils::Error> Manager::ImportPixelTexture(const Graphics::Common::PixelFormat& format, std::span<const uint8_t> data)
+	std::expected<Handle<Texture>, Utils::Error> Manager::ImportPixelTexture(const Graphics::PixelFormat& format, std::span<const uint8_t> data)
 	{
 		Source source = SourcePixel{ format, data };
 		Subkey subkey = SubkeyNone{};
@@ -98,16 +98,16 @@ namespace Core::Assets
 			.data = std::vector<uint8_t>(data.begin(), data.end())
 		};
 
-		auto glResult = Graphics::Gl::Resources::Texture::Create2D(image);
+		auto glResult = Graphics::Gl::Texture::Create2D(image);
 		if (!glResult)
 			return std::unexpected(Utils::Error(std::move(glResult).error()));
 
-		auto cudaResult = Graphics::Cuda::Resources::Texture::Create2D(image);
+		auto cudaResult = Graphics::Cuda::Texture::Create2D(image);
 		if (!cudaResult)
 			return std::unexpected(Utils::Error(std::move(cudaResult).error()));
 
 		Texture asset(
-			Graphics::Cpu::Resources::Texture::Create(std::move(image)),
+			Graphics::Cpu::Texture::Create(std::move(image)),
 			std::move(glResult).value(),
 			std::move(cudaResult).value());
 
@@ -124,49 +124,49 @@ namespace Core::Assets
 		if (cached)
 			return cached.value();
 
-		Graphics::Common::PixelFormat rgbSrgb
+		Graphics::PixelFormat rgbSrgb
 		{
-			.layout = Graphics::Common::ChannelLayout::RGB,
-			.componentType = Graphics::Common::ComponentType::UInt8,
-			.colorSpace = Graphics::Common::ColorSpace::SRGB
+			.layout = Graphics::ChannelLayout::RGB,
+			.componentType = Graphics::ComponentType::UInt8,
+			.colorSpace = Graphics::ColorSpace::SRGB
 		};
 
-		Graphics::Common::PixelFormat rLinear
+		Graphics::PixelFormat rLinear
 		{
-			.layout = Graphics::Common::ChannelLayout::R,
-			.componentType = Graphics::Common::ComponentType::UInt8,
-			.colorSpace = Graphics::Common::ColorSpace::Linear
+			.layout = Graphics::ChannelLayout::R,
+			.componentType = Graphics::ComponentType::UInt8,
+			.colorSpace = Graphics::ColorSpace::Linear
 		};
 
-		Graphics::Common::PixelFormat rgbLinear
+		Graphics::PixelFormat rgbLinear
 		{
-			.layout = Graphics::Common::ChannelLayout::RGB,
-			.componentType = Graphics::Common::ComponentType::UInt8,
-			.colorSpace = Graphics::Common::ColorSpace::Linear
+			.layout = Graphics::ChannelLayout::RGB,
+			.componentType = Graphics::ComponentType::UInt8,
+			.colorSpace = Graphics::ColorSpace::Linear
 		};
 
-		auto albedo = ImportPixelTexture(rgbSrgb, Graphics::Common::MaterialDefaults::DefaultAlbedo);
+		auto albedo = ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultAlbedo);
 		if (!albedo)
 			return std::unexpected(albedo.error());
 
-		auto roughness = ImportPixelTexture(rLinear, Graphics::Common::MaterialDefaults::DefaultRoughness);
+		auto roughness = ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultRoughness);
 		if (!roughness)
 			return std::unexpected(roughness.error());
 
-		auto metallic = ImportPixelTexture(rLinear, Graphics::Common::MaterialDefaults::DefaultMetallic);
+		auto metallic = ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultMetallic);
 		if (!metallic)
 			return std::unexpected(metallic.error());
 
-		auto ao = ImportPixelTexture(rLinear, Graphics::Common::MaterialDefaults::DefaultAo);
+		auto ao = ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultAo);
 		if (!ao)
 			return std::unexpected(ao.error());
 
-		auto normal = ImportPixelTexture(rgbLinear, Graphics::Common::MaterialDefaults::DefaultNormal);
+		auto normal = ImportPixelTexture(rgbLinear, Graphics::MaterialDefaults::DefaultNormal);
 		if (!normal)
 			return std::unexpected(normal.error());
 
 		Material asset(
-			Graphics::Common::MaterialDefaults::DefaultSurfaceModel,
+			Graphics::MaterialDefaults::DefaultSurfaceModel,
 			albedo.value(),
 			roughness.value(),
 			metallic.value(),
@@ -179,7 +179,7 @@ namespace Core::Assets
 
 	std::expected<Handle<Texture>, Utils::Error> Manager::ImportTexture(
 		const std::filesystem::path& path, 
-		Graphics::Common::ColorSpace colorSpace, 
+		Graphics::ColorSpace colorSpace, 
 		std::optional<std::filesystem::path> root)
 	{
 		std::filesystem::path actualRoot = root ? *root : m_Root;
@@ -209,14 +209,14 @@ namespace Core::Assets
 
 		Import::Image image = std::move(imageResult.value());
 
-		auto glResult = Graphics::Gl::Resources::Texture::Create2D(image);
+		auto glResult = Graphics::Gl::Texture::Create2D(image);
 		if (!glResult)
 			return std::unexpected(Utils::Error(
 				std::make_shared<Utils::Error>(glResult.error()), 
 				"Failed to create GL texture, file path: {}", 
 				absoluteStr));
 
-		auto cudaResult = Graphics::Cuda::Resources::Texture::Create2D(image);
+		auto cudaResult = Graphics::Cuda::Texture::Create2D(image);
 		if (!cudaResult)
 			return std::unexpected(Utils::Error(
 				std::make_shared<Utils::Error>(cudaResult.error()), 
@@ -224,7 +224,7 @@ namespace Core::Assets
 				absoluteStr));
 
 		Texture asset(
-			Graphics::Cpu::Resources::Texture::Create(std::move(image)),
+			Graphics::Cpu::Texture::Create(std::move(image)),
 			std::move(glResult).value(),
 			std::move(cudaResult).value());
 
@@ -242,14 +242,14 @@ namespace Core::Assets
 		if (cached)
 			return cached.value();
 
-		auto glResult = Graphics::Gl::Resources::Mesh::Create(mesh);
+		auto glResult = Graphics::Gl::Mesh::Create(mesh);
 		if (!glResult)
 			return std::unexpected(Utils::Error(
 				std::make_shared<Utils::Error>(glResult.error()),
 				"Failed to create GL mesh, obj path: {}",
 				objPath.absolute.generic_string()));
 
-		Mesh asset(Graphics::Cpu::Resources::Mesh::Create(std::move(mesh)), std::move(glResult.value()));
+		Mesh asset(Graphics::Cpu::Mesh::Create(std::move(mesh)), std::move(glResult.value()));
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		return handle.value();
@@ -265,11 +265,11 @@ namespace Core::Assets
 		if (cached)
 			return cached.value();
 
-		const auto makeRgb = [&](Graphics::Common::ColorSpace cs, std::array<uint8_t, 3> v)
+		const auto makeRgb = [&](Graphics::ColorSpace cs, std::array<uint8_t, 3> v)
 		{
-			Graphics::Common::PixelFormat f{
-				.layout = Graphics::Common::ChannelLayout::RGB,
-				.componentType = Graphics::Common::ComponentType::UInt8,
+			Graphics::PixelFormat f{
+				.layout = Graphics::ChannelLayout::RGB,
+				.componentType = Graphics::ComponentType::UInt8,
 				.colorSpace = cs
 			};
 			return ImportPixelTexture(f, v);
@@ -277,10 +277,10 @@ namespace Core::Assets
 
 		const auto makeR = [&](std::array<uint8_t, 1> v)
 		{
-			Graphics::Common::PixelFormat f{
-				.layout = Graphics::Common::ChannelLayout::R,
-				.componentType = Graphics::Common::ComponentType::UInt8,
-				.colorSpace = Graphics::Common::ColorSpace::Linear
+			Graphics::PixelFormat f{
+				.layout = Graphics::ChannelLayout::R,
+				.componentType = Graphics::ComponentType::UInt8,
+				.colorSpace = Graphics::ColorSpace::Linear
 			};
 			return ImportPixelTexture(f, v);
 		};
@@ -297,32 +297,32 @@ namespace Core::Assets
 		std::optional<std::filesystem::path> root = objPath.absolute.parent_path();
 
 		auto albedo = material.albedoTexture
-			? ImportTexture(material.albedoTexture.value(), Graphics::Common::ColorSpace::SRGB, root)
-			: makeRgb(Graphics::Common::ColorSpace::SRGB, albedoPixel);
+			? ImportTexture(material.albedoTexture.value(), Graphics::ColorSpace::SRGB, root)
+			: makeRgb(Graphics::ColorSpace::SRGB, albedoPixel);
 
 		if (!albedo) return std::unexpected(albedo.error());
 
 		auto roughness = material.roughnessTexture
-			? ImportTexture(material.roughnessTexture.value(), Graphics::Common::ColorSpace::Linear, root)
+			? ImportTexture(material.roughnessTexture.value(), Graphics::ColorSpace::Linear, root)
 			: makeR(roughnessPixel);
 
 		if (!roughness) return std::unexpected(roughness.error());
 
 		auto metallic = material.metallicTexture
-			? ImportTexture(material.metallicTexture.value(), Graphics::Common::ColorSpace::Linear, root)
+			? ImportTexture(material.metallicTexture.value(), Graphics::ColorSpace::Linear, root)
 			: makeR(metallicPixel);
 
 		if (!metallic) return std::unexpected(metallic.error());
 
 		auto ao = material.aoTexture
-			? ImportTexture(material.aoTexture.value(), Graphics::Common::ColorSpace::Linear, root)
-			: makeR(Graphics::Common::MaterialDefaults::DefaultAo);
+			? ImportTexture(material.aoTexture.value(), Graphics::ColorSpace::Linear, root)
+			: makeR(Graphics::MaterialDefaults::DefaultAo);
 
 		if (!ao) return std::unexpected(ao.error());
 
 		auto normal = material.normalTexture
-			? ImportTexture(material.normalTexture.value(), Graphics::Common::ColorSpace::Linear, root)
-			: makeRgb(Graphics::Common::ColorSpace::Linear, Graphics::Common::MaterialDefaults::DefaultNormal);
+			? ImportTexture(material.normalTexture.value(), Graphics::ColorSpace::Linear, root)
+			: makeRgb(Graphics::ColorSpace::Linear, Graphics::MaterialDefaults::DefaultNormal);
 
 		if (!normal) return std::unexpected(normal.error());
 
@@ -405,7 +405,7 @@ namespace Core::Assets
 		return handle.value();
 	}
 
-	std::expected<Handle<EnvironmentMap>, Utils::Error> Manager::ImportEnvironmentMap(const std::filesystem::path& path, Graphics::Common::ColorSpace colorSpace)
+	std::expected<Handle<EnvironmentMap>, Utils::Error> Manager::ImportEnvironmentMap(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
 	{
 		auto pathResult = Utils::Path::ResolvePath(path, m_Root);
 		if (!pathResult)
@@ -463,9 +463,9 @@ namespace Core::Assets
 				prefilteredPath.string()));
 
 		EnvironmentMap asset(
-			Graphics::Cpu::Resources::EnvironmentMap::Create(Graphics::Cpu::Resources::Texture::Create(std::move(backgroundImage))),
-			Graphics::Gl::Resources::EnvironmentMap(std::move(skybox.value()), std::move(irradiance.value()), std::move(prefiltered.value())),
-			Graphics::Cuda::Resources::EnvironmentMap{}
+			Graphics::Cpu::EnvironmentMap::Create(Graphics::Cpu::Texture::Create(std::move(backgroundImage))),
+			Graphics::Gl::EnvironmentMap(std::move(skybox.value()), std::move(irradiance.value()), std::move(prefiltered.value())),
+			Graphics::Cuda::EnvironmentMap{}
 		);
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));

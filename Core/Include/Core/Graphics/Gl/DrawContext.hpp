@@ -16,10 +16,10 @@ namespace Core::Graphics::Gl
             const glm::mat4& view,
 			const glm::mat4& projection,
             const glm::vec3 cameraPosition,
-            const Resources::Mesh& mesh,
+            const Mesh& mesh,
 			const Material& material,
-			const std::vector<Common::Light>& lights,
-            const Resources::EnvironmentMap* environmentMap)
+			const std::vector<Light>& lights,
+            const EnvironmentMap* environmentMap)
             : storage(storage),
               model(model),
               view(view),
@@ -37,10 +37,10 @@ namespace Core::Graphics::Gl
         const glm::mat4& projection;
 		const glm::vec3 cameraPosition;
 
-        const Resources::Mesh& mesh;
+        const Mesh& mesh;
         const Material& material;
 
-		const std::vector<Common::Light>& lights;
-		const Resources::EnvironmentMap* environmentMap = nullptr;
+		const std::vector<Light>& lights;
+		const EnvironmentMap* environmentMap = nullptr;
 	};
 }

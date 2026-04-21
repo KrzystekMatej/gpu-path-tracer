@@ -1,7 +1,7 @@
 #include <Core/Graphics/Cuda/PathTracing/Renderer.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Kernels.hpp>
 
-namespace Core::Graphics::Cuda::PathTracing
+namespace Core::Graphics::Cuda
 {
     namespace
     {
@@ -21,13 +21,13 @@ namespace Core::Graphics::Cuda::PathTracing
 
     std::expected<void, Core::Utils::Error> Renderer::Initialize(size_t framebufferWidth, size_t framebufferHeight)
     {
-        return m_Framebuffer.Allocate(framebufferWidth, framebufferHeight, sizeof(uchar4));
-    }
-
-    Renderer::LockedFrameView Renderer::LockLatestFrame() const
-    {
-        std::unique_lock<std::mutex> lock(m_FrameMutex);
-        return LockedFrameView(std::move(lock), m_Framebuffer);
+        auto result = m_Framebuffer.Allocate(framebufferWidth, framebufferHeight, sizeof(uchar4));
+        if (!result)
+            return std::unexpected(std::move(result).error());
+        result = m_Framebuffer.GetDeviceBuffer().MemsetBytesSync(0);
+		if (!result)
+            return std::unexpected(std::move(result).error());
+		return m_Framebuffer.CopyDeviceToHostSync();
     }
 
     std::optional<Core::Utils::Error> Renderer::GetLastError() const

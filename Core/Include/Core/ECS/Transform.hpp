@@ -2,20 +2,11 @@
 #include <entt/entt.hpp>
 #include <Core/External/Glm.hpp>
 #include <Core/Utils/Math/CoordinateSystem.hpp>
+#include <Core/Ecs/Builder.hpp>
+#include <Core/Ecs/Scene.hpp>
 
 namespace Core::Ecs
 {
-    class Scene;
-
-    namespace Systems
-    {
-		void PropagateTransform(entt::registry& registry, entt::entity entity, const glm::mat4& parentTransform);
-    }
-}
-
-namespace Core::Ecs::Components
-{
-
     struct WorldTransform
     {
 		WorldTransform() = default;
@@ -23,7 +14,7 @@ namespace Core::Ecs::Components
 
 		const glm::mat4& GetMatrix() const { return matrix; }
     private:
-		friend void Systems::PropagateTransform(entt::registry&, entt::entity, const glm::mat4&);
+		friend void PropagateTransform(entt::registry&, entt::entity, const glm::mat4&);
 
         glm::mat4 matrix{ 1.0f };
     };
@@ -61,4 +52,16 @@ namespace Core::Ecs::Components
             return rotation * Utils::Math::CoordinateSystem::Up;
         }
     };
+
+	class TransformBuilder : public Builder
+	{
+	public:
+		virtual std::expected<void, Utils::Error> Build(
+			const BuildContext& context,
+			entt::registry& registry,
+			Assets::Manager& assetManager) const override;
+	};
+
+	void PropagateTransform(entt::registry& registry, entt::entity entity, const glm::mat4& parentTransform);
+	void UpdateWorldTransforms(Scene& scene);
 }

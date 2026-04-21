@@ -5,7 +5,7 @@
 #include <Core/Utils/Error.hpp>
 #include <Core/Assets/Manager.hpp>
 
-namespace Core::Ecs::SceneNodes
+namespace Core::Ecs
 {
 	struct BuildContext
 	{

@@ -1,6 +1,6 @@
 #pragma once
 #include <vector>
-#include <Core/Capture/Types.hpp>
+#include <Core/Capture/Sample.hpp>
 
 namespace Core::Capture
 {

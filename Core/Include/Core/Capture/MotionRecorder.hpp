@@ -1,20 +1,11 @@
 #pragma once
-#include <Core/Capture/Types.hpp>
+#include <Core/Ecs/Builder.hpp>
+#include <Core/Ecs/Scene.hpp>
+#include <Core/Capture/Sample.hpp>
 #include <vector>
 
-namespace Core::Ecs
+namespace Core::Capture
 {
-    class Scene;
-
-    namespace Systems
-    {
-		void UpdateMotionRecording(Scene& scene, float deltaTime);
-    }
-}
-
-namespace Core::Ecs::Components
-{
-
 	struct MotionRecorder
 	{
 	public:
@@ -38,10 +29,21 @@ namespace Core::Ecs::Components
 		float sampleInterval = 1.0f / 60.0f;
 		State state = State::Idle;
 	private:
-		friend void Systems::UpdateMotionRecording(Scene& scene, float deltaTime);
+		friend void UpdateMotionRecording(Ecs::Scene& scene, float deltaTime);
 
 		float elapsedTime = 0.0f;
 		float nextSampleTime = 0.0f;
 		std::vector<Capture::MotionSample> samples;
 	};
+
+	class MotionRecorderBuilder : public Ecs::Builder
+	{
+	public:
+		virtual std::expected<void, Utils::Error> Build(
+			const Ecs::BuildContext& context,
+			entt::registry& registry,
+			Assets::Manager& assetManager) const override;
+	};
+
+	void UpdateMotionRecording(Ecs::Scene& scene, float deltaTime);
 }

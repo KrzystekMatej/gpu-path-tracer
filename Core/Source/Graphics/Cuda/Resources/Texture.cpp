@@ -3,12 +3,12 @@
 #include <cuda_runtime.h>
 #include <Core/Import/ImageUtils.hpp>
 
-namespace Core::Graphics::Cuda::Resources
+namespace Core::Graphics::Cuda
 {
     namespace
     {
-        using Core::Graphics::Common::ChannelLayout;
-        using Core::Graphics::Common::ComponentType;
+        using Core::Graphics::ChannelLayout;
+        using Core::Graphics::ComponentType;
 
         std::expected<cudaChannelFormatDesc, Core::Utils::Error> CreateChannelDesc(const Import::Image& image)
         {
@@ -126,7 +126,7 @@ namespace Core::Graphics::Cuda::Resources
         const Import::Image* sourceImage = &image;
 		std::optional<Import::Image> convertedImage;
 
-		if (image.format.layout == Graphics::Common::ChannelLayout::RGB)
+		if (image.format.layout == Graphics::ChannelLayout::RGB)
 		{
 			convertedImage = std::move(Import::ConvertRgbToRgba(image));
             assert(convertedImage.has_value());

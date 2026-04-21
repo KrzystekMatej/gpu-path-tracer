@@ -106,6 +106,42 @@ namespace Core::Graphics::Cuda::Memory
         return {};
     }
 
+    std::expected<void, Core::Utils::Error> DeviceBuffer2D::MemsetBytesSync(uint8_t value) const
+	{
+		assert(m_Data != nullptr);
+
+		cudaError_t error = cudaMemset2D(
+			m_Data,
+			m_Pitch,
+			value,
+			m_Width * m_ElementSize,
+			m_Height);
+
+		if (error != cudaSuccess)
+			return std::unexpected(Utils::MakeCudaError("cudaMemset2D", error));
+
+		return {};
+	}
+
+	std::expected<void, Core::Utils::Error> DeviceBuffer2D::MemsetBytesAsync(uint8_t value, void* stream) const
+	{
+		assert(m_Data != nullptr);
+		assert(stream != nullptr);
+
+		cudaError_t error = cudaMemset2DAsync(
+			m_Data,
+			m_Pitch,
+			value,
+			m_Width * m_ElementSize,
+			m_Height,
+			static_cast<cudaStream_t>(stream));
+
+		if (error != cudaSuccess)
+			return std::unexpected(Utils::MakeCudaError("cudaMemset2DAsync", error));
+
+		return {};
+	}
+
     std::expected<void, Core::Utils::Error> DeviceBuffer2D::Free()
     {
         if (m_Data == nullptr)

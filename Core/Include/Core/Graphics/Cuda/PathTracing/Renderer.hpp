@@ -15,19 +15,11 @@
 #include <Core/Graphics/Cuda/Memory/SharedBuffer2D.hpp>
 #include <Core/Utils/Error.hpp>
 
-namespace Core::Graphics::Cuda::PathTracing
+namespace Core::Graphics::Cuda
 {
     class Renderer
     {
     public:
-		enum class State
-		{
-			Idle,
-			Active,
-            Stopping,
-			Finished
-		};
-
         class LockedFrameView
         {
         public:
@@ -64,6 +56,41 @@ namespace Core::Graphics::Cuda::PathTracing
             const Memory::SharedBuffer2D& m_Buffer;
         };
 
+        class FrameView
+        {
+        public:
+			FrameView() = default;
+            explicit FrameView(const Renderer& renderer) :
+                m_Renderer(&renderer)
+            {
+            }
+
+            size_t GetWidth() const
+            {
+                return m_Renderer->m_Framebuffer.GetWidth();
+            }
+
+            size_t GetHeight() const
+            {
+                return m_Renderer->m_Framebuffer.GetHeight();
+            }
+
+            size_t GetElementSize() const
+            {
+                return m_Renderer->m_Framebuffer.GetElementSize();
+            }
+
+            LockedFrameView Lock() const
+            {
+                std::unique_lock<std::mutex> lock(m_Renderer->m_FrameMutex);
+                return LockedFrameView(std::move(lock), m_Renderer->m_Framebuffer);
+            }
+
+		private:
+			const Renderer* m_Renderer = nullptr;
+		};
+
+
         Renderer() = default;
         ~Renderer();
 
@@ -77,7 +104,7 @@ namespace Core::Graphics::Cuda::PathTracing
 		size_t GetFramebufferWidth() const { return m_Framebuffer.GetWidth(); }
 		size_t GetFramebufferHeight() const { return m_Framebuffer.GetHeight(); }
         std::optional<Core::Utils::Error> GetLastError() const;
-        LockedFrameView LockLatestFrame() const;
+        FrameView GetFrameView() const { return FrameView(*this); }
 
         std::expected<void, Core::Utils::Error> ResizeFramebuffer(size_t width, size_t height);
         std::expected<void, Core::Utils::Error> Clear(uint8_t r, uint8_t g, uint8_t b, uint8_t a);

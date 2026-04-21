@@ -25,7 +25,7 @@ namespace Core::Graphics::Gl
 		void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) const;
 		void Clear(float r, float g, float b, float a) const;
 		void DrawMesh(const DrawContext& context) const;
-		void DrawSkybox(const Assets::Storage& storage, const glm::mat4& view, const glm::mat4& projection, const Resources::Texture& skybox) const;
+		void DrawSkybox(const Assets::Storage& storage, const glm::mat4& view, const glm::mat4& projection, const Texture& skybox) const;
     private:
 		Renderer(const Window::GraphicsContext* context,
 			Assets::Handle<Assets::ShaderProgram> unlit,
@@ -34,8 +34,8 @@ namespace Core::Graphics::Gl
 			Assets::Handle<Assets::ShaderProgram> directPbr,
 			Assets::Handle<Assets::ShaderProgram> fullPbr,
 			Assets::Handle<Assets::ShaderProgram> background,
-			Resources::Texture brdfMap,
-			Resources::Mesh skyboxMesh)
+			Texture brdfMap,
+			Mesh skyboxMesh)
 		: m_Context(context),
 		  m_Unlit(unlit),
 		  m_Normal(normal),
@@ -54,8 +54,8 @@ namespace Core::Graphics::Gl
 		Assets::Handle<Assets::ShaderProgram> m_FullPbr;
 		Assets::Handle<Assets::ShaderProgram> m_Background;
 
-		Resources::Texture m_BrdfMap;
-		Resources::Mesh m_SkyboxMesh;
+		Texture m_BrdfMap;
+		Mesh m_SkyboxMesh;
 
 		RenderSurface m_RenderSurface;
     };

@@ -4,7 +4,7 @@
 #include <Core/Graphics/Common/Vertex.hpp>
 #include <Core/Import/Model.hpp>
 
-namespace Core::Graphics::Cpu::Resources
+namespace Core::Graphics::Cpu
 {
 	class Mesh
 	{
@@ -20,15 +20,15 @@ namespace Core::Graphics::Cpu::Resources
 			return mesh;
 		}
 
-		const std::vector<Common::Vertex>& GetVertices() const { return m_Vertices; }
+		const std::vector<Vertex>& GetVertices() const { return m_Vertices; }
 		const std::vector<uint32_t>& GetIndices() const { return m_Indices; }
 	private:
 		friend void ComputeTangents(Mesh&);
 
-		Mesh(std::vector<Common::Vertex> vertices, std::vector<uint32_t> indices)
+		Mesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices)
 			: m_Vertices(std::move(vertices)), m_Indices(std::move(indices)) {}
 
-		std::vector<Common::Vertex> m_Vertices;
+		std::vector<Vertex> m_Vertices;
 		std::vector<uint32_t> m_Indices;
 	};
 }

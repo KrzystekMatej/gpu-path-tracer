@@ -1,6 +1,6 @@
 #pragma once
 #include <Core/External/Glm.hpp>
-#include <Core/Ecs/SceneNodes/Builder.hpp>
+#include <Core/Ecs/Builder.hpp>
 
 namespace App::Scripts
 {
@@ -16,11 +16,11 @@ namespace App::Scripts
 			: speed(speed), sensitivity(sensitivity) {}
 	};
 
-	class CameraControllerBuilder : public Core::Ecs::SceneNodes::Builder
+	class CameraControllerBuilder : public Core::Ecs::Builder
 	{
 	public:
 		virtual std::expected<void, Core::Utils::Error> Build(
-			const Core::Ecs::SceneNodes::BuildContext& context,
+			const Core::Ecs::BuildContext& context,
 			entt::registry& registry,
 			Core::Assets::Manager& assetManager) const override;
 	};

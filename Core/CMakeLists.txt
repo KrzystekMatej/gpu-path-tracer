@@ -15,24 +15,11 @@ add_library(core STATIC)
 target_sources(core PRIVATE
     "Source/Assets/Key.cpp"
     "Source/Assets/Manager.cpp"
-
+    
+    "Source/Capture/MotionRecorder.cpp"
     "Source/Capture/Recording.cpp"
     "Source/Capture/Resampling.cpp"
-
-    "Source/Ecs/SceneNodes/Background.cpp" 
-    "Source/Ecs/SceneNodes/Camera.cpp"
-    "Source/Ecs/SceneNodes/Light.cpp" 
-    "Source/Ecs/SceneNodes/Model.cpp" 
-    "Source/Ecs/SceneNodes/BuilderRegistry.cpp"
-    "Source/Ecs/SceneNodes/Transform.cpp"
-
-    "Source/Ecs/Systems/Capture.cpp"
-    "Source/Ecs/Systems/Render.cpp"
-	"Source/Ecs/Systems/ScriptRunner.cpp"
-    "Source/Ecs/Systems/Transform.cpp" 
-
-    "Source/Ecs/Scene.cpp" 
-
+     
     "Source/External/TinyObjLoader.cpp"
 
     "Source/Graphics/Cpu/Resources/EnvironmentMap.cpp"
@@ -46,6 +33,11 @@ target_sources(core PRIVATE
     "Source/Graphics/Cuda/PathTracing/Renderer.cpp"
     "Source/Graphics/Cuda/Resources/Texture.cpp"
     "Source/Graphics/Cuda/Utils/Error.cpp"
+
+    "Source/Graphics/Ecs/Assets.cpp"
+    "Source/Graphics/Ecs/Camera.cpp"
+    "Source/Graphics/Ecs/Light.cpp"
+    "Source/Graphics/Ecs/Render.cpp"
 
     "Source/Graphics/Gl/Resources/Mesh.cpp"
     "Source/Graphics/Gl/Resources/Texture.cpp"
@@ -73,6 +65,11 @@ target_sources(core PRIVATE
     "Source/Runtime/ImGuiBackend.cpp" 
     "Source/Runtime/Time.cpp"
 
+    "Source/Ecs/BuilderRegistry.cpp"
+    "Source/Ecs/Scene.cpp" 
+    "Source/Ecs/Transform.cpp"
+
+    "Source/Scripts/Runner.cpp"
     "Source/Scripts/Catalog.cpp"
 
     "Source/Utils/Math/TangentSpace.cpp" 

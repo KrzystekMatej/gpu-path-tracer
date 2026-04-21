@@ -5,7 +5,8 @@
 #include <App/CameraRecorder/Settings.hpp>
 #include <App/PathTracer/Status.hpp>
 #include <App/PathTracer/Settings.hpp>
-#include <App/Ui/Events.hpp>
+#include <App/CameraRecorder/Events.hpp>
+#include <App/PathTracer/Events.hpp>
 
 namespace App::Ui
 {
@@ -149,14 +150,31 @@ namespace App::Ui
 
 		if (ImGui::Button(recordingButtonLabel, ImVec2(buttonWidth, 50.0f)))
 		{
-			Core::Runtime::Application::EventDispatcher().trigger(Events::CameraRecordingToggled(!recordingRunning));
+			CameraRecorder::Settings& settings = blackboard.ctx().get<CameraRecorder::Settings>();
+			if (recordingRunning)
+			{
+				Core::Runtime::Application::EventDispatcher().trigger(CameraRecorder::Events::Stop(settings));
+			}
+			else
+			{
+				CameraRecorder::Settings& settings = blackboard.ctx().get<CameraRecorder::Settings>();
+				Core::Runtime::Application::EventDispatcher().trigger(CameraRecorder::Events::Start(settings));
+			}
 		}
 
 		ImGui::SameLine();
 
 		if (ImGui::Button(renderingButtonLabel, ImVec2(buttonWidth, 50.0f)))
 		{
-			Core::Runtime::Application::EventDispatcher().trigger(Events::PathTracingToggled(!renderingRunning));
+			if (renderingRunning)
+			{
+				Core::Runtime::Application::EventDispatcher().trigger(PathTracer::Events::Stop());
+			}
+			else
+			{
+				PathTracer::Settings& settings = blackboard.ctx().get<PathTracer::Settings>();
+				Core::Runtime::Application::EventDispatcher().trigger(PathTracer::Events::Start(settings));
+			}
 		}
 
 		ImGui::EndChild();

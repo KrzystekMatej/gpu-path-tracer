@@ -1,7 +1,8 @@
 #include <Core/Runtime/Application.hpp>
-#include <Core/Ecs/Systems/Render.hpp>
+#include <Core/Graphics/Ecs/Render.hpp>
 #include <Core/Import/SceneLoader.hpp>
-#include <Core/Ecs/Systems/Transform.hpp>
+#include <Core/Ecs/Transform.hpp>
+#include <Core/Capture/MotionRecorder.hpp>
 
 namespace Core::Runtime
 {
@@ -11,7 +12,7 @@ namespace Core::Runtime
 		Window::NativeWindow window,
 		Graphics::Gl::Renderer renderer,
 		Scripts::Catalog catalog,
-		Ecs::SceneNodes::BuilderRegistry builderRegistry,
+		Ecs::BuilderRegistry builderRegistry,
 		Assets::Manager assetManager, 
 		Project::Descriptor project)
 		: m_Time(),
@@ -62,7 +63,7 @@ namespace Core::Runtime
 
 		Scripts::Catalog scriptCatalog;
 
-		Ecs::SceneNodes::BuilderRegistry builderRegistry;
+		Ecs::BuilderRegistry builderRegistry;
 		builderRegistry.RegisterCoreBuilders();
 
 		auto projectResult = Project::Descriptor::Create(projectConfigPath);
@@ -109,7 +110,7 @@ namespace Core::Runtime
 		auto ok = m_ScriptRunner.Bind(m_ScriptCatalog, m_Scene);
 		if (!ok)
 			return std::unexpected(std::move(ok).error());
-
+		m_EventDispatcher.trigger(Ecs::SceneChangedEvent());
 		return {};
 	}
 
@@ -147,7 +148,8 @@ namespace Core::Runtime
 			m_LayerStack.Update();
 
 			m_ScriptRunner.Update();
-			Ecs::Systems::UpdateWorldTransforms(m_Scene);
+			Ecs::UpdateWorldTransforms(m_Scene);
+			Capture::UpdateMotionRecording(m_Scene, m_Time.GetDeltaTime());
 
 			m_CommandQueue.Commit(m_LayerStack);
 

@@ -3,7 +3,7 @@
 #include <expected>
 #include <Core/Import/Image.hpp>
 
-namespace Core::Graphics::Cpu::Resources
+namespace Core::Graphics::Cpu
 {
 	class Texture
 	{
@@ -20,14 +20,14 @@ namespace Core::Graphics::Cpu::Resources
 
 		uint32_t GetWidth() const { return m_Width; }
 		uint32_t GetHeight() const { return m_Height; }
-		const Common::PixelFormat& GetFormat() const { return m_Format; }
+		const PixelFormat& GetFormat() const { return m_Format; }
 	private:
-		Texture(uint32_t width, uint32_t height, Common::PixelFormat format, std::vector<uint8_t> data)
+		Texture(uint32_t width, uint32_t height, PixelFormat format, std::vector<uint8_t> data)
 			: m_Width(width), m_Height(height), m_Format(format), m_Data(std::move(data)) {}
 
 		uint32_t m_Width;
 		uint32_t m_Height;
-		Common::PixelFormat m_Format;
+		PixelFormat m_Format;
 		std::vector<uint8_t> m_Data;
 	};
 }

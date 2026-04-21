@@ -9,7 +9,7 @@ namespace Core::Graphics::Services
     struct SceneViewDesc
     {
         Gl::RenderTarget& target;
-        const Ecs::Scene& scene;
+        const Core::Ecs::Scene& scene;
 		const Assets::Storage& storage;
         glm::vec4 clearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
     };

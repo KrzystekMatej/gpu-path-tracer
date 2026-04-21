@@ -4,9 +4,9 @@
 #include <Core/Ecs/Scene.hpp>
 #include <Core/Scripts/Catalog.hpp>
 
-namespace Core::Ecs::Systems
+namespace Core::Scripts
 {
-	class ScriptRunner
+	class Runner
 	{
 	public:
 		void Awake()

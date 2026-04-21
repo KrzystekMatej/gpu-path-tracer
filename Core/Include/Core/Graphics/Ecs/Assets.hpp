@@ -1,7 +1,8 @@
 #pragma once
 #include <Core/Assets/Types.hpp>
+#include <Core/Ecs/Builder.hpp>
 
-namespace Core::Ecs::Components
+namespace Core::Graphics::Ecs
 {
     struct Mesh
     {
@@ -17,6 +18,14 @@ namespace Core::Ecs::Components
 		Assets::Handle<Assets::Material> handle;
     };
 
+	class ModelBuilder : public Core::Ecs::Builder
+	{
+	public:
+		virtual std::expected<void, Utils::Error> Build(
+			const Core::Ecs::BuildContext& context,
+			entt::registry& registry,
+			Assets::Manager& assetManager) const override;
+	};
 
     struct Background
     {
@@ -25,13 +34,12 @@ namespace Core::Ecs::Components
 		Assets::Handle<Assets::EnvironmentMap> handle;
     };
 
-    struct Light
-    {
-        Light() = default;
-		Light(const glm::vec3& color, float intensity)
-            : color(color), intensity(intensity) {}
-
-        glm::vec3 color{ 1.0f, 1.0f, 1.0f };
-        float intensity = 1.0f;
+	class BackgroundBuilder : public Core::Ecs::Builder
+	{
+	public:
+		std::expected<void, Utils::Error> Build(
+			const Core::Ecs::BuildContext& context,
+			entt::registry& registry,
+			Assets::Manager& assetManager) const override;
 	};
 }

@@ -6,7 +6,7 @@
 #include <Core/Import/Image.hpp>
 #include <Core/Utils/Error.hpp>
 
-namespace Core::Graphics::Cuda::Resources
+namespace Core::Graphics::Cuda
 {
     class Texture
     {

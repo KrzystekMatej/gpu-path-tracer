@@ -2,7 +2,7 @@
 #include <Core/Graphics/Gl/Resources/Mesh.hpp>
 #include <Core/Graphics/Gl/Resources/VertexLayout.hpp>
 
-namespace Core::Graphics::Gl::Resources
+namespace Core::Graphics::Gl
 {
 	Mesh::Mesh(uint32_t vertexCount)
 		: m_VertexCount(vertexCount)
@@ -61,7 +61,7 @@ namespace Core::Graphics::Gl::Resources
 		Mesh mesh(static_cast<uint32_t>(parsedMesh.indices.size()));
 		mesh.BindVertexArray();
 		mesh.BindVertexBuffer();
-		glBufferData(GL_ARRAY_BUFFER, parsedMesh.vertices.size() * sizeof(Graphics::Common::Vertex), parsedMesh.vertices.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, parsedMesh.vertices.size() * sizeof(Graphics::Vertex), parsedMesh.vertices.data(), GL_STATIC_DRAW);
 		mesh.BindIndexBuffer();
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, parsedMesh.indices.size() * sizeof(uint32_t), parsedMesh.indices.data(), GL_STATIC_DRAW);
 

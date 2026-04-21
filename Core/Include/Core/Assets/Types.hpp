@@ -19,40 +19,40 @@ namespace Core::Assets
     struct Texture : AssetTyped<Texture, AssetType::Texture>
     {
         Texture() = default;
-        Texture(Graphics::Cpu::Resources::Texture cpu, Graphics::Gl::Resources::Texture gl, Graphics::Cuda::Resources::Texture cuda)
+        Texture(Graphics::Cpu::Texture cpu, Graphics::Gl::Texture gl, Graphics::Cuda::Texture cuda)
             : cpu(std::move(cpu)), gl(std::move(gl)), cuda(std::move(cuda)) {}
 
-        Graphics::Cpu::Resources::Texture cpu;
-        Graphics::Gl::Resources::Texture gl;
-        Graphics::Cuda::Resources::Texture cuda;
+        Graphics::Cpu::Texture cpu;
+        Graphics::Gl::Texture gl;
+        Graphics::Cuda::Texture cuda;
     };
 
     struct Mesh : AssetTyped<Mesh, AssetType::Mesh>
     {
         Mesh() = default;
-        Mesh(Graphics::Cpu::Resources::Mesh cpu, Graphics::Gl::Resources::Mesh gl)
+        Mesh(Graphics::Cpu::Mesh cpu, Graphics::Gl::Mesh gl)
             : cpu(std::move(cpu)), gl(std::move(gl)) {}
 
-        Graphics::Cpu::Resources::Mesh cpu;
-        Graphics::Gl::Resources::Mesh gl;
+        Graphics::Cpu::Mesh cpu;
+        Graphics::Gl::Mesh gl;
     };
 
     struct EnvironmentMap : AssetTyped<EnvironmentMap, AssetType::EnvironmentMap>
     {
         EnvironmentMap() = default;
-        EnvironmentMap(Graphics::Cpu::Resources::EnvironmentMap cpu, Graphics::Gl::Resources::EnvironmentMap gl, Graphics::Cuda::Resources::EnvironmentMap cuda)
+        EnvironmentMap(Graphics::Cpu::EnvironmentMap cpu, Graphics::Gl::EnvironmentMap gl, Graphics::Cuda::EnvironmentMap cuda)
             : cpu(std::move(cpu)), gl(std::move(gl)), cuda(std::move(cuda)) {}
 
-        Graphics::Cpu::Resources::EnvironmentMap cpu;
-        Graphics::Gl::Resources::EnvironmentMap gl;
-        Graphics::Cuda::Resources::EnvironmentMap cuda;
+        Graphics::Cpu::EnvironmentMap cpu;
+        Graphics::Gl::EnvironmentMap gl;
+        Graphics::Cuda::EnvironmentMap cuda;
     };
 
     struct Material : AssetTyped<Material, AssetType::Material>
     {
         Material() = default;
         Material(
-            Graphics::Common::SurfaceModel surface,
+            Graphics::SurfaceModel surface,
             Handle<Texture> albedo,
             Handle<Texture> roughness,
             Handle<Texture> metallic,
@@ -65,7 +65,7 @@ namespace Core::Assets
               ao(ao),
               normal(normal) {}
 
-        Graphics::Common::SurfaceModel surface;
+        Graphics::SurfaceModel surface;
         Handle<Texture> albedo;
         Handle<Texture> roughness;
         Handle<Texture> metallic;

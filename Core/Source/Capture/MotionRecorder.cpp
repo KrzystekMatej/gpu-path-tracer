@@ -1,20 +1,29 @@
-#include <Core/Ecs/Systems/Capture.hpp>
-#include <Core/Ecs/Components/MotionRecorder.hpp>
-#include <Core/Ecs/Components/Transform.hpp>
+#include <Core/Capture/MotionRecorder.hpp>
+#include <Core/Utils/Yaml.hpp>
+#include <Core/Ecs/Transform.hpp>
 #include <Core/Utils/Math/Transform.hpp>
 #include <Core/Utils/Math/Interpolation.hpp>
 
-namespace Core::Ecs::Systems
+namespace Core::Capture
 {
-	void UpdateMotionRecording(Scene& scene, float deltaTime)
+	std::expected<void, Utils::Error> MotionRecorderBuilder::Build(
+		const Ecs::BuildContext& context,
+		entt::registry& registry,
+		Assets::Manager& assetManager) const
 	{
-		auto view = scene.GetRegistry().view<Components::MotionRecorder, Components::WorldTransform>();
+		registry.emplace<MotionRecorder>(context.entity);
+		return {};
+	}
+
+	void UpdateMotionRecording(Ecs::Scene& scene, float deltaTime)
+	{
+		auto view = scene.GetRegistry().view<MotionRecorder, Ecs::WorldTransform>();
 		for (auto [entity, recorder, transform] : view.each())
 		{
-			if (recorder.state == Components::MotionRecorder::State::Start)
+			if (recorder.state == MotionRecorder::State::Start)
 			{
 				recorder.samples.clear();
-				recorder.state = Components::MotionRecorder::State::Active;
+				recorder.state = MotionRecorder::State::Active;
 				recorder.elapsedTime = 0.0f;
 				recorder.nextSampleTime = recorder.sampleInterval;
 
@@ -31,7 +40,7 @@ namespace Core::Ecs::Systems
 				continue;
 			}
 
-			if (recorder.state != Components::MotionRecorder::State::Active)
+			if (recorder.state != MotionRecorder::State::Active)
 				continue;
 
 			recorder.elapsedTime += deltaTime;

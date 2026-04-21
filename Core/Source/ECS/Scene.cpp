@@ -1,24 +1,24 @@
 #include <Core/Ecs/Scene.hpp>
 #include <spdlog/spdlog.h>
 #include <stack>
-#include <Core/Ecs/Components/Camera.hpp>
 #include <Core/Utils/Yaml.hpp>
-#include <Core/Ecs/Components/Transform.hpp>
-#include <Core/Ecs/Components/Hierarchy.hpp>
+#include <Core/Graphics/Ecs/Camera.hpp>
+#include <Core/Ecs/Transform.hpp>
+#include <Core/Ecs/Hierarchy.hpp>
 
 namespace Core::Ecs
 {
 	std::expected<Scene, Utils::Error> Scene::Create(
 		Import::Scene scene,
-		const Ecs::SceneNodes::BuilderRegistry& builderRegistry,
+		const BuilderRegistry& builderRegistry,
 		Assets::Manager& assetManager)
 	{
 		entt::registry registry;
-		std::stack<SceneNodes::BuildContext> nodes;
+		std::stack<BuildContext> nodes;
 
 		for (const auto& rootNode : scene.sceneRoot)
 		{
-			nodes.push(SceneNodes::BuildContext{
+			nodes.push(BuildContext{
 				.node = rootNode,
 				.entity = registry.create(),
 				.parent = entt::null
@@ -27,7 +27,7 @@ namespace Core::Ecs
 
 		while (!nodes.empty())
 		{
-			SceneNodes::BuildContext current = nodes.top();
+			BuildContext current = nodes.top();
 			nodes.pop();
 
 			YAML::Node components = current.node["components"];
@@ -55,9 +55,9 @@ namespace Core::Ecs
 					if (!builderResult)
 						return std::unexpected(Utils::Error(builderResult.error().Message()));
 
-					const SceneNodes::Builder& builder = builderResult.value();
+					const Builder& builder = builderResult.value();
 
-					SceneNodes::BuildContext context{
+					BuildContext context{
 						.node = componentNode,
 						.entity = current.entity,
 						.parent = current.parent
@@ -83,10 +83,10 @@ namespace Core::Ecs
 				for (const auto& childNode : childNodes)
 				{
 					entt::entity childEntity = registry.create();
-					registry.emplace<Components::Parent>(childEntity, current.entity);
+					registry.emplace<Parent>(childEntity, current.entity);
 
 					childEntities.emplace_back(childEntity);
-					nodes.push(SceneNodes::BuildContext{
+					nodes.push(BuildContext{
 						.node = childNode,
 						.entity = childEntity,
 						.parent = current.entity
@@ -94,16 +94,16 @@ namespace Core::Ecs
 				}
 
 				if (!childEntities.empty())
-					registry.emplace<Components::Children>(current.entity, std::move(childEntities));
+					registry.emplace<Children>(current.entity, std::move(childEntities));
 			}
 		}
 
-		auto view = registry.view<Components::Camera>();
+		auto view = registry.view<Graphics::Ecs::Camera>();
 
 		if (view.size() == 1)
 		{
 			entt::entity cameraEntity = *view.begin();
-			if (!registry.all_of<Components::Transform, Components::WorldTransform>(cameraEntity))
+			if (!registry.all_of<Transform, WorldTransform>(cameraEntity))
 			{
 				return std::unexpected(Utils::Error("Camera entity must have a Transform component"));
 			}

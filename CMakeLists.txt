@@ -43,4 +43,4 @@ endforeach()
 add_subdirectory(Core)
 add_subdirectory(App)
 
-set(VS_FORCE_RECONFIGURE "20" CACHE STRING "noop")
+set(VS_FORCE_RECONFIGURE "21" CACHE STRING "noop")

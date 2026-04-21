@@ -1,12 +1,12 @@
 #include <App/Scripts/CameraController.hpp>
 #include <Core/Utils/Yaml.hpp>
-#include <Core/Ecs/Components/Transform.hpp>
+#include <Core/Ecs/Transform.hpp>
 #include <Core/Runtime/Application.hpp>
 
 namespace App::Scripts
 {
 	std::expected<void, Core::Utils::Error> CameraControllerBuilder::Build(
-		const Core::Ecs::SceneNodes::BuildContext& context,
+		const Core::Ecs::BuildContext& context,
 		entt::registry& registry,
 		Core::Assets::Manager& assetManager) const
 	{
@@ -35,7 +35,7 @@ namespace App::Scripts
 	void AwakeCameraController()
 	{
 		Core::Ecs::Scene& scene = Core::Runtime::Application::Scene();
-		auto [transform, controller] = scene.GetRegistry().get<Core::Ecs::Components::Transform, CameraController>(scene.GetActiveCamera());
+		auto [transform, controller] = scene.GetRegistry().get<Core::Ecs::Transform, CameraController>(scene.GetActiveCamera());
 		glm::vec3 forward = transform.GetForward();
 		controller.pitch = asinf(forward.y);
 		controller.yaw   = atan2f(-forward.x, -forward.z);
@@ -69,7 +69,7 @@ namespace App::Scripts
 
 		auto& scene = Core::Runtime::Application::Scene();
 
-		auto [transform, controller] = scene.GetRegistry().get<Core::Ecs::Components::Transform, CameraController>(scene.GetActiveCamera());
+		auto [transform, controller] = scene.GetRegistry().get<Core::Ecs::Transform, CameraController>(scene.GetActiveCamera());
 
 		glm::vec3 direction(0.0f);
 		if (input.IsKeyDown(Core::Input::KeyCode::W))

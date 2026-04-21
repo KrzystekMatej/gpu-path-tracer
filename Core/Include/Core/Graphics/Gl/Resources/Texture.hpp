@@ -3,7 +3,7 @@
 #include <Core/Utils/Error.hpp>
 #include <Core/Import/Image.hpp>
 
-namespace Core::Graphics::Gl::Resources
+namespace Core::Graphics::Gl
 {
 	class Texture
 	{

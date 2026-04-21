@@ -1,8 +1,9 @@
-#include <Core/Ecs/SceneNodes/Transform.hpp>
-#include <Core/Ecs/Components/Transform.hpp>
+#include <Core/Ecs/Transform.hpp>
+#include <Core/Ecs/Hierarchy.hpp>
 #include <Core/Utils/Yaml.hpp>
+#include <stack>
 
-namespace Core::Ecs::SceneNodes
+namespace Core::Ecs
 {
 	std::expected<void, Utils::Error> TransformBuilder::Build(
 		const BuildContext& context,
@@ -59,8 +60,39 @@ namespace Core::Ecs::SceneNodes
 			rotation = glm::normalize(glm::quat_cast(glm::mat3(right, up, -forward)));
 		}
 
-		registry.emplace<Components::Transform>(context.entity, translation, rotation, scale);
-		registry.emplace<Components::WorldTransform>(context.entity);
+		registry.emplace<Transform>(context.entity, translation, rotation, scale);
+		registry.emplace<WorldTransform>(context.entity);
 		return {};
+	}
+
+	void PropagateTransform(entt::registry& registry, entt::entity entity, const glm::mat4& parentTransform)
+	{
+		auto [local, world] = registry.try_get<Transform, WorldTransform>(entity);
+
+		glm::mat4 worldMatrix = parentTransform;
+
+		if (local && world) 
+		{
+			worldMatrix = parentTransform * local->GetMatrix();
+			world->matrix = worldMatrix;
+		}
+
+		if (auto children = registry.try_get<Children>(entity))
+		{
+			for (entt::entity child : children->Get())
+			{
+				PropagateTransform(registry, child, worldMatrix);
+			}
+		}
+	}
+
+	void UpdateWorldTransforms(Scene& scene)
+	{
+		auto& registry = scene.GetRegistry();
+		registry.view<Transform>(entt::exclude<Parent>)
+			.each([&registry](entt::entity entity, const Transform&)
+		{
+			PropagateTransform(registry, entity, glm::mat4(1.0f));
+		});
 	}
 }

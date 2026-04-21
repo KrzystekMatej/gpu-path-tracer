@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Core::Graphics::Cuda::Resources
+namespace Core::Graphics::Cuda
 {
 	class EnvironmentMap
 	{

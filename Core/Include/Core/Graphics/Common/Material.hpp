@@ -1,7 +1,7 @@
 #pragma once
 #include <array>
 
-namespace Core::Graphics::Common
+namespace Core::Graphics
 {
 	enum class SurfaceModel
 	{

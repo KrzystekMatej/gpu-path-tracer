@@ -83,11 +83,11 @@ namespace Core::Graphics::Gl
         if (!background)
 			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(background).error()), "Failed to load background shader program"));
 
-		auto imageResult = Import::LoadImage(assetManager.GetRootPath() / brdfMapPath, Common::ColorSpace::Linear);
+		auto imageResult = Import::LoadImage(assetManager.GetRootPath() / brdfMapPath, ColorSpace::Linear);
 		if (!imageResult)
 			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(imageResult).error()), "Failed to load BRDF map image"));
 
-		auto textureResult = Resources::Texture::Create2D(imageResult.value());
+		auto textureResult = Texture::Create2D(imageResult.value());
 		if (!textureResult)
 			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(textureResult).error()), "Failed to create BRDF map texture"));
 
@@ -95,7 +95,7 @@ namespace Core::Graphics::Gl
 		if (!objResult)
 			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(objResult).error()), "Failed to load skybox mesh"));
 
-		auto meshResult = Resources::Mesh::Create(objResult.value().meshes[0]);
+		auto meshResult = Mesh::Create(objResult.value().meshes[0]);
 		if (!meshResult)
 			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(meshResult).error()), "Failed to create skybox mesh"));
 
@@ -189,7 +189,7 @@ namespace Core::Graphics::Gl
 				program.SetUInt32("light_count", static_cast<uint32_t>(context.lights.size()));
 				for (size_t i = 0; i < context.lights.size(); i++)
 				{
-					const Common::Light& light = context.lights[i];
+					const Light& light = context.lights[i];
 					program.SetVec3("lights[" + std::to_string(i) + "].position", light.position);
 					program.SetVec3("lights[" + std::to_string(i) + "].color", light.color);
 					program.SetFloat("lights[" + std::to_string(i) + "].intensity", light.intensity);
@@ -247,7 +247,7 @@ namespace Core::Graphics::Gl
 				program->SetUInt32("light_count", static_cast<uint32_t>(context.lights.size()));
 				for (size_t i = 0; i < context.lights.size(); i++)
 				{
-					const Common::Light& light = context.lights[i];
+					const Light& light = context.lights[i];
 					program->SetVec3("lights[" + std::to_string(i) + "].position", light.position);
 					program->SetVec3("lights[" + std::to_string(i) + "].color", light.color);
 					program->SetFloat("lights[" + std::to_string(i) + "].intensity", light.intensity);
@@ -262,7 +262,7 @@ namespace Core::Graphics::Gl
         }
     }
 
-	void Renderer::DrawSkybox(const Assets::Storage& storage, const glm::mat4& view, const glm::mat4& projection, const Resources::Texture& skybox) const
+	void Renderer::DrawSkybox(const Assets::Storage& storage, const glm::mat4& view, const glm::mat4& projection, const Texture& skybox) const
 	{
 		glDepthFunc(GL_LEQUAL);
 		const ShaderProgram& program = storage.Get(m_Background).value().get().program;

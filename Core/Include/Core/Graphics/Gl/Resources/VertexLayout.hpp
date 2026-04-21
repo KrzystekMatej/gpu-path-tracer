@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 
-namespace Core::Graphics::Gl::Resources
+namespace Core::Graphics::Gl
 {
 	enum class VertexAttributeRepresentation
 	{

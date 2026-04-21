@@ -24,7 +24,7 @@ namespace Core::Graphics::Gl
         uint32_t GetWidth() const { return m_ColorTexture.GetWidth(); }
         uint32_t GetHeight() const { return m_ColorTexture.GetHeight(); }
 
-        const Resources::Texture& GetTexture() const { return m_ColorTexture.GetTexture(); }
+        const Texture& GetTexture() const { return m_ColorTexture.GetTexture(); }
         const Framebuffer& GetFramebuffer() const { return m_Framebuffer; }
 		RenderSurface GetRenderSurface() const { return RenderSurface(m_Framebuffer.GetId(), GetWidth(), GetHeight()); }
     private:

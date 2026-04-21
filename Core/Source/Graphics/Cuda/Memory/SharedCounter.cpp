@@ -52,7 +52,7 @@ namespace Core::Graphics::Cuda::Memory
     std::expected<void, Core::Utils::Error> SharedCounter::Reset()
     {
         m_HostValue = 0;
-        return m_DeviceBuffer.MemsetSync(0);
+        return m_DeviceBuffer.MemsetBytesSync(0);
     }
 
     std::expected<void, Core::Utils::Error> SharedCounter::SyncFromDevice()
@@ -75,7 +75,7 @@ namespace Core::Graphics::Cuda::Memory
     std::expected<void, Core::Utils::Error> SharedCounter::SyncFromHost()
     {
         assert(m_DeviceBuffer.GetData() != nullptr);
-		return m_DeviceBuffer.MemsetSync(m_HostValue);
+		return m_DeviceBuffer.MemsetBytesSync(m_HostValue);
     }
 
     uint32_t* SharedCounter::GetDevicePointer() const

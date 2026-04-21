@@ -1,16 +1,15 @@
-#include <Core/Ecs/SceneNodes/Camera.hpp>
-#include <Core/Ecs/Components/Transform.hpp>
-#include <Core/Ecs/Components/Camera.hpp>
+#include <Core/Graphics/Ecs/Camera.hpp>
+#include <Core/Ecs/Transform.hpp>
 #include <Core/Utils/Yaml.hpp>
 
-namespace Core::Ecs::SceneNodes
+namespace Core::Graphics::Ecs
 {
 	std::expected<void, Utils::Error> CameraBuilder::Build(
-		const BuildContext& context,
+		const Core::Ecs::BuildContext& context,
 		entt::registry& registry,
 		Assets::Manager& assetManager) const
 	{
-		if (registry.view<Components::Camera>().size() > 0)
+		if (registry.view<Camera>().size() > 0)
 			return std::unexpected(Utils::Error("Scene cannot have more than one Camera component"));
 
 		auto fovYResult = Utils::Yaml::GetFloat(context.node, "fov-y");
@@ -38,7 +37,7 @@ namespace Core::Ecs::SceneNodes
 		if (farPlane <= nearPlane)
 			return std::unexpected(Utils::Error("Camera 'far-plane' must be greater than 'near-plane'"));
 
-		registry.emplace<Components::Camera>(
+		registry.emplace<Camera>(
 			context.entity,
 			glm::radians(fovYDegrees),
 			nearPlane,

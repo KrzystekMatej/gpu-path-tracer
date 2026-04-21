@@ -5,6 +5,7 @@ namespace App::PathTracer
 	constexpr std::array<std::string_view, static_cast<size_t>(State::Finished) + 1> names =
 	{
 		"Idle",
+		"Ready",
 		"Active",
 		"Stopping",
 		"Finished"

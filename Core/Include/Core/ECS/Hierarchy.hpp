@@ -2,7 +2,7 @@
 #include <entt/entt.hpp>
 #include <vector>
 
-namespace Core::Ecs::Components
+namespace Core::Ecs
 {
 	struct Parent
 	{

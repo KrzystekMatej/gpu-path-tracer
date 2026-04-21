@@ -41,20 +41,20 @@ namespace Core::Import
 
 		struct SubmeshBuilder
 		{
-			std::vector<Graphics::Common::Vertex> vertices;
+			std::vector<Graphics::Vertex> vertices;
 			std::vector<uint32_t> indices;
 			std::unordered_map<ObjIndexKey, size_t, ObjIndexKeyHash> indexMap;
 		};
 
 		const std::string SurfaceModelKey = "surface";
 
-		constexpr std::array<std::pair<std::string_view, Graphics::Common::SurfaceModel>, 7> SurfaceModels = {
-			std::pair{ "unlit" , Graphics::Common::SurfaceModel::Unlit},
-			std::pair{ "normal" , Graphics::Common::SurfaceModel::Normal},
-			std::pair{ "mirror" , Graphics::Common::SurfaceModel::Mirror},
-			std::pair{ "diffuse" , Graphics::Common::SurfaceModel::Diffuse},
-			std::pair{ "microfacet" , Graphics::Common::SurfaceModel::Microfacet},
-			std::pair{ "emissive" , Graphics::Common::SurfaceModel::Emissive}
+		constexpr std::array<std::pair<std::string_view, Graphics::SurfaceModel>, 7> SurfaceModels = {
+			std::pair{ "unlit" , Graphics::SurfaceModel::Unlit},
+			std::pair{ "normal" , Graphics::SurfaceModel::Normal},
+			std::pair{ "mirror" , Graphics::SurfaceModel::Mirror},
+			std::pair{ "diffuse" , Graphics::SurfaceModel::Diffuse},
+			std::pair{ "microfacet" , Graphics::SurfaceModel::Microfacet},
+			std::pair{ "emissive" , Graphics::SurfaceModel::Emissive}
 		};
 	}
 
@@ -96,7 +96,7 @@ namespace Core::Import
 
 				for (size_t v = 0; v < fv; v++)
 				{
-					Graphics::Common::Vertex vertex{};
+					Graphics::Vertex vertex{};
 
 					tinyobj::index_t idx = shapes[s].mesh.indices[indexOffset + v];
 					vertex.position.x = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
@@ -167,7 +167,7 @@ namespace Core::Import
 		for (auto& source : materialSources)
 		{
 			auto it = source.unknown_parameter.find(SurfaceModelKey);
-			Graphics::Common::SurfaceModel surface = Graphics::Common::MaterialDefaults::DefaultSurfaceModel;
+			Graphics::SurfaceModel surface = Graphics::MaterialDefaults::DefaultSurfaceModel;
 
 			if (it != source.unknown_parameter.end())
 			{

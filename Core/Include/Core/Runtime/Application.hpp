@@ -10,7 +10,7 @@
 #include <Core/Runtime/Time.hpp>
 #include <Core/Scripts/Catalog.hpp>
 #include <Core/Ecs/Scene.hpp>
-#include <Core/Ecs/Systems/ScriptRunner.hpp>
+#include <Core/Scripts/Runner.hpp>
 #include <Core/Input/State.hpp>
 #include <Core/Runtime/Layer/Stack.hpp>
 #include <Core/Runtime/Layer/CommandQueue.hpp>
@@ -51,7 +51,7 @@ namespace Core::Runtime
 		static entt::dispatcher& EventDispatcher() { return s_Instance->m_EventDispatcher; }
 		static Scripts::Catalog& ScriptCatalog() { return s_Instance->m_ScriptCatalog; }
 		static Ecs::Scene& Scene() { return s_Instance->m_Scene; }
-		static Ecs::SceneNodes::BuilderRegistry& BuilderRegistry() { return s_Instance->m_BuilderRegistry; }
+		static Ecs::BuilderRegistry& BuilderRegistry() { return s_Instance->m_BuilderRegistry; }
 		static const Assets::Manager& AssetManager() { return s_Instance->m_AssetManager; }
 		static const Project::Descriptor& Project() { return s_Instance->m_Project; }
 		static Layer::CommandQueue& LayerCommandQueue() { return s_Instance->m_CommandQueue; }
@@ -61,7 +61,7 @@ namespace Core::Runtime
 			Window::NativeWindow window, 
 			Graphics::Gl::Renderer renderer,
 			Scripts::Catalog catalog, 
-			Ecs::SceneNodes::BuilderRegistry builderRegistry,
+			Ecs::BuilderRegistry builderRegistry,
 			Assets::Manager assetManager, 
 			Project::Descriptor project);
 
@@ -77,8 +77,8 @@ namespace Core::Runtime
 
 		Scripts::Catalog m_ScriptCatalog;
 		Ecs::Scene m_Scene;
-		Ecs::SceneNodes::BuilderRegistry m_BuilderRegistry;
-		Ecs::Systems::ScriptRunner m_ScriptRunner;
+		Ecs::BuilderRegistry m_BuilderRegistry;
+		Scripts::Runner m_ScriptRunner;
 
 		Assets::Manager m_AssetManager;
 		Project::Descriptor m_Project;

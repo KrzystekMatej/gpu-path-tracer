@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <cstddef>
 
-namespace Core::Graphics::Common
+namespace Core::Graphics
 {
 	enum class ChannelLayout : uint8_t
 	{

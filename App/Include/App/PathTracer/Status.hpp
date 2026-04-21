@@ -1,12 +1,14 @@
 #pragma once
 #include <array>
 #include <string_view>
+#include <Core/Graphics/Cuda/PathTracing/Renderer.hpp>
 
 namespace App::PathTracer
 {
 	enum class State
 	{
 		Idle,
+		Ready,
 		Active,
 		Stopping,
 		Finished
@@ -23,5 +25,6 @@ namespace App::PathTracer
 
 		uint32_t doneSamples = 0;
 		uint32_t totalSamples = 0;
+		Core::Graphics::Cuda::Renderer::FrameView currentFrame;
 	};
 }

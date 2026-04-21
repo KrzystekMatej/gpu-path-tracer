@@ -4,7 +4,7 @@
 #include <Core/Utils/Error.hpp>
 #include <Core/Scripts/Binding.hpp>
 #include <Core/Scripts/Phase.hpp>
-#include <Core/Ecs/SceneNodes/BuilderRegistry.hpp>
+#include <Core/Ecs/BuilderRegistry.hpp>
 #include <Core/Import/Scene.hpp>
 #include <Core/Assets/Manager.hpp>
 
@@ -28,7 +28,7 @@ namespace Core::Ecs
 
 		static std::expected<Scene, Utils::Error> Create(
             Import::Scene scene,
-            const Ecs::SceneNodes::BuilderRegistry& builderRegistry,
+            const BuilderRegistry& builderRegistry,
             Assets::Manager& assetManager);
 
         entt::registry& GetRegistry() { return m_Registry; }
@@ -55,5 +55,10 @@ namespace Core::Ecs
         entt::entity m_Camera;
         SceneState m_State;
 		std::vector<Scripts::Binding> m_ScriptBindings;
+    };
+
+    struct SceneChangedEvent
+    {
+		SceneChangedEvent() = default;
     };
 }

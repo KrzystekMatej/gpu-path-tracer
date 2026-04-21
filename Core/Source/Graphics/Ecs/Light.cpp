@@ -1,11 +1,10 @@
-#include <Core/Ecs/SceneNodes/Light.hpp>
+#include <Core/Graphics/Ecs/Light.hpp>
 #include <Core/Utils/Yaml.hpp>
-#include <Core/Ecs/Components/Graphics.hpp>
 
-namespace Core::Ecs::SceneNodes
+namespace Core::Graphics::Ecs
 {
 	std::expected<void, Utils::Error> LightBuilder::Build(
-		const BuildContext& context,
+		const Core::Ecs::BuildContext& context,
 		entt::registry& registry,
 		Assets::Manager& assetManager) const
 	{
@@ -15,7 +14,7 @@ namespace Core::Ecs::SceneNodes
 		auto intensityResult = Utils::Yaml::GetFloat(context.node, "intensity");
 		if (!intensityResult)
 			return std::unexpected(Utils::Error(std::move(intensityResult).error()));
-		registry.emplace<Components::Light>(context.entity, colorResult.value(), intensityResult.value());
+		registry.emplace<Light>(context.entity, colorResult.value(), intensityResult.value());
 		return {};
 	}
 }

@@ -87,7 +87,7 @@ namespace Core::Graphics::Cuda::Memory
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer1D::MemsetSync(int value) const
+    std::expected<void, Core::Utils::Error> DeviceBuffer1D::MemsetBytesSync(uint8_t value) const
     {
         assert(m_Data != nullptr);
 
@@ -98,7 +98,7 @@ namespace Core::Graphics::Cuda::Memory
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer1D::MemsetAsync(int value, void* stream) const
+    std::expected<void, Core::Utils::Error> DeviceBuffer1D::MemsetBytesAsync(uint8_t value, void* stream) const
     {
         assert(m_Data != nullptr);
         assert(stream != nullptr);

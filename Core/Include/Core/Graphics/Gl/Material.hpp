@@ -12,52 +12,52 @@ namespace Core::Graphics::Gl
 		Pbr
 	};
 
-	inline std::pair<LocalShadingModel, bool> ToLocalShadingChecked(Common::SurfaceModel surface)
+	inline std::pair<LocalShadingModel, bool> ToLocalShadingChecked(SurfaceModel surface)
 	{
 		switch (surface)
 		{
-			case Common::SurfaceModel::Unlit:
+			case SurfaceModel::Unlit:
 				return { LocalShadingModel::Unlit, true };
 
-			case Common::SurfaceModel::Normal:
+			case SurfaceModel::Normal:
 				return { LocalShadingModel::Normal, true };
 
-			case Common::SurfaceModel::Diffuse:
+			case SurfaceModel::Diffuse:
 				return { LocalShadingModel::Lambert, true };
 
-			case Common::SurfaceModel::Microfacet:
+			case SurfaceModel::Microfacet:
 				return { LocalShadingModel::Pbr, true };
 
-			case Common::SurfaceModel::Mirror:
+			case SurfaceModel::Mirror:
 				return { LocalShadingModel::Unlit, false };
 
-			case Common::SurfaceModel::Emissive:
+			case SurfaceModel::Emissive:
 				return { LocalShadingModel::Unlit, false };
 		}
 
 		return { LocalShadingModel::Unlit, false };
 	}
 
-	inline LocalShadingModel ToLocalShadingUnchecked(Common::SurfaceModel surface)
+	inline LocalShadingModel ToLocalShadingUnchecked(SurfaceModel surface)
 	{
 		switch (surface)
 		{
-			case Common::SurfaceModel::Unlit:
+			case SurfaceModel::Unlit:
 				return LocalShadingModel::Unlit;
 
-			case Common::SurfaceModel::Normal:
+			case SurfaceModel::Normal:
 				return LocalShadingModel::Normal;
 
-			case Common::SurfaceModel::Diffuse:
+			case SurfaceModel::Diffuse:
 				return LocalShadingModel::Lambert;
 
-			case Common::SurfaceModel::Microfacet:
+			case SurfaceModel::Microfacet:
 				return LocalShadingModel::Pbr;
 
-			case Common::SurfaceModel::Mirror:
+			case SurfaceModel::Mirror:
 				return LocalShadingModel::Unlit;
 
-			case Common::SurfaceModel::Emissive:
+			case SurfaceModel::Emissive:
 				return LocalShadingModel::Unlit;
 		}
 
@@ -67,10 +67,10 @@ namespace Core::Graphics::Gl
 	struct Material
 	{
 		LocalShadingModel localShading;
-		const Resources::Texture& albedo;
-		const Resources::Texture& roughness;
-		const Resources::Texture& metallic;
-		const Resources::Texture& ao;
-		const Resources::Texture& normal;
+		const Texture& albedo;
+		const Texture& roughness;
+		const Texture& metallic;
+		const Texture& ao;
+		const Texture& normal;
 	};
 }

@@ -1,6 +1,6 @@
 #pragma once
 #include <Core/Runtime/Layer/Base.hpp>
-#include <App/Ui/Events.hpp>
+#include <App/CameraRecorder/Events.hpp>
 
 namespace App::CameraRecorder
 {
@@ -8,8 +8,11 @@ namespace App::CameraRecorder
 	{
 	public:
 		void OnAttach() override;
+		void OnDetach() override;
 		void OnUpdate() override;
 	private:
-		void OnRecordingToggled(const Ui::Events::CameraRecordingToggled& event);
+		void OnSceneChanged(const Core::Ecs::SceneChangedEvent& event);
+		void OnRecordingStart(const Events::Start& event);
+		void OnRecordingStop(const Events::Stop& event);
 	};
 }
