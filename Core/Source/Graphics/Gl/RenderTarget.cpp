@@ -8,12 +8,7 @@ namespace Core::Graphics::Gl
         : m_ColorTexture(
             width,
             height,
-            TextureFormat
-            {
-                GL_RGBA8,
-                GL_RGBA,
-                GL_UNSIGNED_BYTE
-            }),
+            GetRgba8TextureFormat()),
           m_DepthStencilBuffer(width, height, GL_DEPTH24_STENCIL8)
     {
         Attach();

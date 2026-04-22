@@ -19,7 +19,11 @@ namespace Core::Graphics::Cuda
         StopRendering();
     }
 
-    std::expected<void, Core::Utils::Error> Renderer::Initialize(size_t framebufferWidth, size_t framebufferHeight)
+    std::expected<void, Core::Utils::Error> Renderer::Initialize(
+        size_t framebufferWidth, 
+        size_t framebufferHeight,
+        const Ecs::Scene& scene,
+        const Assets::Storage& storage)
     {
         auto result = m_Framebuffer.Allocate(framebufferWidth, framebufferHeight, sizeof(uchar4));
         if (!result)
@@ -36,14 +40,6 @@ namespace Core::Graphics::Cuda
         return m_LastError;
     }
 
-    std::expected<void, Core::Utils::Error> Renderer::ResizeFramebuffer(size_t framebufferWidth, size_t framebufferHeight)
-    {
-        if (IsRendering())
-            return std::unexpected(Core::Utils::Error("Cannot resize renderer while rendering"));
-
-        return m_Framebuffer.Allocate(framebufferWidth, framebufferHeight, sizeof(uchar4));
-    }
-
     std::expected<void, Core::Utils::Error> Renderer::Clear(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
     {
         if (IsRendering())
@@ -52,7 +48,14 @@ namespace Core::Graphics::Cuda
         return RenderClear(r, g, b, a);
     }
 
-    std::expected<void, Core::Utils::Error> Renderer::StartSimulation(uint32_t frameCount, std::chrono::milliseconds frameDelay)
+    std::expected<void, Core::Utils::Error> Renderer::StartSimulation(
+		uint32_t frameWidth,
+		uint32_t frameHeight,
+		std::vector<Capture::MotionState> cameraMotionStates,
+        uint32_t startFrame,
+		uint32_t samplesPerPixel,
+		uint32_t pathDepth,
+        std::chrono::milliseconds frameDelay)
     {
         if (m_IsRendering.exchange(true))
             return std::unexpected(Core::Utils::Error("Renderer is already rendering"));
@@ -65,16 +68,42 @@ namespace Core::Graphics::Cuda
             m_LastError.reset();
         }
 
+        if (startFrame >= cameraMotionStates.size())
+		{
+            m_IsRendering.store(false, std::memory_order_relaxed);
+            return std::unexpected(Core::Utils::Error("Start frame is out of range - nothing to render"));
+        }
+
+        if (frameWidth != m_Framebuffer.GetWidth() || frameHeight != m_Framebuffer.GetHeight())
+        {
+            auto result = m_Framebuffer.Allocate(frameWidth, frameHeight, sizeof(uchar4));
+            if (!result)
+            {
+				m_IsRendering.store(false, std::memory_order_relaxed);
+                return std::unexpected(std::move(result).error());
+            }
+		}
+
+		m_CameraMotionStates = std::move(cameraMotionStates);
+		m_SampleGridSize = static_cast<uint32_t>(std::sqrt(samplesPerPixel));
+		m_SamplesPerPixel = m_SampleGridSize * m_SampleGridSize;
+		m_PathDepth = pathDepth;
+
+        m_DoneFrames.store(startFrame, std::memory_order_relaxed);
+		m_TotalFrames = static_cast<uint32_t>(m_CameraMotionStates.size());
+		m_DoneSamples.store(0, std::memory_order_relaxed);
+		m_TotalSamples = m_SamplesPerPixel * frameWidth * frameHeight;
+
         try
         {
-            m_RenderThread = std::jthread([this, frameCount, frameDelay](std::stop_token stopToken)
+            m_RenderThread = std::jthread([this, startFrame, frameDelay](std::stop_token stopToken)
 			{
-				SimulationLoop(stopToken, frameCount, frameDelay);
+				SimulationLoop(stopToken, startFrame, frameDelay);
 			});
         }
         catch (...)
         {
-            m_IsRendering = false;
+			m_IsRendering.store(false, std::memory_order_relaxed);
             return std::unexpected(Core::Utils::Error("Failed to start render thread"));
         }
 
@@ -92,14 +121,9 @@ namespace Core::Graphics::Cuda
         m_IsRendering = false;
     }
 
-    bool Renderer::IsRendering() const
+    void Renderer::SimulationLoop(std::stop_token stopToken, uint32_t startFrame, std::chrono::milliseconds frameDelay)
     {
-        return m_IsRendering.load();
-    }
-
-    void Renderer::SimulationLoop(std::stop_token stopToken, uint32_t frameCount, std::chrono::milliseconds frameDelay)
-    {
-        for (uint32_t frameIndex = 0; frameIndex < frameCount; ++frameIndex)
+        for (uint32_t frameIndex = startFrame; frameIndex < m_TotalFrames; ++frameIndex)
         {
             if (stopToken.stop_requested())
                 break;
@@ -121,9 +145,11 @@ namespace Core::Graphics::Cuda
                 m_LastError = renderResult.error();
                 break;
             }
+
+			m_DoneFrames.fetch_add(1, std::memory_order_seq_cst);
         }
 
-        m_IsRendering = false;
+        m_IsRendering.store(false, std::memory_order_relaxed);
     }
 
     std::expected<void, Core::Utils::Error> Renderer::RenderClear(uint8_t r, uint8_t g, uint8_t b, uint8_t a)

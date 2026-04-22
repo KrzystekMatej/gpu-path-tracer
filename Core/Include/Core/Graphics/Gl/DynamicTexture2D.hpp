@@ -10,6 +10,8 @@ namespace Core::Graphics::Gl
         uint32_t pixelType = 0;
     };
 
+	TextureFormat GetRgba8TextureFormat();
+    
     class DynamicTexture2D
     {
     public:

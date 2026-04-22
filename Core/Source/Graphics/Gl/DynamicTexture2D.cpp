@@ -3,6 +3,16 @@
 
 namespace Core::Graphics::Gl
 {
+    TextureFormat GetRgba8TextureFormat()
+    {
+        return TextureFormat
+        {
+            .internalFormat = GL_RGBA8,
+            .externalFormat = GL_RGBA,
+            .pixelType = GL_UNSIGNED_BYTE
+        };
+	}
+
     DynamicTexture2D::DynamicTexture2D(TextureFormat format)
         : m_Texture(GL_TEXTURE_2D), m_Width(0), m_Height(0), m_Format(format)
     {

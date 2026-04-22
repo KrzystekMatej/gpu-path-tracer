@@ -2,6 +2,7 @@
 #include <array>
 #include <string_view>
 #include <Core/Graphics/Cuda/PathTracing/Renderer.hpp>
+#include <Core/Graphics/Gl/Resources/Texture.hpp>
 
 namespace App::PathTracer
 {
@@ -25,6 +26,6 @@ namespace App::PathTracer
 
 		uint32_t doneSamples = 0;
 		uint32_t totalSamples = 0;
-		Core::Graphics::Cuda::Renderer::FrameView currentFrame;
+		const Core::Graphics::Gl::Texture* frameTexture = nullptr;
 	};
 }

@@ -20,7 +20,6 @@ namespace Core::Graphics::Gl
         void Resize(uint32_t width, uint32_t height);
         bool IsComplete() const;
 
-
         uint32_t GetWidth() const { return m_ColorTexture.GetWidth(); }
         uint32_t GetHeight() const { return m_ColorTexture.GetHeight(); }
 

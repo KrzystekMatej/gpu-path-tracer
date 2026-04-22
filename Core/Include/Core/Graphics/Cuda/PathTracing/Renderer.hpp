@@ -13,6 +13,9 @@
 #include <utility>
 
 #include <Core/Graphics/Cuda/Memory/SharedBuffer2D.hpp>
+#include <Core/Assets/Storage.hpp>
+#include <Core/Ecs/Scene.hpp>
+#include <Core/Capture/Sample.hpp>
 #include <Core/Utils/Error.hpp>
 
 namespace Core::Graphics::Cuda
@@ -99,20 +102,36 @@ namespace Core::Graphics::Cuda
         Renderer(Renderer&&) = delete;
         Renderer& operator=(Renderer&&) = delete;
 
-        std::expected<void, Core::Utils::Error> Initialize(size_t framebufferWidth, size_t framebufferHeight);
+        std::expected<void, Core::Utils::Error> Initialize(
+            size_t framebufferWidth, 
+            size_t framebufferHeight,
+			const Ecs::Scene& scene,
+			const Assets::Storage& storage
+        );
 
 		size_t GetFramebufferWidth() const { return m_Framebuffer.GetWidth(); }
 		size_t GetFramebufferHeight() const { return m_Framebuffer.GetHeight(); }
         std::optional<Core::Utils::Error> GetLastError() const;
         FrameView GetFrameView() const { return FrameView(*this); }
 
-        std::expected<void, Core::Utils::Error> ResizeFramebuffer(size_t width, size_t height);
         std::expected<void, Core::Utils::Error> Clear(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
-        std::expected<void, Core::Utils::Error> StartSimulation(uint32_t frameCount, std::chrono::milliseconds frameDelay);
+        std::expected<void, Core::Utils::Error> StartSimulation(
+            uint32_t frameWidth,
+            uint32_t frameHeight,
+            std::vector<Capture::MotionState> cameraMotionStates,
+            uint32_t startFrame,
+			uint32_t samplesPerPixel,
+			uint32_t pathDepth,
+            std::chrono::milliseconds frameDelay);
         void StopRendering();
-        bool IsRendering() const;
+
+		bool IsRendering() const { return m_IsRendering.load(); }
+		uint32_t GetDoneFrames() const { return m_DoneFrames.load(); }
+		uint32_t GetTotalFrames() const { return m_TotalFrames; }
+		uint32_t GetDoneSamples() const { return m_DoneSamples.load(); }
+		uint32_t GetTotalSamples() const { return m_TotalSamples; }
     private:
-        void SimulationLoop(std::stop_token stopToken, uint32_t frameCount, std::chrono::milliseconds frameDelay);
+        void SimulationLoop(std::stop_token stopToken, uint32_t startFrame, std::chrono::milliseconds frameDelay);
         std::expected<void, Core::Utils::Error> RenderClear(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 
         Memory::SharedBuffer2D m_Framebuffer;
@@ -127,5 +146,16 @@ namespace Core::Graphics::Cuda
         std::mutex m_StopMutex;
 
         std::optional<Core::Utils::Error> m_LastError;
+
+		std::atomic<uint32_t> m_DoneFrames = 0;
+		uint32_t m_TotalFrames = 0;
+		std::atomic<uint32_t> m_DoneSamples = 0;
+		uint32_t m_TotalSamples = 0;
+
+		std::vector<Capture::MotionState> m_CameraMotionStates;
+
+        uint32_t m_SampleGridSize = 10;
+		uint32_t m_SamplesPerPixel = 100;
+        uint32_t m_PathDepth = 10;
     };
 }

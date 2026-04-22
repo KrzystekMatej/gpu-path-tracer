@@ -128,7 +128,14 @@ namespace App::Ui
 		if (sceneWidth != m_SceneTarget->GetWidth() || sceneHeight != m_SceneTarget->GetHeight())
 			m_SceneTarget->Resize(sceneWidth, sceneHeight);
 
-		ImGui::Image(static_cast<ImTextureID>(m_SceneTarget->GetTexture().GetId()), displaySize, ImVec2(0, 1), ImVec2(1, 0));
+		entt::registry& blackboard = Core::Runtime::Application::Blackboard();
+		PathTracer::Status& pathTracerStatus = blackboard.ctx().get<PathTracer::Status>();
+		PathTracer::Settings& pathTracerSettings = blackboard.ctx().get<PathTracer::Settings>();
+		pathTracerSettings.frameWidth = sceneWidth;
+		pathTracerSettings.frameHeight = sceneHeight;
+
+		uint32_t textureId = m_ViewMode == ViewMode::LivePreview ? m_SceneTarget->GetTexture().GetId() : pathTracerStatus.frameTexture->GetId();
+		ImGui::Image(static_cast<ImTextureID>(textureId), displaySize, ImVec2(0, 1), ImVec2(1, 0));
 
 		ImDrawList* drawList = ImGui::GetWindowDrawList();
 		drawList->AddRect(cursor, ImVec2(cursor.x + displaySize.x, cursor.y + displaySize.y), IM_COL32(255, 255, 255, 50));
@@ -140,9 +147,7 @@ namespace App::Ui
 		const float buttonsWidth = ImGui::GetContentRegionAvail().x;
 		const float buttonWidth = std::max(1.0f, (buttonsWidth - style.ItemSpacing.x) * 0.5f);
 
-		entt::registry& blackboard = Core::Runtime::Application::Blackboard();
 		CameraRecorder::Status& recorderStatus = blackboard.ctx().get<CameraRecorder::Status>();
-		PathTracer::Status& pathTracerStatus = blackboard.ctx().get<PathTracer::Status>();
 		const bool recordingRunning = recorderStatus.state == CameraRecorder::State::Active;
 		const bool renderingRunning = pathTracerStatus.state == PathTracer::State::Active || pathTracerStatus.state == PathTracer::State::Stopping;
 		const char* recordingButtonLabel = recordingRunning ? "Stop recording [R]" : "Start recording [R]";
@@ -252,6 +257,7 @@ namespace App::Ui
 			style.WindowPadding.y);
 
 		const float ratio = displaySize.y > 0.0f ? displaySize.x / displaySize.y : 0.0f;
+		entt::registry& blackboard = Core::Runtime::Application::Blackboard();
 
 		if (ImGui::CollapsingHeader("Display", ImGuiTreeNodeFlags_DefaultOpen))
 		{
@@ -344,11 +350,9 @@ namespace App::Ui
 				? std::initializer_list<float>{
 					textHeight, frameHeight,
 					textHeight, frameHeight,
-					textHeight, frameHeight,
-					textHeight, frameHeight
 				}
 				: std::initializer_list<float>{
-					frameHeight, frameHeight, frameHeight, frameHeight
+					frameHeight, frameHeight
 				},
 			style.ItemSpacing.y,
 			style.WindowPadding.y);
@@ -378,8 +382,6 @@ namespace App::Ui
 			ImGui::Spacing();
 
 			ImGui::BeginChild("PathTracingSettings", ImVec2(0.0f, pathTracingSettingsHeight), true);
-			Utils::BuildResponsiveInputInt("Frame width", "##FrameWidth", reinterpret_cast<int*>(&pathTracerSettings.frameWidth), expandInputs);
-			Utils::BuildResponsiveInputInt("Frame height", "##FrameHeight", reinterpret_cast<int*>(&pathTracerSettings.frameHeight), expandInputs);
 			Utils::BuildResponsiveInputInt("SPP", "##SamplesPerPixel", reinterpret_cast<int*>(&pathTracerSettings.samplesPerPixel), expandInputs);
 			Utils::BuildResponsiveInputInt("Path depth", "##PathDepth", reinterpret_cast<int*>(&pathTracerSettings.pathDepth), expandInputs);
 			ImGui::EndChild();

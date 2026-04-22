@@ -5,7 +5,7 @@
 
 namespace Core::Graphics::Cuda::Kernels
 {
-	#define TPB_1D 256
+	#define TPB_1D 16
 
 	__global__ void ClearKernel(uchar4 color, Memory::DeviceBuffer2DView<uchar4> framebuffer)
 	{
