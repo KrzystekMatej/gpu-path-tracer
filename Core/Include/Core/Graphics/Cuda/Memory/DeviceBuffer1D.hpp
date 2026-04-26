@@ -41,13 +41,11 @@ namespace Core::Graphics::Cuda::Memory
             return
             {
                 reinterpret_cast<T*>(m_Data),
-                m_Size / sizeof(T)
+                m_Size
             };
         }
 
     private:
-        void ResetState() noexcept;
-
         void* m_Data = nullptr;
         size_t m_Size = 0;
         size_t m_ElementSize = 0;

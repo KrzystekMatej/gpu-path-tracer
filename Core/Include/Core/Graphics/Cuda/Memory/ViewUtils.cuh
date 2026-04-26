@@ -6,6 +6,7 @@
 #include <Core/Graphics/Cuda/Memory/DeviceBuffer2DView.hpp>
 #include <Core/Graphics/Cuda/Memory/DeviceQueueView.hpp>
 #include <Core/Graphics/Cuda/Memory/CounterView.hpp>
+#include <Core/Graphics/Cuda/Resources/TextureView.hpp>
 
 namespace Core::Graphics::Cuda::Memory
 {
@@ -18,7 +19,7 @@ namespace Core::Graphics::Cuda::Memory
     template<typename T>
     __device__ __forceinline__ T& At(DeviceBuffer2DView<T> view, uint32_t row, uint32_t col)
     {
-		return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(view.data) + row * view.pitch + col * sizeof(T));
+		return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(view.data) + row * view.pitchBytes + col * sizeof(T));
     }
 
     __device__ __forceinline__ uint32_t Get(CounterView view)
@@ -69,4 +70,10 @@ namespace Core::Graphics::Cuda::Memory
         view.data[idx] = value;
         return idx;
     }
+
+	template<typename T>
+    __device__ __forceinline__ T Sample(TextureView<T> view, float u, float v)
+    {
+        return tex2D<T>(static_cast<cudaTextureObject_t>(view.texture), u, v);
+	}
 }

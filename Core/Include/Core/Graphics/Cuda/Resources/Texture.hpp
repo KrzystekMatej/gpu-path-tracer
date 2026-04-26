@@ -5,6 +5,7 @@
 #include <expected>
 #include <Core/Import/Image.hpp>
 #include <Core/Utils/Error.hpp>
+#include <Core/Graphics/Cuda/Resources/TextureView.hpp>
 
 namespace Core::Graphics::Cuda
 {
@@ -18,6 +19,8 @@ namespace Core::Graphics::Cuda
         Texture& operator=(const Texture&) = delete;
 
         static std::expected<Texture, Core::Utils::Error> Create2D(const Import::Image& image);
+        template<typename T>
+        TextureView<T> GetView() const { return TextureView<T>{ m_CudaTexture }; }
     private:
         Texture() = default;
 

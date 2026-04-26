@@ -55,15 +55,13 @@ namespace Core::Graphics::Cuda::Memory
     std::expected<void, Core::Utils::Error> SharedBuffer2D::CopyHostToDeviceSync() const
     {
         assert(m_HostData != nullptr);
-        const size_t rowSize = m_DeviceBuffer.GetWidth() * m_DeviceBuffer.GetElementSize();
-        return m_DeviceBuffer.UploadSync(m_HostData, rowSize);
+        return m_DeviceBuffer.UploadSync(m_HostData, m_DeviceBuffer.GetWidth());
     }
 
     std::expected<void, Core::Utils::Error> SharedBuffer2D::CopyHostToDeviceAsync(void* stream) const
     {
         assert(m_HostData != nullptr);
-        const size_t rowSize = m_DeviceBuffer.GetWidth() * m_DeviceBuffer.GetElementSize();
-        return m_DeviceBuffer.UploadAsync(m_HostData, rowSize, stream);
+        return m_DeviceBuffer.UploadAsync(m_HostData, m_DeviceBuffer.GetWidth(), stream);
     }
 
     std::expected<void, Core::Utils::Error> SharedBuffer2D::CopyDeviceToHostSync() const
@@ -76,7 +74,7 @@ namespace Core::Graphics::Cuda::Memory
             m_HostData,
             rowSize,
             m_DeviceBuffer.GetData(),
-            m_DeviceBuffer.GetPitch(),
+            m_DeviceBuffer.GetPitchBytes(),
             rowSize,
             m_DeviceBuffer.GetHeight(),
             cudaMemcpyDeviceToHost);
@@ -98,7 +96,7 @@ namespace Core::Graphics::Cuda::Memory
             m_HostData,
             rowSize,
             m_DeviceBuffer.GetData(),
-            m_DeviceBuffer.GetPitch(),
+            m_DeviceBuffer.GetPitchBytes(),
             rowSize,
             m_DeviceBuffer.GetHeight(),
             cudaMemcpyDeviceToHost,

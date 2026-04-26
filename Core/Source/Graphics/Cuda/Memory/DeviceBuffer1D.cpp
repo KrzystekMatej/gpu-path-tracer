@@ -30,13 +30,6 @@ namespace Core::Graphics::Cuda::Memory
         return *this;
     }
 
-    void DeviceBuffer1D::ResetState() noexcept
-    {
-        m_Data = nullptr;
-        m_Size = 0;
-        m_ElementSize = 0;
-    }
-
     std::expected<void, Core::Utils::Error> DeviceBuffer1D::Allocate(size_t size, size_t elementSize)
     {
         auto freeResult = Free();
@@ -44,7 +37,7 @@ namespace Core::Graphics::Cuda::Memory
             return std::unexpected(freeResult.error());
 
         void* data = nullptr;
-        cudaError_t error = cudaMalloc(&data, size);
+        cudaError_t error = cudaMalloc(&data, size * elementSize);
         if (error != cudaSuccess)
             return std::unexpected(Utils::MakeCudaError("cudaMalloc", error));
 
@@ -60,7 +53,7 @@ namespace Core::Graphics::Cuda::Memory
         assert(hostData != nullptr);
         assert(size <= m_Size);
 
-        cudaError_t error = cudaMemcpy(m_Data, hostData, size, cudaMemcpyHostToDevice);
+        cudaError_t error = cudaMemcpy(m_Data, hostData, size * m_ElementSize, cudaMemcpyHostToDevice);
         if (error != cudaSuccess)
             return std::unexpected(Utils::MakeCudaError("cudaMemcpy", error));
 
@@ -77,7 +70,7 @@ namespace Core::Graphics::Cuda::Memory
         cudaError_t error = cudaMemcpyAsync(
             m_Data,
             hostData,
-            size,
+            size * m_ElementSize,
             cudaMemcpyHostToDevice,
             static_cast<cudaStream_t>(stream));
 
@@ -85,13 +78,14 @@ namespace Core::Graphics::Cuda::Memory
             return std::unexpected(Utils::MakeCudaError("cudaMemcpyAsync", error));
 
         return {};
+
     }
 
     std::expected<void, Core::Utils::Error> DeviceBuffer1D::MemsetBytesSync(uint8_t value) const
     {
         assert(m_Data != nullptr);
 
-        cudaError_t error = cudaMemset(m_Data, value, m_Size);
+        cudaError_t error = cudaMemset(m_Data, value, m_Size * m_ElementSize);
         if (error != cudaSuccess)
             return std::unexpected(Utils::MakeCudaError("cudaMemset", error));
 
@@ -103,7 +97,7 @@ namespace Core::Graphics::Cuda::Memory
         assert(m_Data != nullptr);
         assert(stream != nullptr);
 
-        cudaError_t error = cudaMemsetAsync(m_Data, value, m_Size, static_cast<cudaStream_t>(stream));
+        cudaError_t error = cudaMemsetAsync(m_Data, value, m_Size * m_ElementSize, static_cast<cudaStream_t>(stream));
         if (error != cudaSuccess)
             return std::unexpected(Utils::MakeCudaError("cudaMemsetAsync", error));
 
@@ -119,7 +113,9 @@ namespace Core::Graphics::Cuda::Memory
         if (error != cudaSuccess)
             return std::unexpected(Utils::MakeCudaError("cudaFree", error));
 
-        ResetState();
+        m_Data = nullptr;
+        m_Size = 0;
+        m_ElementSize = 0;
         return {};
     }
 }

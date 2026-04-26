@@ -11,11 +11,7 @@ namespace App::PathTracer
 		auto& status = blackboard.ctx().emplace<Status>();
 		auto& settings = blackboard.ctx().emplace<Settings>();
 
-		m_PathTracer.Initialize(
-			settings.frameWidth, 
-			settings.frameHeight, 
-			Core::Runtime::Application::Scene(),
-			Core::Runtime::Application::AssetManager().GetStorage());
+		m_PathTracer.InitializeRenderingBuffers(settings.frameWidth, settings.frameHeight);
 		m_DisplayTexture.Allocate(settings.frameWidth, settings.frameHeight);
 		auto frameView = m_PathTracer.GetFrameView();
 		{
@@ -31,7 +27,16 @@ namespace App::PathTracer
 		eventDispatcher.sink<Events::Start>().connect<&Layer::OnPathTracingStart>(*this);
 		eventDispatcher.sink<Events::Stop>().connect<&Layer::OnPathTracingStop>(*this);
 		eventDispatcher.sink<CameraRecorder::Events::Finish>().connect<&Layer::OnCameraRecordingFinish>(*this);
+		eventDispatcher.sink<Core::Ecs::SceneChangedEvent>().connect<&Layer::OnSceneChanged>(*this);
 	}
+
+	void Layer::OnSceneChanged(const Core::Ecs::SceneChangedEvent& event)
+	{
+		m_PathTracer.InitializeSceneBuffers(
+			Core::Runtime::Application::Scene().GetRegistry(), 
+			Core::Runtime::Application::AssetManager().GetStorage());
+	}
+
 
 	void Layer::OnDetach()
 	{
@@ -39,6 +44,7 @@ namespace App::PathTracer
 		eventDispatcher.sink<Events::Start>().disconnect<&Layer::OnPathTracingStart>(*this);
 		eventDispatcher.sink<Events::Stop>().disconnect<&Layer::OnPathTracingStop>(*this);
 		eventDispatcher.sink<CameraRecorder::Events::Finish>().disconnect<&Layer::OnCameraRecordingFinish>(*this);
+		eventDispatcher.sink<Core::Ecs::SceneChangedEvent>().disconnect<&Layer::OnSceneChanged>(*this);
 	}
 
 	void Layer::OnUpdate()

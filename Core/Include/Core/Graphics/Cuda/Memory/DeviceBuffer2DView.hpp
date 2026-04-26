@@ -9,6 +9,6 @@ namespace Core::Graphics::Cuda::Memory
         T* data = nullptr;
         size_t width = 0;
         size_t height = 0;
-        size_t pitch = 0;
+        size_t pitchBytes = 0;
     };
 }

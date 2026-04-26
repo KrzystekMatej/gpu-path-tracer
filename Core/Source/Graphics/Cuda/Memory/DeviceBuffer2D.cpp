@@ -14,7 +14,7 @@ namespace Core::Graphics::Cuda::Memory
         : m_Data(std::exchange(other.m_Data, nullptr)),
         m_Width(other.m_Width),
         m_Height(other.m_Height),
-        m_Pitch(other.m_Pitch),
+        m_PitchBytes(other.m_PitchBytes),
         m_ElementSize(other.m_ElementSize)
     {
     }
@@ -27,7 +27,7 @@ namespace Core::Graphics::Cuda::Memory
             m_Data = std::exchange(other.m_Data, nullptr);
             m_Width = other.m_Width;
             m_Height = other.m_Height;
-            m_Pitch = other.m_Pitch;
+            m_PitchBytes = other.m_PitchBytes;
             m_ElementSize = other.m_ElementSize;
         }
 
@@ -39,7 +39,7 @@ namespace Core::Graphics::Cuda::Memory
         m_Data = nullptr;
         m_Width = 0;
         m_Height = 0;
-        m_Pitch = 0;
+        m_PitchBytes = 0;
         m_ElementSize = 0;
     }
 
@@ -59,21 +59,21 @@ namespace Core::Graphics::Cuda::Memory
         m_Data = data;
         m_Width = width;
         m_Height = height;
-        m_Pitch = pitch;
+        m_PitchBytes = pitch;
         m_ElementSize = elementSize;
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer2D::UploadSync(const void* hostData, size_t hostRowPitch) const
+    std::expected<void, Core::Utils::Error> DeviceBuffer2D::UploadSync(const void* hostData, size_t hostPitchElement) const
     {
         assert(m_Data != nullptr);
         assert(hostData != nullptr);
 
         cudaError_t error = cudaMemcpy2D(
             m_Data,
-            m_Pitch,
+            m_PitchBytes,
             hostData,
-            hostRowPitch,
+            hostPitchElement * m_ElementSize,
             m_Width * m_ElementSize,
             m_Height,
             cudaMemcpyHostToDevice);
@@ -84,7 +84,7 @@ namespace Core::Graphics::Cuda::Memory
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer2D::UploadAsync(const void* hostData, size_t hostRowPitch, void* stream) const
+    std::expected<void, Core::Utils::Error> DeviceBuffer2D::UploadAsync(const void* hostData, size_t hostPitchElement, void* stream) const
     {
         assert(m_Data != nullptr);
         assert(hostData != nullptr);
@@ -92,9 +92,9 @@ namespace Core::Graphics::Cuda::Memory
 
         cudaError_t error = cudaMemcpy2DAsync(
             m_Data,
-            m_Pitch,
+            m_PitchBytes,
             hostData,
-            hostRowPitch,
+            hostPitchElement * m_ElementSize,
             m_Width * m_ElementSize,
             m_Height,
             cudaMemcpyHostToDevice,
@@ -112,7 +112,7 @@ namespace Core::Graphics::Cuda::Memory
 
 		cudaError_t error = cudaMemset2D(
 			m_Data,
-			m_Pitch,
+			m_PitchBytes,
 			value,
 			m_Width * m_ElementSize,
 			m_Height);
@@ -130,7 +130,7 @@ namespace Core::Graphics::Cuda::Memory
 
 		cudaError_t error = cudaMemset2DAsync(
 			m_Data,
-			m_Pitch,
+			m_PitchBytes,
 			value,
 			m_Width * m_ElementSize,
 			m_Height,

@@ -35,7 +35,7 @@ namespace Core::Graphics::Cuda::Memory
             return std::unexpected(freeResult.error());
 
         void* hostData = nullptr;
-        cudaError_t error = cudaMallocHost(&hostData, size);
+        cudaError_t error = cudaMallocHost(&hostData, size * elementSize);
         if (error != cudaSuccess)
             return std::unexpected(Utils::MakeCudaError("cudaMallocHost", error));
 
@@ -69,7 +69,7 @@ namespace Core::Graphics::Cuda::Memory
         cudaError_t error = cudaMemcpy(
             m_HostData,
             m_DeviceBuffer.GetData(),
-            m_DeviceBuffer.GetSize(),
+            m_DeviceBuffer.GetSize() * m_DeviceBuffer.GetElementSize(),
             cudaMemcpyDeviceToHost);
 
         if (error != cudaSuccess)
@@ -86,7 +86,7 @@ namespace Core::Graphics::Cuda::Memory
         cudaError_t error = cudaMemcpyAsync(
             m_HostData,
             m_DeviceBuffer.GetData(),
-            m_DeviceBuffer.GetSize(),
+            m_DeviceBuffer.GetSize() * m_DeviceBuffer.GetElementSize(),
             cudaMemcpyDeviceToHost,
             static_cast<cudaStream_t>(stream));
 

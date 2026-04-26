@@ -32,7 +32,7 @@ namespace Core::Graphics::Cuda::Memory
         if (!freeResult)
             return std::unexpected(freeResult.error());
 
-        auto bufferAllocateResult = m_Buffer.Allocate(capacity * elementSize, elementSize);
+        auto bufferAllocateResult = m_Buffer.Allocate(capacity, elementSize);
         if (!bufferAllocateResult)
             return std::unexpected(bufferAllocateResult.error());
 
@@ -73,13 +73,5 @@ namespace Core::Graphics::Cuda::Memory
     std::expected<void, Core::Utils::Error> DeviceQueue::SyncCounterFromHost()
     {
         return m_Counter.SyncFromHost();
-    }
-
-    size_t DeviceQueue::GetCapacity() const
-    {
-        const size_t elementSize = m_Buffer.GetElementSize();
-        assert(elementSize != 0);
-
-        return m_Buffer.GetSize() / elementSize;
     }
 }

@@ -36,7 +36,7 @@ namespace Core::Graphics::Cuda::Memory
 
         m_HostValue = 0;
 
-        auto allocateResult = m_DeviceBuffer.Allocate(sizeof(uint32_t), sizeof(uint32_t));
+        auto allocateResult = m_DeviceBuffer.Allocate(1, sizeof(uint32_t));
         if (!allocateResult)
             return std::unexpected(allocateResult.error());
 
@@ -63,7 +63,7 @@ namespace Core::Graphics::Cuda::Memory
         cudaError_t error = cudaMemcpy(
             &m_HostValue,
             m_DeviceBuffer.GetData(),
-            sizeof(uint32_t),
+            m_DeviceBuffer.GetSize() * m_DeviceBuffer.GetElementSize(),
             cudaMemcpyDeviceToHost);
 
         if (error != cudaSuccess)
@@ -75,7 +75,7 @@ namespace Core::Graphics::Cuda::Memory
     std::expected<void, Core::Utils::Error> SharedCounter::SyncFromHost()
     {
         assert(m_DeviceBuffer.GetData() != nullptr);
-		return m_DeviceBuffer.MemsetBytesSync(m_HostValue);
+		return m_DeviceBuffer.UploadSync(&m_HostValue, 1);
     }
 
     uint32_t* SharedCounter::GetDevicePointer() const

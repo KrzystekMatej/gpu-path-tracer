@@ -36,7 +36,7 @@ namespace Core::Graphics::Cuda::Memory
         const SharedCounter& GetCounter() const { return m_Counter; }
         SharedCounter& GetCounter() { return m_Counter; }
 
-        size_t GetCapacity() const;
+		size_t GetCapacity() const { return m_Buffer.GetSize(); }
         size_t GetElementSize() const { return m_Buffer.GetElementSize(); }
 
         template<typename T>

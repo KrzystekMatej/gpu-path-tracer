@@ -133,7 +133,7 @@ namespace Core::Graphics::Gl
     {
 		glDepthFunc(GL_LESS);
 		glm::mat4 pvm = context.projection * context.view * context.model;
-		glm::mat4 normal = glm::transpose(glm::inverse(context.model));
+		glm::mat3 normal = glm::mat3(glm::transpose(glm::inverse(context.model)));
 
         switch (context.material.localShading)
         {

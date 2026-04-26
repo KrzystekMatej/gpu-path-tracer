@@ -13,16 +13,6 @@ namespace Core::Graphics
 		Emissive,
 	};
 
-	enum class GlobalShadingModel
-	{
-		Unlit,
-		Normal,
-		Diffuse,
-		Mirror,
-		Ggx,
-		Emissive,
-	};
-
 	struct MaterialDefaults
 	{
 		static constexpr SurfaceModel DefaultSurfaceModel = SurfaceModel::Unlit;

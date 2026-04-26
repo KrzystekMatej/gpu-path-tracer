@@ -8,8 +8,8 @@ namespace Core::Assets
     class Handle
     {
     public:
+		Utils::Guid GetId() const { return m_Id; }
         friend bool operator==(Handle, Handle) = default;
-
     private:
         explicit constexpr Handle(Utils::Guid id) : m_Id(id) {}
         friend class Storage;

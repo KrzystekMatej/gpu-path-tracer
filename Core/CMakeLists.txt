@@ -24,12 +24,15 @@ target_sources(core PRIVATE
 
     "Source/Graphics/Cpu/Resources/EnvironmentMap.cpp"
 
+    "Source/Graphics/Cuda/Bvh/DeviceBvh.cpp"
+    "Source/Graphics/Cuda/Bvh/HostBvh.cpp"
     "Source/Graphics/Cuda/Memory/DeviceBuffer1D.cpp"
     "Source/Graphics/Cuda/Memory/DeviceBuffer2D.cpp"
     "Source/Graphics/Cuda/Memory/DeviceQueue.cpp"
     "Source/Graphics/Cuda/Memory/SharedBuffer1D.cpp"
     "Source/Graphics/Cuda/Memory/SharedBuffer2D.cpp"
     "Source/Graphics/Cuda/Memory/SharedCounter.cpp"
+	"Source/Graphics/Cuda/PathTracing/PathPool.cpp"
     "Source/Graphics/Cuda/PathTracing/Renderer.cpp"
     "Source/Graphics/Cuda/Resources/Texture.cpp"
     "Source/Graphics/Cuda/Utils/Error.cpp"

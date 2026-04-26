@@ -22,8 +22,8 @@ namespace Core::Graphics::Cuda::Memory
         DeviceBuffer2D& operator=(const DeviceBuffer2D&) = delete;
 
         std::expected<void, Core::Utils::Error> Allocate(size_t width, size_t height, size_t elementSize);
-        std::expected<void, Core::Utils::Error> UploadSync(const void* hostData, size_t hostRowPitch) const;
-        std::expected<void, Core::Utils::Error> UploadAsync(const void* hostData, size_t hostRowPitch, void* stream) const;
+        std::expected<void, Core::Utils::Error> UploadSync(const void* hostData, size_t hostPitchElement) const;
+        std::expected<void, Core::Utils::Error> UploadAsync(const void* hostData, size_t hostPitchElement, void* stream) const;
         std::expected<void, Core::Utils::Error> MemsetBytesSync(uint8_t value = 0) const;
         std::expected<void, Core::Utils::Error> MemsetBytesAsync(uint8_t value, void* stream) const;
         std::expected<void, Core::Utils::Error> Free();
@@ -31,7 +31,7 @@ namespace Core::Graphics::Cuda::Memory
         void* GetData() const { return m_Data; }
         size_t GetWidth() const { return m_Width; }
         size_t GetHeight() const { return m_Height; }
-        size_t GetPitch() const { return m_Pitch; }
+        size_t GetPitchBytes() const { return m_PitchBytes; }
         size_t GetElementSize() const { return m_ElementSize; }
 
         template<typename T>
@@ -45,7 +45,7 @@ namespace Core::Graphics::Cuda::Memory
                 reinterpret_cast<T*>(m_Data),
                 m_Width,
                 m_Height,
-                m_Pitch
+                m_PitchBytes
             };
         }
 
@@ -55,7 +55,7 @@ namespace Core::Graphics::Cuda::Memory
         void* m_Data = nullptr;
         size_t m_Width = 0;
         size_t m_Height = 0;
-        size_t m_Pitch = 0;
+        size_t m_PitchBytes = 0;
         size_t m_ElementSize = 0;
     };
 }

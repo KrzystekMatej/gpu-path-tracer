@@ -1,8 +1,19 @@
 #include <Core/Graphics/Cuda/PathTracing/Renderer.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Kernels.hpp>
+#include <Core/Ecs/Transform.hpp>
+#include <Core/Graphics/Ecs/Assets.hpp>
+#include <Core/Graphics/Ecs/Camera.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Material.hpp>
+#include <ranges>
+#include <Core/Graphics/Cuda/Bvh/Triangle.hpp>
+#include <Core/Graphics/Cuda/Utils/Glm.hpp>
+#include <Core/Graphics/Cuda/Bvh/HostBvh.hpp>
+#include <Core/Graphics/Cuda/Bvh/DeviceBvh.hpp>
 
 namespace Core::Graphics::Cuda
 {
+	constexpr size_t PathPoolSize = 1'000'000;
+
     namespace
     {
         uchar4 MakeSimulationColor(uint32_t frameIndex)
@@ -12,6 +23,100 @@ namespace Core::Graphics::Cuda
             const uint8_t b = static_cast<uint8_t>((frameIndex * 131u) % 256u);
             return make_uchar4(r, g, b, 255);
         }
+
+        std::unordered_map<Core::Utils::Guid, std::pair<uint32_t, Material>> BuildMaterialMap(
+            const entt::registry& sceneRegistry,
+            const Assets::Storage& storage)
+        {
+            std::unordered_map<Core::Utils::Guid, std::pair<uint32_t, Material>> materials;
+            sceneRegistry
+                .view<Core::Ecs::WorldTransform, Ecs::Mesh, Ecs::Material>()
+                .each([&](const Core::Ecs::WorldTransform& transform, const Ecs::Mesh& mesh, const Ecs::Material& material)
+                    {
+						const auto& materialAsset = storage.Get(material.handle).value().get();
+
+						if (!materials.count(material.handle.GetId()))
+						{
+							materials[material.handle.GetId()] = { 
+                                materials.size(), {
+								ToGlobalShadingUnchecked(materialAsset.surface),
+								storage.Get(materialAsset.albedo).value().get().cuda.GetView<float>(),
+								storage.Get(materialAsset.roughness).value().get().cuda.GetView<float>(),
+								storage.Get(materialAsset.metallic).value().get().cuda.GetView<float>(),
+								storage.Get(materialAsset.ao).value().get().cuda.GetView<float>(),
+								storage.Get(materialAsset.normal).value().get().cuda.GetView<float>(),
+							}};
+						}
+                    });
+
+            return materials;
+        }
+
+        std::expected<Memory::DeviceBuffer1D, Core::Utils::Error> BuildMaterialBuffer(
+            const std::unordered_map<Core::Utils::Guid, std::pair<uint32_t, Material>>& materialMap)
+        {
+            std::vector<Material> materials(materialMap.size());
+            for (auto kv : materialMap | std::views::values)
+            {
+                materials[kv.first] = kv.second;
+            }
+            Memory::DeviceBuffer1D buffer;
+            auto result = buffer.Allocate(materials.size(), sizeof(Material));
+            if (!result)
+                return std::unexpected(std::move(result).error());
+            result = buffer.UploadSync(materials.data(), materials.size());
+            if (!result)
+                return std::unexpected(std::move(result).error());
+            return buffer;
+		}
+
+        std::vector<Triangle> BuildTriangleList(
+            const entt::registry& sceneRegistry,
+            const Assets::Storage& storage,
+            const std::unordered_map<Core::Utils::Guid, std::pair<uint32_t, Material>>& materialMap)
+        {
+            std::vector<Triangle> triangles;
+            sceneRegistry
+                .view<Core::Ecs::WorldTransform, Ecs::Mesh, Ecs::Material>()
+                .each([&](const Core::Ecs::WorldTransform& transform, const Ecs::Mesh& mesh, const Ecs::Material& material)
+                    {
+						const Cpu::Mesh& meshAsset = storage.Get(mesh.handle).value().get().cpu;
+						const std::vector<Core::Graphics::Vertex>& vertices = meshAsset.GetVertices();
+						const std::vector<uint32_t>& indices = meshAsset.GetIndices();
+						const glm::mat4& model = transform.GetMatrix();
+						glm::mat3 normal = glm::mat3(glm::transpose(glm::inverse(model)));
+						triangles.reserve(triangles.size() + indices.size() / 3);
+
+                        for (size_t i = 0; i < indices.size(); i += 3)
+                        {
+                            Triangle triangle;
+                            for (size_t j = 0; j < 3; ++j)
+                            {
+                                const auto& vertex = vertices[indices[i + j]];
+                                triangle.vertices[j].position = Utils::Glm::ToFloat3(model * glm::vec4(vertex.position, 1.0f));
+                                glm::vec3 worldNormal = glm::normalize(normal * vertex.normal);
+								glm::vec3 tangent = glm::mat3(model) * glm::vec3(vertex.tangent);
+								tangent = glm::normalize(tangent);
+								tangent = glm::normalize(tangent - worldNormal * glm::dot(worldNormal, tangent));
+								triangle.vertices[j].tangent = Utils::Glm::ToFloat4(glm::vec4(tangent, vertex.tangent.w));
+                                triangle.vertices[j].uv = Utils::Glm::ToFloat2(vertex.uv);
+							}
+							triangle.materialIndex = materialMap.at(material.handle.GetId()).first;
+                            triangles.push_back(triangle);
+                        }
+                    });
+            return triangles;
+        }
+
+        std::expected<DeviceBvh, Core::Utils::Error> BuildBvh(std::vector<Triangle> triangles)
+        {
+			HostBvh bvh(std::move(triangles));
+			DeviceBvh deviceBvh;
+			auto result = deviceBvh.Build(bvh.GetRoot(), bvh.GetTriangles());
+            if (!result)
+				return std::unexpected(std::move(result).error());
+            return deviceBvh;
+		}
     }
 
     Renderer::~Renderer()
@@ -19,19 +124,55 @@ namespace Core::Graphics::Cuda
         StopRendering();
     }
 
-    std::expected<void, Core::Utils::Error> Renderer::Initialize(
-        size_t framebufferWidth, 
-        size_t framebufferHeight,
-        const Ecs::Scene& scene,
-        const Assets::Storage& storage)
+    std::expected<void, Core::Utils::Error> Renderer::InitializeRenderingBuffers(size_t framebufferWidth, size_t framebufferHeight)
     {
-        auto result = m_Framebuffer.Allocate(framebufferWidth, framebufferHeight, sizeof(uchar4));
+		auto result = m_PathPool.Allocate(PathPoolSize);
+        if (!result)
+			return std::unexpected(std::move(result).error());
+        for (auto& rayQueue : m_RayQueues)
+        {
+            result = rayQueue.Allocate(PathPoolSize, sizeof(Ray));
+			if (!result)
+                return std::unexpected(std::move(result).error());
+		}
+
+		result = m_HitQueue.Allocate(PathPoolSize, sizeof(HitData));
+        if (!result)
+			return std::unexpected(std::move(result).error());
+
+		result = m_RegenQueue.Allocate(PathPoolSize, sizeof(uint32_t));
+		if (!result)
+			return std::unexpected(std::move(result).error());
+
+
+		result = m_AccumulationBuffer.Allocate(framebufferWidth, framebufferHeight, sizeof(float4));
+        if (!result)
+			return std::unexpected(std::move(result).error());
+
+        result = m_Framebuffer.Allocate(framebufferWidth, framebufferHeight, sizeof(uchar4));
         if (!result)
             return std::unexpected(std::move(result).error());
         result = m_Framebuffer.GetDeviceBuffer().MemsetBytesSync(0);
 		if (!result)
             return std::unexpected(std::move(result).error());
 		return m_Framebuffer.CopyDeviceToHostSync();
+    }
+
+    std::expected<void, Core::Utils::Error> Renderer::InitializeSceneBuffers(const entt::registry& sceneRegistry, const Assets::Storage& storage)
+    {
+        auto materialMap = BuildMaterialMap(sceneRegistry, storage);
+		auto materialBufferResult = BuildMaterialBuffer(materialMap);
+        if (!materialBufferResult)
+			return std::unexpected(std::move(materialBufferResult).error());
+		m_MaterialBuffer = std::move(materialBufferResult).value();
+
+		std::vector<Triangle> triangleList = BuildTriangleList(sceneRegistry, storage, materialMap);
+		auto bvhResult = BuildBvh(std::move(triangleList));
+		if (!bvhResult)
+			return std::unexpected(std::move(bvhResult).error());
+		m_Bvh = std::move(bvhResult).value();
+
+        return {};
     }
 
     std::optional<Core::Utils::Error> Renderer::GetLastError() const

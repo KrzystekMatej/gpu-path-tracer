@@ -12,11 +12,15 @@
 #include <thread>
 #include <utility>
 
+#include <Core/Graphics/Cuda/Memory/DeviceBuffer1D.hpp>
+#include <Core/Graphics/Cuda/Memory/DeviceQueue.hpp>
 #include <Core/Graphics/Cuda/Memory/SharedBuffer2D.hpp>
+#include <Core/Graphics/Cuda/PathTracing/PathPool.hpp>
 #include <Core/Assets/Storage.hpp>
 #include <Core/Ecs/Scene.hpp>
 #include <Core/Capture/Sample.hpp>
 #include <Core/Utils/Error.hpp>
+#include <Core/Graphics/Cuda/Bvh/DeviceBvh.hpp>
 
 namespace Core::Graphics::Cuda
 {
@@ -102,12 +106,8 @@ namespace Core::Graphics::Cuda
         Renderer(Renderer&&) = delete;
         Renderer& operator=(Renderer&&) = delete;
 
-        std::expected<void, Core::Utils::Error> Initialize(
-            size_t framebufferWidth, 
-            size_t framebufferHeight,
-			const Ecs::Scene& scene,
-			const Assets::Storage& storage
-        );
+        std::expected<void, Core::Utils::Error> InitializeRenderingBuffers(size_t framebufferWidth, size_t framebufferHeight);
+		std::expected<void, Core::Utils::Error> InitializeSceneBuffers(const entt::registry& sceneRegistry, const Assets::Storage& storage);
 
 		size_t GetFramebufferWidth() const { return m_Framebuffer.GetWidth(); }
 		size_t GetFramebufferHeight() const { return m_Framebuffer.GetHeight(); }
@@ -135,6 +135,7 @@ namespace Core::Graphics::Cuda
         std::expected<void, Core::Utils::Error> RenderClear(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 
         Memory::SharedBuffer2D m_Framebuffer;
+		Memory::DeviceBuffer2D m_AccumulationBuffer;
 
         mutable std::mutex m_FrameMutex;
         mutable std::mutex m_ErrorMutex;
@@ -157,5 +158,13 @@ namespace Core::Graphics::Cuda
         uint32_t m_SampleGridSize = 10;
 		uint32_t m_SamplesPerPixel = 100;
         uint32_t m_PathDepth = 10;
+
+        Memory::DeviceBuffer1D m_MaterialBuffer;
+		DeviceBvh m_Bvh;
+
+        PathPool m_PathPool;
+        std::array<Memory::DeviceQueue, 2> m_RayQueues;
+		Memory::DeviceQueue m_HitQueue;
+        Memory::DeviceQueue m_RegenQueue;
     };
 }

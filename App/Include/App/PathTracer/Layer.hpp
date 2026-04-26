@@ -16,6 +16,7 @@ namespace App::PathTracer
 		void OnDetach() override;
 		void OnUpdate() override;
 	private:
+		void OnSceneChanged(const Core::Ecs::SceneChangedEvent& event);
 		void OnPathTracingStart(const Events::Start& event);
 		void OnPathTracingStop(const Events::Stop& event);
 		void OnCameraRecordingFinish(const CameraRecorder::Events::Finish& event);
