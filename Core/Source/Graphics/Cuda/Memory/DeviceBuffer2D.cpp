@@ -34,15 +34,6 @@ namespace Core::Graphics::Cuda::Memory
         return *this;
     }
 
-    void DeviceBuffer2D::ResetState() noexcept
-    {
-        m_Data = nullptr;
-        m_Width = 0;
-        m_Height = 0;
-        m_PitchBytes = 0;
-        m_ElementSize = 0;
-    }
-
     std::expected<void, Core::Utils::Error> DeviceBuffer2D::Allocate(size_t width, size_t height, size_t elementSize)
     {
         auto freeResult = Free();
@@ -151,7 +142,11 @@ namespace Core::Graphics::Cuda::Memory
         if (error != cudaSuccess)
             return std::unexpected(Utils::MakeCudaError("cudaFree", error));
 
-        ResetState();
+		m_Data = nullptr;
+		m_Width = 0;
+		m_Height = 0;
+		m_PitchBytes = 0;
+		m_ElementSize = 0;
         return {};
     }
 }

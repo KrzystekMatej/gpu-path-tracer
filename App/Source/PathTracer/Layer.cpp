@@ -94,9 +94,15 @@ namespace App::PathTracer
 		}
 
 		auto duration = std::chrono::milliseconds(1000);
+		auto& scene = Core::Runtime::Application::Scene();
+		entt::registry& registry = scene.GetRegistry();
+		const auto& camera = registry.get<Core::Graphics::Ecs::Camera>(scene.GetActiveCamera());
+
+
 		auto result = m_PathTracer.StartSimulation(
 			event.settings.frameWidth, 
-			event.settings.frameHeight, 
+			event.settings.frameHeight,
+			camera,
 			m_CameraMotionStates, 
 			m_StatesUpdated ? 0 : status.doneFrames,
 			event.settings.samplesPerPixel, 

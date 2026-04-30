@@ -1,4 +1,4 @@
-#include <glad/glad.h>
+#include <glad/gl.h>
 #include <Core/Graphics/Gl/Framebuffer.hpp>
 #include <Core/Graphics/Gl/Renderbuffer.hpp>
 #include <Core/Graphics/Gl/Resources/Texture.hpp>

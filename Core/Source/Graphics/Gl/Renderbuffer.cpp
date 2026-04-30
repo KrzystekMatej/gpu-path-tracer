@@ -1,4 +1,4 @@
-#include <glad/glad.h>
+#include <glad/gl.h>
 #include <Core/Graphics/Gl/Renderbuffer.hpp>
 #include <cassert>
 #include <utility>

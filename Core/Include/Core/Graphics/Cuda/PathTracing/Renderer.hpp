@@ -21,6 +21,7 @@
 #include <Core/Capture/Sample.hpp>
 #include <Core/Utils/Error.hpp>
 #include <Core/Graphics/Cuda/Bvh/DeviceBvh.hpp>
+#include <Core/Graphics/Ecs/Camera.hpp>
 
 namespace Core::Graphics::Cuda
 {
@@ -118,6 +119,7 @@ namespace Core::Graphics::Cuda
         std::expected<void, Core::Utils::Error> StartSimulation(
             uint32_t frameWidth,
             uint32_t frameHeight,
+            const Graphics::Ecs::Camera& camera,
             std::vector<Capture::MotionState> cameraMotionStates,
             uint32_t startFrame,
 			uint32_t samplesPerPixel,
@@ -153,6 +155,7 @@ namespace Core::Graphics::Cuda
 		std::atomic<uint32_t> m_DoneSamples = 0;
 		uint32_t m_TotalSamples = 0;
 
+        Graphics::Ecs::Camera m_Camera;
 		std::vector<Capture::MotionState> m_CameraMotionStates;
 
         uint32_t m_SampleGridSize = 10;

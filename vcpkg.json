@@ -1,0 +1,16 @@
+{
+  "name": "gpu-path-tracer",
+  "version": "1.0.0",
+  "dependencies": [
+    "spdlog",
+    "yaml-cpp",
+    "glm",
+    "entt",
+    "xxhash",
+    "tinyobjloader",
+    "opengl",
+    "glfw3",
+    "openimageio"
+  ],
+  "builtin-baseline": "80f9bcfa455e875d9c1bf7a7c6692d7e1e481061"
+}

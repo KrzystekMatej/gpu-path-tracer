@@ -50,8 +50,6 @@ namespace Core::Graphics::Cuda::Memory
         }
 
     private:
-        void ResetState() noexcept;
-
         void* m_Data = nullptr;
         size_t m_Width = 0;
         size_t m_Height = 0;

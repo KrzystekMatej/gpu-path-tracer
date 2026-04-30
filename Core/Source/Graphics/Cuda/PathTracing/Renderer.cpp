@@ -9,6 +9,8 @@
 #include <Core/Graphics/Cuda/Utils/Glm.hpp>
 #include <Core/Graphics/Cuda/Bvh/HostBvh.hpp>
 #include <Core/Graphics/Cuda/Bvh/DeviceBvh.hpp>
+#include <Core/Graphics/Cuda/PathTracing/DeviceCamera.hpp>
+#include <Core/Utils/Math/CoordinateSystem.hpp>
 
 namespace Core::Graphics::Cuda
 {
@@ -117,6 +119,28 @@ namespace Core::Graphics::Cuda
 				return std::unexpected(std::move(result).error());
             return deviceBvh;
 		}
+
+        DeviceCamera MakeDeviceCamera(const Graphics::Ecs::Camera& camera, float aspect, glm::vec3 position, glm::quat orientation)
+        {
+			glm::vec3 forward = orientation * Core::Utils::Math::CoordinateSystem::Forward;
+			glm::vec3 right = orientation * Core::Utils::Math::CoordinateSystem::Right;
+			glm::vec3 up = glm::cross(right, forward);
+
+			float halfH = std::tan(camera.fovY * 0.5f);
+			float halfW = halfH * aspect;
+
+			glm::vec3 origin = position;
+			glm::vec3 horizontal = 2.0f * halfW * right;
+			glm::vec3 vertical = 2.0f * halfH * up;
+			glm::vec3 lowerLeftCorner = origin + forward - halfW * right - halfH * up;
+
+			DeviceCamera dc;
+			dc.origin = Utils::Glm::ToFloat3(origin);
+			dc.horizontal = Utils::Glm::ToFloat3(horizontal);
+			dc.vertical = Utils::Glm::ToFloat3(vertical);
+			dc.lowerLeftCorner = Utils::Glm::ToFloat3(lowerLeftCorner);
+			return dc;
+        }
     }
 
     Renderer::~Renderer()
@@ -144,10 +168,9 @@ namespace Core::Graphics::Cuda
 		if (!result)
 			return std::unexpected(std::move(result).error());
 
-
 		result = m_AccumulationBuffer.Allocate(framebufferWidth, framebufferHeight, sizeof(float4));
         if (!result)
-			return std::unexpected(std::move(result).error());
+            return std::unexpected(std::move(result).error());
 
         result = m_Framebuffer.Allocate(framebufferWidth, framebufferHeight, sizeof(uchar4));
         if (!result)
@@ -190,8 +213,9 @@ namespace Core::Graphics::Cuda
     }
 
     std::expected<void, Core::Utils::Error> Renderer::StartSimulation(
-		uint32_t frameWidth,
-		uint32_t frameHeight,
+        uint32_t frameWidth,
+        uint32_t frameHeight,
+        const Graphics::Ecs::Camera& camera,
 		std::vector<Capture::MotionState> cameraMotionStates,
         uint32_t startFrame,
 		uint32_t samplesPerPixel,
@@ -225,6 +249,7 @@ namespace Core::Graphics::Cuda
             }
 		}
 
+		m_Camera = camera;
 		m_CameraMotionStates = std::move(cameraMotionStates);
 		m_SampleGridSize = static_cast<uint32_t>(std::sqrt(samplesPerPixel));
 		m_SamplesPerPixel = m_SampleGridSize * m_SampleGridSize;
