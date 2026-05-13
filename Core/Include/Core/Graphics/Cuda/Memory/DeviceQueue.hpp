@@ -26,15 +26,17 @@ namespace Core::Graphics::Cuda::Memory
         std::expected<void, Core::Utils::Error> Allocate(size_t capacity, size_t elementSize);
         std::expected<void, Core::Utils::Error> Free();
 
-        std::expected<void, Core::Utils::Error> ResetCounter();
-        std::expected<void, Core::Utils::Error> SyncCounterFromDevice();
-        std::expected<void, Core::Utils::Error> SyncCounterFromHost();
+        std::expected<void, Core::Utils::Error> ResetCounter() { return m_Counter.Reset(); }
+        std::expected<void, Core::Utils::Error> SyncCounterFromDevice() { return m_Counter.SyncFromDevice(); }
+        std::expected<void, Core::Utils::Error> SyncCounterFromHost() { return m_Counter.SyncFromHost(); }
 
         const DeviceBuffer1D& GetBuffer() const { return m_Buffer; }
         DeviceBuffer1D& GetBuffer() { return m_Buffer; }
 
         const SharedCounter& GetCounter() const { return m_Counter; }
         SharedCounter& GetCounter() { return m_Counter; }
+        uint32_t GetCounterHostValue() const { return m_Counter.GetHostValue(); }
+        void SetCounterHostValue(uint32_t value) { m_Counter.SetHostValue(value); }
 
 		size_t GetCapacity() const { return m_Buffer.GetSize(); }
         size_t GetElementSize() const { return m_Buffer.GetElementSize(); }

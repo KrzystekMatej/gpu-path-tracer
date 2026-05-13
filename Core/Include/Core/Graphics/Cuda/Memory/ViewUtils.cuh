@@ -24,22 +24,22 @@ namespace Core::Graphics::Cuda::Memory
 
     __device__ __forceinline__ uint32_t Get(CounterView view)
     {
-        return *view.data;
+        return *view.value;
     }
 
     __device__ __forceinline__ void Set(CounterView view, uint32_t value)
     {
-        *view.data = value;
+        *view.value = value;
     }
 
     __device__ __forceinline__ uint32_t Increment(CounterView view)
     {
-        return atomicAdd(view.data, 1u);
+        return atomicAdd(view.value, 1u);
     }
 
     __device__ __forceinline__ uint32_t Add(CounterView view, uint32_t value)
     {
-        return atomicAdd(view.data, value);
+        return atomicAdd(view.value, value);
     }
 
     template<typename T>
@@ -49,7 +49,7 @@ namespace Core::Graphics::Cuda::Memory
     }
 
     template<typename T>
-    __device__ __forceinline__ bool Push(DeviceQueueView<T> view, const T& value)
+    __device__ __forceinline__ bool PushChecked(DeviceQueueView<T> view, const T& value)
     {
         const uint32_t idx = Increment(view.counter);
 
@@ -64,7 +64,7 @@ namespace Core::Graphics::Cuda::Memory
     }
 
     template<typename T>
-    __device__ __forceinline__ uint32_t PushUnchecked(DeviceQueueView<T> view, const T& value)
+    __device__ __forceinline__ uint32_t Push(DeviceQueueView<T> view, const T& value)
     {
         const uint32_t idx = Increment(view.counter);
         view.data[idx] = value;

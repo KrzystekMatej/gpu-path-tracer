@@ -15,7 +15,7 @@ namespace Core::Graphics::Cuda
 		DeviceBvh(const DeviceBvh&) = delete;
 		DeviceBvh& operator=(const DeviceBvh&) = delete;
 		
-		std::expected<void, Core::Utils::Error> Build(const HostBvhNode& root, const std::vector<Triangle>& triangles);
+		std::expected<void, Core::Utils::Error> Build(const HostBvhNode& root, uint32_t depth, uint32_t nodeCount, const std::vector<Triangle>& triangles);
 		std::expected<void, Core::Utils::Error> Free();
 
 
@@ -28,10 +28,12 @@ namespace Core::Graphics::Cuda
 			};
 		}
 
-		size_t GetNodeCount() const { return m_Nodes.GetSize() / sizeof(DeviceBvhNode); }
-		size_t GetTriangleCount() const { return m_Triangles.GetSize() / sizeof(Triangle); }
+		size_t GetNodeCount() const { return m_Nodes.GetSize(); }
+		size_t GetTriangleCount() const { return m_Triangles.GetSize(); }
+		uint32_t GetDepth() const { return m_Depth; }
 	private:
 		Memory::DeviceBuffer1D m_Nodes;
 		Memory::DeviceBuffer1D m_Triangles;
+		uint32_t m_Depth;
 	};
 }

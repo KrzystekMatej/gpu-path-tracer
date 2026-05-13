@@ -5,10 +5,9 @@
 
 namespace Core::Graphics::Cuda
 {
-	struct Sample
+	struct Pixel
 	{
-		uint32_t pixel;
-		uint32_t sample;
+		uint32_t index;
 	};
 
 	struct Ray
@@ -36,11 +35,10 @@ namespace Core::Graphics::Cuda
 
 	struct HitData
 	{
-		uint32_t pathId;
-		uint32_t triangleID;
+		uint32_t path;
+		uint32_t triangle;
+		uint32_t material;
 		float u;
 		float v;
-		uint32_t materialID;
-		float3 Ng;
 	};
 }

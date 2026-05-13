@@ -10,41 +10,39 @@ namespace Core::Ecs
 		entt::registry& registry,
 		Assets::Manager& assetManager) const
 	{
-		auto translationResult = Utils::Yaml::GetVec3(context.node, "translation");
-		if (!translationResult)
-			return std::unexpected(std::move(translationResult).error());
+		CORE_TRY(translation, Utils::Yaml::GetVec3(context.node, "translation"));
+		CORE_TRY(scale, Utils::Yaml::GetVec3(context.node, "scale"));
 
-		glm::vec3 translation = translationResult.value();
-
-		auto scaleResult = Utils::Yaml::GetVec3(context.node, "scale");
-		if (!scaleResult)
-			return std::unexpected(std::move(scaleResult).error());
-
-		glm::vec3 scale = scaleResult.value();
-
-		const bool hasRotation = static_cast<bool>(context.node["rotation"]);
+		const bool hasQuaternion = static_cast<bool>(context.node["quaternion"]);
+		const bool hasEulerDegrees = static_cast<bool>(context.node["euler-degrees"]);
+		const bool hasEulerRadians = static_cast<bool>(context.node["euler-radians"]);
 		const bool hasTarget = static_cast<bool>(context.node["target"]);
 
-		if (hasRotation && hasTarget)
-			return std::unexpected(Utils::Error("Transform cannot specify both 'rotation' and 'view-at'"));
+		if (hasQuaternion + (hasEulerDegrees || hasEulerRadians) + hasTarget > 1)
+			return std::unexpected(Utils::Error("Transform can only have one of 'quaternion', 'euler', or 'target' specified"));
 
 		glm::quat rotation = glm::identity<glm::quat>();
 
-		if (hasRotation)
+		if (hasQuaternion)
 		{
-			auto eulerResult = Utils::Yaml::GetVec3(context.node, "rotation");
-			if (!eulerResult)
-				return std::unexpected(eulerResult.error());
-
-			rotation = glm::normalize(glm::quat(glm::radians(eulerResult.value())));
+			CORE_TRY(quaternionWxyz, Utils::Yaml::GetVec4(context.node, "quaternion"));
+			rotation = glm::normalize(glm::quat(quaternionWxyz.x, quaternionWxyz.y, quaternionWxyz.z, quaternionWxyz.w));
+		}
+		else if (hasEulerDegrees)
+		{
+			CORE_TRY(euler, Utils::Yaml::GetVec3(context.node, "euler-degrees"));
+			rotation = glm::normalize(glm::quat(glm::radians(euler)));
+		}
+		else if (hasEulerRadians)
+		{
+			CORE_TRY(euler, Utils::Yaml::GetVec3(context.node, "euler-radians"));
+			rotation = glm::normalize(glm::quat(euler));
 		}
 		else if (hasTarget)
 		{
-			auto targetResult = Utils::Yaml::GetVec3(context.node, "target");
-			if (!targetResult)
-				return std::unexpected(targetResult.error());
-
-			glm::vec3 forward = targetResult.value() - translation;
+			CORE_TRY(target, Utils::Yaml::GetVec3(context.node, "target"));
+			
+			glm::vec3 forward = target - translation;
 			if (glm::length(forward) <= 1e-6f)
 				return std::unexpected(Utils::Error("Transform 'target' must differ from 'position'"));
 

@@ -4,7 +4,7 @@ in vec2 fragment_uv;
 
 layout(location = 0) out vec4 fragment_color;
 
-uniform sampler2D albedo_texture;
+uniform sampler2D emission_texture;
 
 vec3 reinhard(vec3 color)
 {
@@ -23,7 +23,9 @@ vec3 postprocess(vec3 color)
     return color;
 }
 
+
 void main()
 {
-    fragment_color = vec4(postprocess(texture(albedo_texture, fragment_uv).xyz), 1.0);
+    vec3 emission = texture(emission_texture, fragment_uv).rgb;
+    fragment_color = vec4(postprocess(emission), 1.0);
 }

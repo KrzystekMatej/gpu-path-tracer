@@ -6,7 +6,7 @@ namespace Core::Graphics::Cuda
 {
 	struct PathPoolView
 	{
-		Memory::DeviceBuffer1DView<Sample> samples;
+		Memory::DeviceBuffer1DView<Pixel> pixels;
 		Memory::DeviceBuffer1DView<Ray> rays;
 		Memory::DeviceBuffer1DView<Contribution> contributions;
 		Memory::DeviceBuffer1DView<Random> randoms;

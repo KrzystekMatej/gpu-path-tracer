@@ -3,7 +3,7 @@
 #include <Core/Graphics/Gl/Resources/Mesh.hpp>
 #include <Core/Graphics/Gl/Material.hpp>
 #include <Core/Assets/Storage.hpp>
-#include <Core/Graphics/Common/Light.hpp>
+#include <Core/Graphics/Gl/Light.hpp>
 #include <Core/Graphics/Gl/Resources/EnvironmentMap.hpp>
 
 namespace Core::Graphics::Gl

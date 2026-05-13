@@ -7,7 +7,7 @@ namespace Core::Graphics::Cuda
 		uint32_t FlattenBvh(const HostBvhNode& node, std::vector<DeviceBvhNode>& nodes)
 		{
 			uint32_t nodeIndex = static_cast<uint32_t>(nodes.size());
-			nodes.emplace_back(node.bounds, InvalidNodeIndex, InvalidNodeIndex, node.first, node.count);
+			nodes.emplace_back(node.bounds, DeviceBvhNode::InvalidIndex, DeviceBvhNode::InvalidIndex, node.first, node.count);
 
 			if (node.left && node.right)
 			{
@@ -19,9 +19,11 @@ namespace Core::Graphics::Cuda
 		}
 	}
 
-	std::expected<void, Utils::Error> DeviceBvh::Build(const HostBvhNode& root, const std::vector<Triangle>& triangles)
+	std::expected<void, Utils::Error> DeviceBvh::Build(const HostBvhNode& root, uint32_t depth, uint32_t nodeCount, const std::vector<Triangle>& triangles)
 	{
 		std::vector<DeviceBvhNode> nodes;
+		nodes.reserve(nodeCount);
+		m_Depth = depth;
 		FlattenBvh(root, nodes);
 		auto result = m_Nodes.Allocate(nodes.size(), sizeof(DeviceBvhNode));
 		if (!result)

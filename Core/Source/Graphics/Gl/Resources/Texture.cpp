@@ -9,8 +9,6 @@ namespace Core::Graphics::Gl
 		{
 			if (format.layout == ChannelLayout::R && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::UInt8)
 				return GL_R8;
-			if (format.layout == ChannelLayout::R && format.colorSpace == ColorSpace::SRGB && format.componentType == ComponentType::UInt8)
-				return GL_R8;
 			if (format.layout == ChannelLayout::RGB && format.colorSpace == ColorSpace::Linear && format.componentType == ComponentType::UInt8)
 				return GL_RGB8;
 			if (format.layout == ChannelLayout::RGB && format.colorSpace == ColorSpace::SRGB && format.componentType == ComponentType::UInt8)

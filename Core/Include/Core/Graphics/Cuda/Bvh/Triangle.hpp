@@ -14,7 +14,7 @@ namespace Core::Graphics::Cuda
 
 	struct Triangle
 	{
-		std::array<Vertex, 3> vertices;
+		Vertex vertices[3];
 		uint32_t materialIndex;
 	};
 }

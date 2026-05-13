@@ -7,6 +7,7 @@
 #include <App/PathTracer/Settings.hpp>
 #include <App/CameraRecorder/Events.hpp>
 #include <App/PathTracer/Events.hpp>
+#include <cinttypes>
 
 namespace App::Ui
 {
@@ -52,11 +53,6 @@ namespace App::Ui
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
 		ImGui::Begin("MainLayout", nullptr, hostFlags);
 
-		auto& blackboard = Core::Runtime::Application::Blackboard();
-		CameraRecorder::Status& recorderStatus = blackboard.ctx().get<CameraRecorder::Status>();
-		CameraRecorder::Settings& recorderSettings = blackboard.ctx().get<CameraRecorder::Settings>();
-		PathTracer::Status& pathTracerStatus = blackboard.ctx().get<PathTracer::Status>();
-		PathTracer::Settings& pathTracerSettings = blackboard.ctx().get<PathTracer::Settings>();
 		ImVec2 displaySize = BuildDisplay();
 		ImGui::SameLine();
 		BuildSidePanel(displaySize);
@@ -71,7 +67,7 @@ namespace App::Ui
 			.target = *m_SceneTarget,
 			.scene = Core::Runtime::Application::Scene(),
 			.storage = Core::Runtime::Application::AssetManager().GetStorage(),
-			.clearColor = { 0.1f, 0.1f, 0.1f, 1.0f }
+			.clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }
 		};
 
 		renderer.Render(sceneViewDesc);
@@ -93,11 +89,10 @@ namespace App::Ui
 		ImGui::BeginChild("Display", ImVec2(displayWidth, 0.0f), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
 		const ImGuiStyle& style = ImGui::GetStyle();
-		const float textHeight = ImGui::GetTextLineHeight();
-		const float frameHeight = ImGui::GetFrameHeight();
+		constexpr float buttonHeight = 50.0f;
 
 		const float actionsHeight = Utils::GetStackHeight(
-			{ 50 },
+			{ buttonHeight },
 			style.ItemSpacing.y,
 			style.WindowPadding.y
 		);
@@ -162,14 +157,13 @@ namespace App::Ui
 			}
 			else
 			{
-				CameraRecorder::Settings& settings = blackboard.ctx().get<CameraRecorder::Settings>();
 				Core::Runtime::Application::EventDispatcher().trigger(CameraRecorder::Events::Start(settings));
 			}
 		}
 
 		ImGui::SameLine();
 
-		if (ImGui::Button(renderingButtonLabel, ImVec2(buttonWidth, 50.0f)))
+		if (ImGui::Button(renderingButtonLabel, ImVec2(buttonWidth, buttonHeight)))
 		{
 			if (renderingRunning)
 			{
@@ -257,7 +251,6 @@ namespace App::Ui
 			style.WindowPadding.y);
 
 		const float ratio = displaySize.y > 0.0f ? displaySize.x / displaySize.y : 0.0f;
-		entt::registry& blackboard = Core::Runtime::Application::Blackboard();
 
 		if (ImGui::CollapsingHeader("Display", ImGuiTreeNodeFlags_DefaultOpen))
 		{
@@ -368,14 +361,14 @@ namespace App::Ui
 				: 0.0f;
 
 			const float sampleProgress = pathTracerStatus.totalSamples > 0
-				? std::clamp(static_cast<float>(pathTracerStatus.doneSamples) / static_cast<float>(pathTracerStatus.totalSamples), 0.0f, 1.0f)
+				? std::clamp(static_cast<float>(static_cast<double>(pathTracerStatus.doneSamples) / static_cast<double>(pathTracerStatus.totalSamples)), 0.0f, 1.0f)
 				: 0.0f;
 
 			ImGui::BeginChild("PathTracingStatus", ImVec2(0.0f, pathTracingStatusHeight), true);
 			ImGui::Text("State: %s", ToString(pathTracerStatus.state).data());
-			ImGui::Text("Frames: %d / %d", pathTracerStatus.doneFrames, pathTracerStatus.totalFrames);
+			ImGui::Text("Frames: %" PRIu32 " / %" PRIu32, pathTracerStatus.doneFrames, pathTracerStatus.totalFrames);
 			ImGui::ProgressBar(frameProgress, ImVec2(-1.0f, 0.0f));
-			ImGui::Text("Current frame samples: %d / %d", pathTracerStatus.doneSamples, pathTracerStatus.totalSamples);
+			ImGui::Text("Current frame samples: %" PRIu64 " / %" PRIu64, pathTracerStatus.doneSamples, pathTracerStatus.totalSamples);
 			ImGui::ProgressBar(sampleProgress, ImVec2(-1.0f, 0.0f));
 			ImGui::EndChild();
 
@@ -383,7 +376,7 @@ namespace App::Ui
 
 			ImGui::BeginChild("PathTracingSettings", ImVec2(0.0f, pathTracingSettingsHeight), true);
 			Utils::BuildResponsiveInputInt("SPP", "##SamplesPerPixel", reinterpret_cast<int*>(&pathTracerSettings.samplesPerPixel), expandInputs);
-			Utils::BuildResponsiveInputInt("Path depth", "##PathDepth", reinterpret_cast<int*>(&pathTracerSettings.pathDepth), expandInputs);
+			Utils::BuildResponsiveInputInt("Path depth", "##PathDepth", reinterpret_cast<int*>(&pathTracerSettings.pathDepthLimit), expandInputs);
 			ImGui::EndChild();
 		}
 	}

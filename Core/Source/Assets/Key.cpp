@@ -29,7 +29,7 @@ namespace Core::Assets
             hasher.Update(std::as_bytes(source.data));
         }
 
-        void HashAppend(Utils::Hasher& hasher, const SubkeyNone&) {}
+        void HashAppend(Utils::Hasher&, const SubkeyNone&) {}
 
         void HashAppend(Utils::Hasher& hasher, const SubkeyIndex& subkey)
         {

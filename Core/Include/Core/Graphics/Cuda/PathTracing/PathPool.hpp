@@ -23,7 +23,7 @@ namespace Core::Graphics::Cuda
 		{
 			return
 			{
-				m_Samples.GetView<Sample>(),
+				m_Samples.GetView<Pixel>(),
 				m_Rays.GetView<Ray>(),
 				m_Contributions.GetView<Contribution>(),
 				m_RandomStates.GetView<Random>(),
@@ -31,7 +31,7 @@ namespace Core::Graphics::Cuda
 			};
 		}
 
-		size_t GetPathCount() const { return m_Samples.GetSize() / sizeof(Sample); }
+		size_t GetPathCount() const { return m_Samples.GetSize(); }
 	private:
 		Memory::DeviceBuffer1D m_Samples;
 		Memory::DeviceBuffer1D m_Rays;

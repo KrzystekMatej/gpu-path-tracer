@@ -1,7 +1,7 @@
 #pragma once
 #include <Core/External/Glm.hpp>
 
-namespace Core::Graphics
+namespace Core::Graphics::Gl
 {
 	struct Light
 	{

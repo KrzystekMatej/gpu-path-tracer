@@ -5,6 +5,6 @@ namespace Core::Graphics::Cuda::Memory
 {
     struct CounterView
     {
-        uint32_t* data = nullptr;
+        uint32_t* value = nullptr;
     };
 }

@@ -32,6 +32,10 @@ list(APPEND CMAKE_MODULE_PATH
 include(Resolver)
 include(Definitions)
 
+foreach(dep_name IN LISTS CORE_CUDA_DEPENDENCIES)
+    resolve_dependency(${dep_name})
+endforeach()
+
 foreach(dep_name IN LISTS CORE_DEPENDENCIES)
     resolve_dependency(${dep_name})
 endforeach()

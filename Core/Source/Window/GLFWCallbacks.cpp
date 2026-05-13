@@ -235,7 +235,7 @@ namespace Core::Window
 		glfwSetWindowCloseCallback(windowHandle, WindowClose);
     }
 
-    void GlfwCallbacks::Key(GLFWwindow* windowHandle, int key, int scancode, int action, int mods)
+    void GlfwCallbacks::Key(GLFWwindow* windowHandle, int key, [[maybe_unused]] int scancode, int action, int mods)
     {
         NativeWindow* window = static_cast<NativeWindow*>(glfwGetWindowUserPointer(windowHandle));
 		switch (action)

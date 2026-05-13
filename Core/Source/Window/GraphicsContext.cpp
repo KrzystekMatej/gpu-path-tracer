@@ -11,9 +11,9 @@ namespace Core::Window
 			GLenum type,
 			GLuint id,
 			GLenum severity,
-			GLsizei length,
+			[[maybe_unused]] GLsizei length,
 			const GLchar* message,
-			const void* userParam)
+			[[maybe_unused]] const void* userParam)
 		{
 			if (severity == GL_DEBUG_SEVERITY_NOTIFICATION)
 				return;

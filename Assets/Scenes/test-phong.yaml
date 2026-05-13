@@ -7,20 +7,27 @@ scene:
     - components:
         - type: Transform
           translation: [0.0, 0.0, 0.0]
-          euler-degrees: [-90.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
-          path: Models/CornellBox/mesh.obj
+          path: Models/Container/mesh.obj
     - components:
         - type: Transform
-          translation: [40.0, 250.0, 940.0]
+          translation: [0.0, 0.0, 3.0]
           euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]  
         - type: Camera
-          fov-y: 40.0
+          fov-y: 45.0
           near-plane: 0.1
           far-plane: 10000.0
         - type: CameraController
-          speed: 1000.0
+          speed: 3.0
           sensitivity: 0.005
+    - components:
+        - type: Transform
+          translation: [1.2, 1.0, 2.0]
+          euler-degrees: [0.0, 0.0, 0.0]
+          scale: [0.3, 0.3, 0.3]  
+        - type: Model
+          path: Models/Spheres/Light/mesh.obj
   

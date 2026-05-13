@@ -14,13 +14,4 @@ namespace Core::Capture
 		MotionState state;
 		float time;
 	};
-
-	struct CameraShotSettings
-	{
-		float fovY = glm::radians(45.0f);
-		float nearPlane = 0.1f;
-		float farPlane = 100.0f;
-		uint32_t width = 1920;
-		uint32_t height = 1080;
-	};
 }

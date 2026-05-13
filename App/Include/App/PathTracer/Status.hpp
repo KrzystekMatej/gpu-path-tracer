@@ -24,8 +24,8 @@ namespace App::PathTracer
 		uint32_t doneFrames = 0;
 		uint32_t totalFrames = 0;
 
-		uint32_t doneSamples = 0;
-		uint32_t totalSamples = 0;
+		uint64_t doneSamples = 0;
+		uint64_t totalSamples = 0;
 		const Core::Graphics::Gl::Texture* frameTexture = nullptr;
 	};
 }

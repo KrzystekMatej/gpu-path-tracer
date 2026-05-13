@@ -31,8 +31,10 @@ namespace Core::Graphics::Gl
 			Assets::Handle<Assets::ShaderProgram> unlit,
 			Assets::Handle<Assets::ShaderProgram> normal,
 			Assets::Handle<Assets::ShaderProgram> lambert,
+			Assets::Handle<Assets::ShaderProgram> phong,
 			Assets::Handle<Assets::ShaderProgram> directPbr,
 			Assets::Handle<Assets::ShaderProgram> fullPbr,
+			Assets::Handle<Assets::ShaderProgram> emissive,
 			Assets::Handle<Assets::ShaderProgram> background,
 			Texture brdfMap,
 			Mesh skyboxMesh)
@@ -40,8 +42,10 @@ namespace Core::Graphics::Gl
 		  m_Unlit(unlit),
 		  m_Normal(normal),
 		  m_Lambert(lambert),
+		  m_Phong(phong),
 		  m_DirectPbr(directPbr),
 		  m_FullPbr(fullPbr),
+		  m_Emissive(emissive),
 		  m_Background(background),
 		  m_BrdfMap(std::move(brdfMap)),
 	      m_SkyboxMesh(std::move(skyboxMesh)) { }
@@ -50,8 +54,10 @@ namespace Core::Graphics::Gl
 		Assets::Handle<Assets::ShaderProgram> m_Unlit;
 		Assets::Handle<Assets::ShaderProgram> m_Normal;
 		Assets::Handle<Assets::ShaderProgram> m_Lambert;
+		Assets::Handle<Assets::ShaderProgram> m_Phong;
 		Assets::Handle<Assets::ShaderProgram> m_DirectPbr;
 		Assets::Handle<Assets::ShaderProgram> m_FullPbr;
+		Assets::Handle<Assets::ShaderProgram> m_Emissive;
 		Assets::Handle<Assets::ShaderProgram> m_Background;
 
 		Texture m_BrdfMap;

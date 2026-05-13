@@ -7,12 +7,17 @@ in vec2 fragment_uv;
 
 layout(location = 0) out vec4 fragment_color;
 
+uniform vec3 camera_position;
 uniform sampler2D albedo_texture;
+uniform sampler2D specular_texture;
+uniform sampler2D shininess_texture;
 uniform sampler2D normal_texture;
 
 const int LIGHT_LIMIT = 10;
-const float PI = 3.14159265359;
-const vec3 AMBIENT_STRENGTH = vec3(0.1);
+const float PI = 3.14159265359f;
+const float MIN_SHININESS = 1.f;
+const float MAX_SHININESS = 1000.f;
+const vec3 AMBIENT_STRENGTH = vec3(0.1f);
 
 struct PointLight
 {
@@ -40,26 +45,33 @@ vec3 get_normal()
     return N;
 }
 
-vec3 lambert(vec3 albedo, vec3 normal, vec3 fragment_position)
+vec3 phong(vec3 albedo, vec3 specular, float shininess, vec3 N, vec3 P)
 {
     vec3 result = vec3(0.0);
+    vec3 view_direction = normalize(camera_position - P);
 
     for (uint i = 0u; i < light_count; ++i)
     {
-        vec3 light_vector = lights[i].position - fragment_position;
+        vec3 light_vector = lights[i].position - P;
         float distance_squared = max(dot(light_vector, light_vector), 1e-6);
         vec3 light_direction = light_vector * inversesqrt(distance_squared);
+        vec3 reflect_direction = reflect(-light_direction, N);
 
-
-        float cos_theta = max(dot(normal, light_direction), 0.0);
-
+        float cos_theta = max(dot(N, light_direction), 0.0);
+        if (cos_theta <= 0.0) continue;
+            
+        float spec = pow(max(dot(view_direction, reflect_direction), 0.0), shininess);
 
         float attenuation = lights[i].intensity / (4.0 * PI * distance_squared);
 
-        result += albedo * lights[i].color * cos_theta * attenuation;
+        vec3 diffuse_component = albedo * cos_theta * lights[i].color;
+        vec3 specular_component = specular * spec * lights[i].color;
+
+        result += (diffuse_component + specular_component) * attenuation;
     }
 
-    return result + (AMBIENT_STRENGTH * albedo);
+    vec3 ambient = AMBIENT_STRENGTH * albedo;
+    return result + ambient;
 }
 
 vec3 reinhard(vec3 color)
@@ -79,13 +91,14 @@ vec3 postprocess(vec3 color)
     return color;
 }
 
-
 void main()
 {
     vec3 albedo = texture(albedo_texture, fragment_uv).rgb;
-    vec3 normal = get_normal();
+    vec3 specular = texture(specular_texture, fragment_uv).rgb;
+    float shininess = texture(shininess_texture, fragment_uv).r * (MAX_SHININESS - MIN_SHININESS) + MIN_SHININESS;
+    vec3 N = get_normal();
 
-    vec3 color = lambert(albedo, normal, world_position);
+    vec3 color = phong(albedo, specular, shininess, N, world_position);
 
     fragment_color = vec4(postprocess(color), 1.0);
 }

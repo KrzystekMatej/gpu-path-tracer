@@ -25,5 +25,6 @@ namespace App::PathTracer
 		Core::Graphics::Gl::DynamicTexture2D m_DisplayTexture;
 		std::vector<Core::Capture::MotionState> m_CameraMotionStates;
 		bool m_StatesUpdated = false;
+		bool m_SceneBuffersDirty = true;
 	};
 }

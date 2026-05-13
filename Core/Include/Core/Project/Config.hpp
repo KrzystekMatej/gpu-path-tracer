@@ -20,7 +20,16 @@ namespace Core::Project
 
         static std::expected<Config, Utils::Error> LoadFromYAML(const std::filesystem::path& configPath)
         {
-            YAML::Node root = YAML::LoadFile(configPath.string());
+            YAML::Node root;
+
+            try
+            {
+                root = YAML::LoadFile(configPath.string());
+            }
+            catch (const YAML::Exception& e)
+            {
+                return std::unexpected(Utils::Error("Failed to load YAML config '{}': {}", configPath.string(), e.what()));
+            }
 
 			YAML::Node nameNode = root[nameKey];
 			YAML::Node contentNode = root[contentKey];

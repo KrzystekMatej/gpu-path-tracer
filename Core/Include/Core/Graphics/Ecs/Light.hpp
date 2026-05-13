@@ -18,6 +18,8 @@ namespace Core::Graphics::Ecs
 	class LightBuilder : public Core::Ecs::Builder
 	{
 	public:
+        static std::expected<Light, Utils::Error> Extract(YAML::Node node);
+
 		std::expected<void, Utils::Error> Build(
 			const Core::Ecs::BuildContext& context,
 			entt::registry& registry,

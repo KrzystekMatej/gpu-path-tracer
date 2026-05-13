@@ -13,6 +13,6 @@ namespace Core::Runtime::Layer
 		virtual void OnDetach() {}
 		virtual void OnUpdate() {}
 		virtual void OnBuildUi() {}
-		virtual void OnRender(Graphics::Services::SceneRenderer renderer) {}
+		virtual void OnRender(Graphics::Services::SceneRenderer) {}
 	};
 }

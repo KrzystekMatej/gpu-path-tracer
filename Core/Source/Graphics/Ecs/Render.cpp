@@ -3,6 +3,8 @@
 #include <Core/Graphics/Ecs/Camera.hpp>
 #include <Core/Ecs/Transform.hpp>
 #include <Core/Graphics/Gl/Material.hpp>
+#include <Core/Graphics/Ecs/Light.hpp>
+#include <Core/Graphics/Gl/Light.hpp>
 
 namespace Core::Graphics::Ecs
 {
@@ -19,7 +21,7 @@ namespace Core::Graphics::Ecs
 		glm::mat4 cameraModel = cameraTransform.GetMatrix();
 		glm::mat4 view = glm::inverse(cameraModel);
 
-		std::vector<Graphics::Light> lights;
+		std::vector<Gl::Light> lights;
 
 		registry.view<Core::Ecs::WorldTransform, Light>().each([&](const Core::Ecs::WorldTransform& transform, const Light& light)
 		{
@@ -50,10 +52,13 @@ namespace Core::Graphics::Ecs
 			{
 				.localShading = Graphics::Gl::ToLocalShadingUnchecked(materialAsset.surface),
 				.albedo = storage.Get(materialAsset.albedo).value().get().gl,
+				.specular = storage.Get(materialAsset.specular).value().get().gl,
+				.shininess = storage.Get(materialAsset.shininess).value().get().gl,
 				.roughness = storage.Get(materialAsset.roughness).value().get().gl,
 				.metallic = storage.Get(materialAsset.metallic).value().get().gl,
 				.ao = storage.Get(materialAsset.ao).value().get().gl,
-				.normal = storage.Get(materialAsset.normal).value().get().gl
+				.normal = storage.Get(materialAsset.normal).value().get().gl,
+				.emission = storage.Get(materialAsset.emission).value().get().gl
 			};
 
 			Graphics::Gl::DrawContext drawContext(

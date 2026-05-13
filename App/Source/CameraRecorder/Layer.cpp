@@ -52,11 +52,11 @@ namespace App::CameraRecorder
 
 		auto& blackboard = Core::Runtime::Application::Blackboard();
 		Status& status = blackboard.ctx().get<Status>();
-		status.doneFrames = motionRecorder.GetSamples().size();
+		status.doneFrames = static_cast<uint32_t>(motionRecorder.GetSamples().size());
 		status.state = ToCameraRecorderState(motionRecorder.state);
 	}
 
-	void Layer::OnSceneChanged(const Core::Ecs::SceneChangedEvent& event)
+	void Layer::OnSceneChanged(const Core::Ecs::SceneChangedEvent&)
 	{
 		auto& scene = Core::Runtime::Application::Scene();
 		auto& settings = Core::Runtime::Application::Blackboard().ctx().get<Settings>();
@@ -67,7 +67,14 @@ namespace App::CameraRecorder
 	void Layer::OnRecordingStart(const Events::Start& event)
 	{
 		Core::Ecs::Scene& scene = Core::Runtime::Application::Scene();
-		auto result = Core::Capture::StartMotionRecording(scene, scene.GetActiveCamera(), 1.0f / event.settings.targetFps);
+		uint32_t targetFps = std::min(std::max(event.settings.targetFps, Settings::MinTargetFps), Settings::MaxTargetFps);
+		if (targetFps != event.settings.targetFps)
+		{
+			spdlog::warn(
+				"Received Camera Recording start event with out-of-range target FPS ({}) - clamping to {}",
+				event.settings.targetFps, targetFps);
+		}
+		auto result = Core::Capture::StartMotionRecording(scene, scene.GetActiveCamera(), 1.0f / targetFps);
 		if (!result) result.error().Log();
 	}
 
@@ -80,7 +87,8 @@ namespace App::CameraRecorder
 			return result.error().Log();
 
 		auto& samples = result.value().get();
-		std::vector<Core::Capture::MotionState> frames = Core::Capture::ResampleMotion(samples, 1.0f / event.settings.targetFps);
+		float sampleInterval = Core::Capture::GetMotionRecorder(scene, scene.GetActiveCamera()).sampleInterval;
+		std::vector<Core::Capture::MotionState> frames = Core::Capture::ResampleMotion(samples, sampleInterval);
 		Core::Runtime::Application::EventDispatcher().trigger(Events::Finish(std::move(frames)));
 	}
 }

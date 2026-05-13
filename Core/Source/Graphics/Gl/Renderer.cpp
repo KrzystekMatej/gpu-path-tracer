@@ -24,6 +24,11 @@ namespace Core::Graphics::Gl
             {{"Shaders/Lambert/vertex.glsl", ShaderType::Vertex}, {"Shaders/Lambert/fragment.glsl", ShaderType::Fragment}}
 		};
 
+		std::array<std::pair<std::filesystem::path, ShaderType>, 2> phongPaths =
+		{
+			{ {"Shaders/Phong/vertex.glsl", ShaderType::Vertex}, {"Shaders/Phong/fragment.glsl", ShaderType::Fragment} }
+		};
+
         std::array<std::pair<std::filesystem::path, ShaderType>, 2> directPbrPaths =
         {
             {{"Shaders/DirectPbr/vertex.glsl", ShaderType::Vertex}, {"Shaders/DirectPbr/fragment.glsl", ShaderType::Fragment}}
@@ -33,6 +38,11 @@ namespace Core::Graphics::Gl
         {
             {{"Shaders/FullPbr/vertex.glsl", ShaderType::Vertex}, {"Shaders/FullPbr/fragment.glsl", ShaderType::Fragment}}
         };
+
+		std::array<std::pair<std::filesystem::path, ShaderType>, 2> emissivePaths =
+		{
+			{ {"Shaders/Emissive/vertex.glsl", ShaderType::Vertex}, {"Shaders/Emissive/fragment.glsl", ShaderType::Fragment} }
+		};
 
         std::array<std::pair<std::filesystem::path, ShaderType>, 2> backgroundPaths =
         {
@@ -70,6 +80,10 @@ namespace Core::Graphics::Gl
 		auto lambert = assetManager.ImportShaderProgram(lambertPaths);
         if (!lambert)
 			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(lambert).error()), "Failed to load lambert shader program"));
+		
+		auto phong = assetManager.ImportShaderProgram(phongPaths);
+		if (!phong)
+			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(phong).error()), "Failed to load phong shader program"));
 
         auto directPbr = assetManager.ImportShaderProgram(directPbrPaths);
 		if (!directPbr)
@@ -78,6 +92,10 @@ namespace Core::Graphics::Gl
 		auto fullPbr = assetManager.ImportShaderProgram(fullPbrPaths);
         if (!fullPbr)
 			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(fullPbr).error()), "Failed to load full PBR shader program"));
+
+		auto emissive = assetManager.ImportShaderProgram(emissivePaths);
+        if (!emissive)
+			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(emissive).error()), "Failed to load emissive shader program"));
 
 		auto background = assetManager.ImportShaderProgram(backgroundPaths);
         if (!background)
@@ -104,8 +122,10 @@ namespace Core::Graphics::Gl
 			unlit.value(), 
 			normal.value(), 
 			lambert.value(), 
+			phong.value(),
 			directPbr.value(), 
-			fullPbr.value(), 
+			fullPbr.value(),
+			emissive.value(),
 			background.value(),
 			std::move(textureResult).value(),
 			std::move(meshResult).value());
@@ -199,6 +219,42 @@ namespace Core::Graphics::Gl
 				glDrawElements(GL_TRIANGLES, context.mesh.GetVertexCount(), GL_UNSIGNED_INT, nullptr);
 				break;
 			}
+			case LocalShadingModel::Phong:
+			{
+				const ShaderProgram& program = context.storage.Get(m_Phong).value().get().program;
+
+				program.Bind();
+				glActiveTexture(GL_TEXTURE0);
+				context.material.albedo.Bind();
+				program.SetInt32("albedo_texture", 0);
+				glActiveTexture(GL_TEXTURE0 + 1);
+				context.material.specular.Bind();
+				program.SetInt32("specular_texture", 1);
+				glActiveTexture(GL_TEXTURE0 + 2);
+				context.material.shininess.Bind();
+				program.SetInt32("shininess_texture", 2);
+				glActiveTexture(GL_TEXTURE0 + 3);
+				context.material.normal.Bind();
+				program.SetInt32("normal_texture", 3);
+
+				program.SetMatrix4x4("pvm_matrix", pvm);
+				program.SetMatrix4x4("model_matrix", context.model);
+				program.SetMatrix3x3("normal_matrix", normal);
+				program.SetVec3("camera_position", context.cameraPosition);
+
+				program.SetUInt32("light_count", static_cast<uint32_t>(context.lights.size()));
+				for (size_t i = 0; i < context.lights.size(); i++)
+				{
+					const Light& light = context.lights[i];
+					program.SetVec3("lights[" + std::to_string(i) + "].position", light.position);
+					program.SetVec3("lights[" + std::to_string(i) + "].color", light.color);
+					program.SetFloat("lights[" + std::to_string(i) + "].intensity", light.intensity);
+				}
+
+				context.mesh.BindVertexArray();
+				glDrawElements(GL_TRIANGLES, context.mesh.GetVertexCount(), GL_UNSIGNED_INT, nullptr);
+				break;
+			}
 			case LocalShadingModel::Pbr:
 			{
 				const ShaderProgram* program = nullptr;
@@ -252,6 +308,20 @@ namespace Core::Graphics::Gl
 					program->SetVec3("lights[" + std::to_string(i) + "].color", light.color);
 					program->SetFloat("lights[" + std::to_string(i) + "].intensity", light.intensity);
 				}
+				context.mesh.BindVertexArray();
+				glDrawElements(GL_TRIANGLES, context.mesh.GetVertexCount(), GL_UNSIGNED_INT, nullptr);
+				break;
+			}
+			case LocalShadingModel::Emissive:
+			{
+				const ShaderProgram& program = context.storage.Get(m_Emissive).value().get().program;
+				program.Bind();
+
+				glActiveTexture(GL_TEXTURE0);
+				context.material.emission.Bind();
+				program.SetInt32("emission_texture", 0);
+
+				program.SetMatrix4x4("pvm_matrix", pvm);
 
 				context.mesh.BindVertexArray();
 				glDrawElements(GL_TRIANGLES, context.mesh.GetVertexCount(), GL_UNSIGNED_INT, nullptr);

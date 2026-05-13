@@ -6,6 +6,14 @@ target_sources(core_cuda_kernels PRIVATE
 target_include_directories(core_cuda_kernels PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include")
 target_link_libraries(core_cuda_kernels PUBLIC CUDA::cudart)
 
+foreach(dep_name IN LISTS CORE_CUDA_DEPENDENCIES)
+    if(DEP_${dep_name}_TARGET AND TARGET ${DEP_${dep_name}_TARGET})
+        target_link_libraries(core_cuda_kernels PUBLIC ${DEP_${dep_name}_TARGET})
+    elseif(DEP_${dep_name}_INCLUDE_DIR)
+        target_include_directories(core_cuda_kernels PUBLIC ${DEP_${dep_name}_INCLUDE_DIR})
+    endif()
+endforeach()
+
 set_target_properties(core_cuda_kernels PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
 )

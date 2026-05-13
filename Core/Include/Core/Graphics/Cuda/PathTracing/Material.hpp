@@ -1,4 +1,5 @@
 #pragma once
+#include <cuda_runtime.h>
 #include <Core/Graphics/Common/Material.hpp>
 #include <Core/Graphics/Cuda/Resources/TextureView.hpp>
 
@@ -6,26 +7,54 @@ namespace Core::Graphics::Cuda
 {
 	enum class GlobalShadingModel
 	{
-		Unlit,
+		// Unlit,
 		Normal,
 		Diffuse,
+		Phong,
 		Ggx,
 		Mirror,
 		Emissive,
 	};
 
+
+	inline std::pair<GlobalShadingModel, bool> ToGlobalShadingChecked(SurfaceModel surface)
+	{
+		switch (surface)
+		{
+			case SurfaceModel::Normal:
+				return { GlobalShadingModel::Normal, true };
+				
+			case SurfaceModel::Diffuse:
+				return { GlobalShadingModel::Diffuse, true };
+
+			case SurfaceModel::Phong:
+				return { GlobalShadingModel::Phong, true };
+
+			case SurfaceModel::Microfacet:
+				return { GlobalShadingModel::Ggx, true };
+
+			case SurfaceModel::Mirror:
+				return { GlobalShadingModel::Mirror, true };
+
+			case SurfaceModel::Emissive:
+				return { GlobalShadingModel::Emissive, true };
+		}
+
+		return { GlobalShadingModel::Diffuse, false };
+	}
+
 	inline GlobalShadingModel ToGlobalShadingUnchecked(SurfaceModel surface)
 	{
 		switch (surface)
 		{
-			case SurfaceModel::Unlit:
-				return GlobalShadingModel::Unlit;
-
 			case SurfaceModel::Normal:
 				return GlobalShadingModel::Normal;
 
 			case SurfaceModel::Diffuse:
 				return GlobalShadingModel::Diffuse;
+
+			case SurfaceModel::Phong:
+				return GlobalShadingModel::Phong;
 
 			case SurfaceModel::Microfacet:
 				return GlobalShadingModel::Ggx;
@@ -37,16 +66,19 @@ namespace Core::Graphics::Cuda
 				return GlobalShadingModel::Emissive;
 		}
 
-		return GlobalShadingModel::Unlit;
+		return GlobalShadingModel::Diffuse;
 	}
 
 	struct Material
 	{
 		GlobalShadingModel shadingModel;
-		TextureView<float> albedo;
+		TextureView<float4> albedo;
+		TextureView<float4> specular;
+		TextureView<float> shininess;
 		TextureView<float> roughness;
 		TextureView<float> metallic;
 		TextureView<float> ao;
-		TextureView<float> normal;
+		TextureView<float4> emission;
+		TextureView<float4> normal;
 	};
 }

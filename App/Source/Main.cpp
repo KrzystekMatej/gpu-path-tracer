@@ -8,7 +8,7 @@
 
 int main()
 {
-	std::filesystem::path projectConfigPath = "../../../project-config.yaml";
+	std::filesystem::path projectConfigPath = "project-config.yaml";
 
 	auto appResult = Core::Runtime::Application::Create
 	(

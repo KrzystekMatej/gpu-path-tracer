@@ -5,6 +5,9 @@ namespace App::CameraRecorder
 {
 	struct Settings
 	{
-		uint32_t targetFps = 60.0f;
+		static constexpr uint32_t MinTargetFps = 1;
+		static constexpr uint32_t MaxTargetFps = 120; 
+
+		uint32_t targetFps = 24;
 	};
 }

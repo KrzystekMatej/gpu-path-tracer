@@ -13,6 +13,7 @@
 #include <Core/Import/ImageLoader.hpp>
 #include <Core/Import/ShaderLoader.hpp>
 #include <Core/Graphics/Gl/Material.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Material.hpp>
 
 namespace Core::Assets
 {
@@ -35,12 +36,54 @@ namespace Core::Assets
 			return maybeRelative.lexically_normal();
 		}
 
+		float NormalizeFloat(float x, float min, float max)
+		{
+			if (!std::isfinite(x))
+				x = min;
+			x = std::clamp(x, min, max);
+			return (x - min) / (max - min);
+		}
+
 		uint8_t NormalizedFloatToU8(float x)
 		{
 			if (!std::isfinite(x))
 				x = 0.0f;
 			x = std::clamp(x, 0.0f, 1.0f);
 			return static_cast<uint8_t>(std::lround(x * 255.0f));
+		}
+		
+		std::array<uint8_t, 3> RgbToU8(const float color[3])
+		{
+			return {
+				NormalizedFloatToU8(color[0]),
+				NormalizedFloatToU8(color[1]),
+				NormalizedFloatToU8(color[2])
+			};
+		}
+		
+		uint8_t LinearNormalizedFloatToSrgbU8(float x)
+		{
+			if (!std::isfinite(x))
+				x = 0.0f;
+
+			x = std::clamp(x, 0.0f, 1.0f);
+
+			float srgb;
+			if (x <= 0.0031308f)
+				srgb = 12.92f * x;
+			else
+				srgb = 1.055f * std::pow(x, 1.0f / 2.4f) - 0.055f;
+
+			return static_cast<uint8_t>(std::lround(srgb * 255.0f));
+		}
+		
+		std::array<uint8_t, 3> LinearRgbToSrgbU8(const float color[3])
+		{
+			return {
+				LinearNormalizedFloatToSrgbU8(color[0]),
+				LinearNormalizedFloatToSrgbU8(color[1]),
+				LinearNormalizedFloatToSrgbU8(color[2])
+			};
 		}
 
 		bool IsUint8Texture(const Graphics::PixelFormat& f)
@@ -82,9 +125,9 @@ namespace Core::Assets
 		return manager;
 	}
 
-	std::expected<Handle<Texture>, Utils::Error> Manager::ImportPixelTexture(const Graphics::PixelFormat& format, std::span<const uint8_t> data)
+	std::expected<Handle<Texture>, Utils::Error> Manager::ImportPixelTexture(const Graphics::PixelFormat& format, std::span<const uint8_t> value)
 	{
-		Source source = SourcePixel{ format, data };
+		Source source = SourcePixel{ format, value };
 		Subkey subkey = SubkeyNone{};
 
 		auto cached = m_Storage.GetHandleByKey<Texture>(source, subkey);
@@ -95,7 +138,7 @@ namespace Core::Assets
 			.width = 1,
 			.height = 1,
 			.format = format,
-			.data = std::vector<uint8_t>(data.begin(), data.end())
+			.data = std::vector<uint8_t>(value.begin(), value.end())
 		};
 
 		auto glResult = Graphics::Gl::Texture::Create2D(image);
@@ -145,32 +188,55 @@ namespace Core::Assets
 			.colorSpace = Graphics::ColorSpace::Linear
 		};
 
+		Graphics::PixelFormat rgbLinearHdr
+		{
+			.layout = Graphics::ChannelLayout::RGB,
+			.componentType = Graphics::ComponentType::Float32,
+			.colorSpace = Graphics::ColorSpace::Linear
+		};
+
 		auto albedo = ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultAlbedo);
 		if (!albedo)
-			return std::unexpected(albedo.error());
+			return std::unexpected(std::move(albedo).error());
+		
+		auto specular = ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultPhongSpecular);
+		if (!specular)
+			return std::unexpected(std::move(specular).error());
+
+		auto shininess = ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultShininess);
+		if (!shininess)
+			return std::unexpected(std::move(shininess).error());
 
 		auto roughness = ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultRoughness);
 		if (!roughness)
-			return std::unexpected(roughness.error());
+			return std::unexpected(std::move(roughness).error());
 
 		auto metallic = ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultMetallic);
 		if (!metallic)
-			return std::unexpected(metallic.error());
+			return std::unexpected(std::move(metallic).error());
 
 		auto ao = ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultAo);
 		if (!ao)
-			return std::unexpected(ao.error());
+			return std::unexpected(std::move(ao).error());
+		
+		const std::array<float, 3>& emissionDefault = Graphics::MaterialDefaults::DefaultEmission;
+		auto emission = ImportPixelTexture(rgbLinearHdr, { reinterpret_cast<const uint8_t*>(&emissionDefault[0]), sizeof(emissionDefault) });
+		if (!emission)
+			return std::unexpected(std::move(emission).error());
 
 		auto normal = ImportPixelTexture(rgbLinear, Graphics::MaterialDefaults::DefaultNormal);
 		if (!normal)
-			return std::unexpected(normal.error());
+			return std::unexpected(std::move(normal).error());
 
 		Material asset(
 			Graphics::MaterialDefaults::DefaultSurfaceModel,
 			albedo.value(),
+			specular.value(),
+			shininess.value(),
 			roughness.value(),
 			metallic.value(),
 			ao.value(),
+			emission.value(),
 			normal.value());
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
@@ -265,66 +331,75 @@ namespace Core::Assets
 		if (cached)
 			return cached.value();
 
-		const auto makeRgb = [&](Graphics::ColorSpace cs, std::array<uint8_t, 3> v)
+		const auto makePixel = [&](Graphics::ChannelLayout layout, Graphics::ComponentType componentType, Graphics::ColorSpace colorSpace, std::span<const uint8_t> value)
 		{
-			Graphics::PixelFormat f{
-				.layout = Graphics::ChannelLayout::RGB,
-				.componentType = Graphics::ComponentType::UInt8,
-				.colorSpace = cs
+			Graphics::PixelFormat format{
+				.layout = layout,
+				.componentType = componentType,
+				.colorSpace = colorSpace
 			};
-			return ImportPixelTexture(f, v);
+			return ImportPixelTexture(format, value);
 		};
 
-		const auto makeR = [&](std::array<uint8_t, 1> v)
-		{
-			Graphics::PixelFormat f{
-				.layout = Graphics::ChannelLayout::R,
-				.componentType = Graphics::ComponentType::UInt8,
-				.colorSpace = Graphics::ColorSpace::Linear
-			};
-			return ImportPixelTexture(f, v);
-		};
-
-		std::array<uint8_t, 3> albedoPixel = 
-		{
-			NormalizedFloatToU8(material.albedo[0]),
-			NormalizedFloatToU8(material.albedo[1]),
-			NormalizedFloatToU8(material.albedo[2])
-		};
+		std::array<uint8_t, 3> albedoPixel = LinearRgbToSrgbU8(material.albedo);
+		std::array<uint8_t, 3> specularPixel = LinearRgbToSrgbU8(material.specular);
+		std::array<uint8_t, 1> shininessPixel = { NormalizedFloatToU8(NormalizeFloat(material.shininess, Graphics::MaterialDefaults::MinShininess, Graphics::MaterialDefaults::MaxShininess)) };
 		std::array<uint8_t, 1> roughnessPixel = { NormalizedFloatToU8(material.roughness) };
-		std::array<uint8_t, 1> metallicPixel = { NormalizedFloatToU8(material.metallic)};
+		std::array<uint8_t, 1> metallicPixel = { NormalizedFloatToU8(material.metallic) };
+		std::span<const uint8_t> emissionPixel = {
+			reinterpret_cast<const uint8_t*>(&material.emission[0]),
+			sizeof(material.emission)
+		};
 
 		std::optional<std::filesystem::path> root = objPath.absolute.parent_path();
 
 		auto albedo = material.albedoTexture
 			? ImportTexture(material.albedoTexture.value(), Graphics::ColorSpace::SRGB, root)
-			: makeRgb(Graphics::ColorSpace::SRGB, albedoPixel);
+			: makePixel(Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB, albedoPixel);
 
-		if (!albedo) return std::unexpected(albedo.error());
+		if (!albedo) return std::unexpected(std::move(albedo).error());
+
+		auto specular = material.specularTexture
+			? ImportTexture(material.specularTexture.value(), Graphics::ColorSpace::SRGB, root)
+			: makePixel(Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB, specularPixel);
+		
+		if (!specular) return std::unexpected(std::move(specular).error());
+
+		auto shininess = material.shininessTexture
+			? ImportTexture(material.shininessTexture.value(), Graphics::ColorSpace::Linear, root)
+			: makePixel(Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear, shininessPixel);
+
+		if (!shininess) return std::unexpected(std::move(shininess).error());
 
 		auto roughness = material.roughnessTexture
 			? ImportTexture(material.roughnessTexture.value(), Graphics::ColorSpace::Linear, root)
-			: makeR(roughnessPixel);
+			: makePixel(Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear, roughnessPixel);
 
-		if (!roughness) return std::unexpected(roughness.error());
+		if (!roughness) return std::unexpected(std::move(roughness).error());
 
 		auto metallic = material.metallicTexture
 			? ImportTexture(material.metallicTexture.value(), Graphics::ColorSpace::Linear, root)
-			: makeR(metallicPixel);
+			: makePixel(Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear, metallicPixel);
 
-		if (!metallic) return std::unexpected(metallic.error());
+		if (!metallic) return std::unexpected(std::move(metallic).error());
 
 		auto ao = material.aoTexture
 			? ImportTexture(material.aoTexture.value(), Graphics::ColorSpace::Linear, root)
-			: makeR(Graphics::MaterialDefaults::DefaultAo);
+			: makePixel(Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear, Graphics::MaterialDefaults::DefaultAo);
 
-		if (!ao) return std::unexpected(ao.error());
+		if (!ao) return std::unexpected(std::move(ao).error());
+		
+		auto emission = material.emissionTexture
+			? ImportTexture(material.emissionTexture.value(), Graphics::ColorSpace::Linear, root)
+			: makePixel(Graphics::ChannelLayout::RGB, Graphics::ComponentType::Float32, Graphics::ColorSpace::Linear, emissionPixel);
+		
+		if (!emission) return std::unexpected(std::move(emission).error());
 
 		auto normal = material.normalTexture
 			? ImportTexture(material.normalTexture.value(), Graphics::ColorSpace::Linear, root)
-			: makeRgb(Graphics::ColorSpace::Linear, Graphics::MaterialDefaults::DefaultNormal);
+			: makePixel(Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear, Graphics::MaterialDefaults::DefaultNormal);
 
-		if (!normal) return std::unexpected(normal.error());
+		if (!normal) return std::unexpected(std::move(normal).error());
 
 		auto localShading = Graphics::Gl::ToLocalShadingChecked(material.surface);
 		if (!localShading.second)
@@ -333,13 +408,24 @@ namespace Core::Assets
 				"It will be treated as Unlit when shading via OpenGL. File path: {}",
 				material.name,
 				objPath.absolute.generic_string());
+		
+		auto globalShading = Graphics::Cuda::ToGlobalShadingChecked(material.surface);
+		if (!globalShading.second)
+			spdlog::warn(
+				"Material '{}' uses surface model, which is not supported with global illumination."
+				"It will be treated as Diffuse when shading via CUDA. File path: {}",
+				material.name,
+				objPath.absolute.generic_string());
 
 		Material asset(
 			material.surface,
 			albedo.value(),
+			specular.value(),
+			shininess.value(),
 			roughness.value(),
 			metallic.value(),
 			ao.value(),
+			emission.value(),
 			normal.value());
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));

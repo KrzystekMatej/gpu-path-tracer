@@ -1,13 +1,16 @@
 #pragma once
 #include <cstdint>
+#include "Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp"
 
 namespace App::PathTracer
 {
 	struct Settings
 	{
-		uint32_t frameWidth = 1920;
-		uint32_t frameHeight = 1080;
-		uint32_t samplesPerPixel = 100;
-		uint32_t pathDepth = 10;
+		using Defaults = Core::Graphics::Cuda::PathTracerDefaults;
+
+		uint32_t frameWidth = Defaults::FrameWidth;
+		uint32_t frameHeight = Defaults::FrameHeight;
+		uint32_t samplesPerPixel = Defaults::SamplesPerPixel;
+		uint32_t pathDepthLimit = Defaults::PathDepthLimit;
 	};
 }

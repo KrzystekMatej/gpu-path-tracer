@@ -9,7 +9,9 @@ namespace Core::Graphics::Gl
 		Unlit,
 		Normal,
 		Lambert,
-		Pbr
+		Phong,
+		Pbr,
+		Emissive
 	};
 
 	inline std::pair<LocalShadingModel, bool> ToLocalShadingChecked(SurfaceModel surface)
@@ -28,11 +30,14 @@ namespace Core::Graphics::Gl
 			case SurfaceModel::Microfacet:
 				return { LocalShadingModel::Pbr, true };
 
+			case SurfaceModel::Phong:
+				return { LocalShadingModel::Phong, true };
+
 			case SurfaceModel::Mirror:
 				return { LocalShadingModel::Unlit, false };
 
 			case SurfaceModel::Emissive:
-				return { LocalShadingModel::Unlit, false };
+				return { LocalShadingModel::Emissive, true };
 		}
 
 		return { LocalShadingModel::Unlit, false };
@@ -50,6 +55,9 @@ namespace Core::Graphics::Gl
 
 			case SurfaceModel::Diffuse:
 				return LocalShadingModel::Lambert;
+			
+			case SurfaceModel::Phong:
+				return LocalShadingModel::Phong;
 
 			case SurfaceModel::Microfacet:
 				return LocalShadingModel::Pbr;
@@ -58,7 +66,7 @@ namespace Core::Graphics::Gl
 				return LocalShadingModel::Unlit;
 
 			case SurfaceModel::Emissive:
-				return LocalShadingModel::Unlit;
+				return LocalShadingModel::Emissive;
 		}
 
 		return LocalShadingModel::Unlit;
@@ -68,9 +76,12 @@ namespace Core::Graphics::Gl
 	{
 		LocalShadingModel localShading;
 		const Texture& albedo;
+		const Texture& specular;
+		const Texture& shininess;
 		const Texture& roughness;
 		const Texture& metallic;
 		const Texture& ao;
 		const Texture& normal;
+		const Texture& emission;
 	};
 }

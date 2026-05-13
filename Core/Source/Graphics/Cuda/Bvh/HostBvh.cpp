@@ -1,7 +1,9 @@
 #include <Core/Graphics/Cuda/Bvh/HostBvh.hpp>
 #include <algorithm>
-#include <Core/Graphics/Cuda/Utils/Math.hpp>
+#include <helper_math.h>
 #include <cmath>
+#include <Core/Graphics/Cuda/Bvh/BvhDefaults.hpp>
+#include <Core/Graphics/Cuda/Utils/Math.hpp>
 
 namespace Core::Graphics::Cuda
 {
@@ -29,7 +31,20 @@ namespace Core::Graphics::Cuda
 
 		uint32_t EstimateMaxDepth(size_t triangleCount)
 		{
-			return static_cast<uint32_t>(std::max(1.0, std::ceil(2 * std::log2(triangleCount))));
+			return std::min(BvhDefaults::MaxDepth, static_cast<uint32_t>(std::max(1.0, std::ceil(2 * std::log2(triangleCount)))));
+		}
+
+		BoundingBox PadBounds(const BoundingBox& bounds)
+		{
+			const float3 extent = bounds.max - bounds.min;
+			const float largestExtent = fmaxf(extent.x, fmaxf(extent.y, extent.z));
+			const float padding = fmaxf(1e-5f * largestExtent, 1e-5f);
+
+			return
+			{
+				bounds.min - make_float3(padding, padding, padding),
+				bounds.max + make_float3(padding, padding, padding)
+			};
 		}
 	}
 
@@ -43,10 +58,13 @@ namespace Core::Graphics::Cuda
 
 	std::unique_ptr<HostBvhNode> HostBvh::BuildRecurse(uint32_t first, uint32_t count, uint32_t depth)
 	{
+		m_NodeCount++;
+		m_Depth = std::max(m_Depth, depth);
+
 		auto node = std::make_unique<HostBvhNode>();
 		node->first = first;
 		node->count = count;
-		BoundingBox bounds{};
+		BoundingBox bounds = BoundingBox::Empty();
 		for (uint32_t i = first; i < first + count; i++)
 		{
 			const Triangle& triangle = m_Triangles[i];
@@ -57,7 +75,7 @@ namespace Core::Graphics::Cuda
 			}
 		}
 
-		node->bounds = bounds;
+		node->bounds = count == 0 ? BoundingBox::Empty() : PadBounds(bounds);
 		if (depth >= m_MaxDepth || count <= m_MinTriangles)
 			return node;
 
@@ -75,7 +93,7 @@ namespace Core::Graphics::Cuda
 			{
 				float3 centerA = (a.vertices[0].position + a.vertices[1].position + a.vertices[2].position) / 3.0f;
 				float3 centerB = (b.vertices[0].position + b.vertices[1].position + b.vertices[2].position) / 3.0f;
-				return At(centerA, axis) < At(centerB, axis);
+				return Utils::Math::At(centerA, axis) < Utils::Math::At(centerB, axis);
 			});
 		node->left = BuildRecurse(first, mid - first, depth + 1);
 		node->right = BuildRecurse(mid, count - (mid - first), depth + 1);

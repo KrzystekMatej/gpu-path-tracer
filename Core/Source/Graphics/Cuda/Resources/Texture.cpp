@@ -67,6 +67,7 @@ namespace Core::Graphics::Cuda
             textureDesc.addressMode[1] = cudaAddressModeClamp;
             textureDesc.filterMode = cudaFilterModeLinear;
             textureDesc.normalizedCoords = 1;
+            textureDesc.sRGB = (image.format.colorSpace == Graphics::ColorSpace::SRGB) ? 1 : 0;
 
             switch (image.format.componentType)
             {

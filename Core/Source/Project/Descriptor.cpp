@@ -5,11 +5,26 @@ namespace Core::Project
 {
 	std::expected<Descriptor, Utils::Error> Descriptor::Create(const std::filesystem::path& configPath)
 	{
-		auto configResult = Config::LoadFromYAML(configPath);
+		std::filesystem::path absoluteConfigPath;
+
+		try
+		{
+			absoluteConfigPath = std::filesystem::absolute(configPath).lexically_normal();
+		}
+		catch (const std::filesystem::filesystem_error& e)
+		{
+			return std::unexpected(Utils::Error(
+				"Failed to resolve project config path '{}': {}",
+				configPath.string(),
+				e.what()
+			));
+		}
+
+		auto configResult = Config::LoadFromYAML(absoluteConfigPath);
 		if (!configResult)
 			return std::unexpected(Utils::Error(std::move(configResult).error()));
 
-		Descriptor descriptor(configPath.parent_path(), std::move(configResult).value());
+		Descriptor descriptor(absoluteConfigPath.parent_path(), std::move(configResult).value());
 		auto normalizedContent = Utils::Path::NormalizeRelativePath(descriptor.m_Config.contentDirectory);
 		if (!normalizedContent)
 			return std::unexpected(Utils::Error(std::move(normalizedContent).error()));

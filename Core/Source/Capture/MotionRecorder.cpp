@@ -3,6 +3,7 @@
 #include <Core/Ecs/Transform.hpp>
 #include <Core/Utils/Math/Transform.hpp>
 #include <Core/Utils/Math/Interpolation.hpp>
+#include <Core/Utils/Math/Glm.hpp>
 
 namespace Core::Capture
 {
@@ -30,7 +31,7 @@ namespace Core::Capture
 				const glm::mat4& worldMatrix = transform.GetMatrix();
 				Capture::MotionState initialState{
 					Core::Utils::Math::ExtractTranslation(worldMatrix),
-					Core::Utils::Math::ExtractRotation(worldMatrix)
+					Core::Utils::Math::ExtractRotationUniformScale(worldMatrix)
 				};
 
 				recorder.samples.push_back({
@@ -50,7 +51,7 @@ namespace Core::Capture
 				const glm::mat4& worldMatrix = transform.GetMatrix();
 				Capture::MotionState state{
 					Core::Utils::Math::ExtractTranslation(worldMatrix),
-					Core::Utils::Math::ExtractRotation(worldMatrix)
+					Core::Utils::Math::ExtractRotationUniformScale(worldMatrix)
 				};
 
 				recorder.samples.push_back({
@@ -60,6 +61,12 @@ namespace Core::Capture
 
 				int nextIndex = static_cast<int>(recorder.elapsedTime / recorder.sampleInterval) + 1;
 				recorder.nextSampleTime = nextIndex * recorder.sampleInterval;
+
+				spdlog::info("Recording motion sample at time {:.2f}s (position: {}, quaternion: {}, euler: {})", 
+					recorder.elapsedTime, 
+					Utils::Math::ToString(state.position), 
+					Utils::Math::ToString(state.rotation),
+					Utils::Math::ToStringEulerRadians(state.rotation));
 			}
 		}
 	}

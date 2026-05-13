@@ -21,7 +21,7 @@ scene:
     - components:
         - type: Transform
           translation: [-10.0, 10.0, 10.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Light
           color: [1.0, 1.0, 1.0]
@@ -31,7 +31,7 @@ scene:
     - components:
         - type: Transform
           translation: [10.0, 10.0, 10.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Light
           color: [1.0, 1.0, 1.0]
@@ -41,7 +41,7 @@ scene:
     - components:
         - type: Transform
           translation: [-10.0, -10.0, 10.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Light
           color: [1.0, 1.0, 1.0]
@@ -51,7 +51,7 @@ scene:
     - components:
         - type: Transform
           translation: [10.0, -10.0, 10.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Light
           color: [1.0, 1.0, 1.0]
@@ -66,35 +66,35 @@ scene:
     - components:
         - type: Transform
           translation: [-5.0, -5.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Gold/mesh.obj
     - components:
         - type: Transform
           translation: [-2.5, -5.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Gold/mesh.obj
     - components:
         - type: Transform
           translation: [0.0, -5.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Gold/mesh.obj
     - components:
         - type: Transform
           translation: [2.5, -5.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Gold/mesh.obj
     - components:
         - type: Transform
           translation: [5.0, -5.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Gold/mesh.obj
@@ -102,35 +102,35 @@ scene:
     - components:
         - type: Transform
           translation: [-5.0, -2.5, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Grass/mesh.obj
     - components:
         - type: Transform
           translation: [-2.5, -2.5, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Grass/mesh.obj
     - components:
         - type: Transform
           translation: [0.0, -2.5, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Grass/mesh.obj
     - components:
         - type: Transform
           translation: [2.5, -2.5, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Grass/mesh.obj
     - components:
         - type: Transform
           translation: [5.0, -2.5, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Grass/mesh.obj
@@ -138,35 +138,35 @@ scene:
     - components:
         - type: Transform
           translation: [-5.0, 0.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Plastic/mesh.obj
     - components:
         - type: Transform
           translation: [-2.5, 0.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Plastic/mesh.obj
     - components:
         - type: Transform
           translation: [0.0, 0.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Plastic/mesh.obj
     - components:
         - type: Transform
           translation: [2.5, 0.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Plastic/mesh.obj
     - components:
         - type: Transform
           translation: [5.0, 0.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Plastic/mesh.obj
@@ -174,35 +174,35 @@ scene:
     - components:
         - type: Transform
           translation: [-5.0, 2.5, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/RustedIron/mesh.obj
     - components:
         - type: Transform
           translation: [-2.5, 2.5, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/RustedIron/mesh.obj
     - components:
         - type: Transform
           translation: [0.0, 2.5, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/RustedIron/mesh.obj
     - components:
         - type: Transform
           translation: [2.5, 2.5, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/RustedIron/mesh.obj
     - components:
         - type: Transform
           translation: [5.0, 2.5, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/RustedIron/mesh.obj
@@ -210,35 +210,35 @@ scene:
     - components:
         - type: Transform
           translation: [-5.0, 5.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Wall/mesh.obj
     - components:
         - type: Transform
           translation: [-2.5, 5.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Wall/mesh.obj
     - components:
         - type: Transform
           translation: [0.0, 5.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Wall/mesh.obj
     - components:
         - type: Transform
           translation: [2.5, 5.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Wall/mesh.obj
     - components:
         - type: Transform
           translation: [5.0, 5.0, 0.0]
-          rotation: [0.0, 0.0, 0.0]
+          euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
           path: Models/Spheres/Wall/mesh.obj

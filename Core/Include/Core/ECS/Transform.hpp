@@ -26,6 +26,8 @@ namespace Core::Ecs
         glm::vec3 scale{ 1.0f, 1.0f, 1.0f };
 
         Transform() = default;
+        Transform(const glm::vec3& translation)
+            : translation(translation) {}
         Transform(const glm::vec3& translation, const glm::quat& rotation, const glm::vec3& scale)
             : translation(translation), rotation(rotation), scale(scale) {}
 

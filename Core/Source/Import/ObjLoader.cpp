@@ -48,11 +48,13 @@ namespace Core::Import
 
 		const std::string SurfaceModelKey = "surface";
 
-		constexpr std::array<std::pair<std::string_view, Graphics::SurfaceModel>, 7> SurfaceModels = {
+		constexpr std::array<std::pair<std::string_view, Graphics::SurfaceModel>, 8> SurfaceModels = {
 			std::pair{ "unlit" , Graphics::SurfaceModel::Unlit},
 			std::pair{ "normal" , Graphics::SurfaceModel::Normal},
 			std::pair{ "mirror" , Graphics::SurfaceModel::Mirror},
 			std::pair{ "diffuse" , Graphics::SurfaceModel::Diffuse},
+			std::pair{ "lambert" , Graphics::SurfaceModel::Diffuse},
+			std::pair{ "phong" , Graphics::SurfaceModel::Phong},
 			std::pair{ "microfacet" , Graphics::SurfaceModel::Microfacet},
 			std::pair{ "emissive" , Graphics::SurfaceModel::Emissive}
 		};
@@ -192,17 +194,26 @@ namespace Core::Import
 						path.string());
 			}
 
+			std::optional<std::string> normal = source.normal_texname.empty() ? std::nullopt : std::make_optional(source.normal_texname);
+			std::optional<std::string> bump = source.bump_texname.empty() ? std::nullopt : std::make_optional(source.bump_texname);
+
 			materials.push_back(ParsedMaterial{
 				.name = source.name,
 				.surface = surface,
 				.albedo = { source.diffuse[0], source.diffuse[1], source.diffuse[2] },
+				.specular = { source.specular[0], source.specular[1], source.specular[2] },
+				.shininess = source.shininess,
 				.roughness = source.roughness,
 				.metallic = source.metallic,
+				.emission = { source.emission[0], source.emission[1], source.emission[2] },
 				.albedoTexture = source.diffuse_texname.empty() ? std::nullopt : std::make_optional(source.diffuse_texname),
+				.specularTexture = source.specular_texname.empty() ? std::nullopt : std::make_optional(source.specular_texname),
+				.shininessTexture = source.specular_highlight_texname.empty() ? std::nullopt : std::make_optional(source.specular_highlight_texname),
 				.roughnessTexture = source.roughness_texname.empty() ? std::nullopt : std::make_optional(source.roughness_texname),
 				.metallicTexture = source.metallic_texname.empty() ? std::nullopt : std::make_optional(source.metallic_texname),
 				.aoTexture = source.ambient_texname.empty() ? std::nullopt : std::make_optional(source.ambient_texname),
-				.normalTexture = source.normal_texname.empty() ? std::nullopt : std::make_optional(source.normal_texname)
+				.emissionTexture = source.emissive_texname.empty() ? std::nullopt : std::make_optional(source.emissive_texname),
+				.normalTexture = normal ? normal : bump,
 			});
 		}
 

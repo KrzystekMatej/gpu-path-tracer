@@ -4,13 +4,12 @@
 
 namespace Core::Graphics::Cuda
 {
-	constexpr uint32_t InvalidNodeIndex = 0xFFFFFFFF;
-
 	struct DeviceBvhNode
 	{
+		static constexpr uint32_t InvalidIndex = 0xFFFFFFFF;
 		BoundingBox bounds;
-		uint32_t left = InvalidNodeIndex;
-		uint32_t right = InvalidNodeIndex;
+		uint32_t left = InvalidIndex;
+		uint32_t right = InvalidIndex;
 		uint32_t first = 0;
 		uint32_t count = 0;
 	};

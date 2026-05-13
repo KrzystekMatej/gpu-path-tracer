@@ -4,7 +4,7 @@ in vec3 world_normal;
 in vec4 world_tangent;
 in vec2 fragment_uv;
 
-layout(location = 0) out vec4 frag_color;
+layout(location = 0) out vec4 fragment_color;
 
 uniform sampler2D normal_texture;
 
@@ -25,7 +25,24 @@ vec3 get_normal()
     return N;
 }
 
+vec3 reinhard(vec3 color)
+{
+    return color / (color + vec3(1.0));
+}
+
+vec3 linear_to_srgb(vec3 color)
+{
+    return pow(max(color, vec3(0.0)), vec3(1.0 / 2.2));
+}
+
+vec3 postprocess(vec3 color)
+{
+    color = reinhard(color);
+    color = linear_to_srgb(color);
+    return color;
+}
+
 void main()
 {
-    frag_color = vec4(get_normal() * 0.5 + 0.5, 1.0);
+    fragment_color = vec4(postprocess(get_normal() * 0.5 + 0.5), 1.0);
 }

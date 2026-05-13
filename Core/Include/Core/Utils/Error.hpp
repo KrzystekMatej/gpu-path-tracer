@@ -1,4 +1,5 @@
 #pragma once
+#include <expected>
 #include <spdlog/spdlog.h>
 #include <memory>
 #include <string>
@@ -55,3 +56,32 @@ namespace Core::Utils
 		std::shared_ptr<Error> m_Source;
 	};
 }
+
+#define CORE_TRY(name, expression)                                \
+	auto name##_expected = (expression);                           \
+	if (!name##_expected) {                                        \
+		return std::unexpected(std::move(name##_expected).error()); \
+	}                                                             \
+	auto name = std::move(name##_expected).value()
+
+#define CORE_TRY_VOID(expression)                                 \
+	do {                                                          \
+		auto core_try_expected = (expression);                     \
+		if (!core_try_expected) {                                 \
+			return std::unexpected(std::move(core_try_expected).error()); \
+		}                                                         \
+	} while (false)
+
+#define CORE_TRY_CONTEXT(name, expression, ...)                              \
+	auto name##_expected = (expression);                                      \
+	if (!name##_expected) {                                                   \
+		return std::unexpected(                                              \
+			Core::Utils::Error(                                               \
+				std::make_shared<Core::Utils::Error>(                         \
+					std::move(name##_expected).error()                        \
+				),                                                           \
+				__VA_ARGS__                                                   \
+			)                                                                \
+		);                                                                   \
+	}                                                                        \
+	auto name = std::move(name##_expected).value()

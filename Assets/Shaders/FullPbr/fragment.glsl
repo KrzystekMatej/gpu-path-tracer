@@ -5,7 +5,7 @@ in vec3 world_normal;
 in vec4 world_tangent;
 in vec2 fragment_uv;
 
-layout(location = 0) out vec4 frag_color;
+layout(location = 0) out vec4 fragment_color;
 
 uniform vec3 camera_position;
 
@@ -75,6 +75,23 @@ vec3 fresnel_schlick(float cos_theta, vec3 F0)
 vec3 fresnel_schlick_roughness(float cos_theta, vec3 F0, float roughness)
 {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+}
+
+vec3 reinhard(vec3 color)
+{
+    return color / (color + vec3(1.0));
+}
+
+vec3 linear_to_srgb(vec3 color)
+{
+    return pow(max(color, vec3(0.0)), vec3(1.0 / 2.2));
+}
+
+vec3 postprocess(vec3 color)
+{
+    color = reinhard(color);
+    color = linear_to_srgb(color);
+    return color;
 }
 
 
@@ -152,8 +169,6 @@ void main()
     vec3 ambient = (kD * diffuse + specular) * ao;
 
     vec3 color = ambient + Lo;
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2));
-
-    frag_color = vec4(color, 1.0);
+    
+    fragment_color = vec4(postprocess(color), 1.0);
 }

@@ -107,6 +107,8 @@ namespace Core::Runtime
 			return std::unexpected(std::move(resolvedScene).error());
 		m_Scene = std::move(resolvedScene).value();
 
+		Ecs::UpdateWorldTransforms(m_Scene);
+
 		auto ok = m_ScriptRunner.Bind(m_ScriptCatalog, m_Scene);
 		if (!ok)
 			return std::unexpected(std::move(ok).error());
@@ -154,12 +156,14 @@ namespace Core::Runtime
 			m_CommandQueue.Commit(m_LayerStack);
 
 			m_ImGuiBackend.BeginFrame();
-			m_Renderer.BindSurface(m_Window.GetRenderSurface());
-			m_Renderer.Clear(0.1f, 0.1f, 0.1f, 1.0f);
 			m_LayerStack.BuildUi();
+			
+			m_LayerStack.Render(Graphics::Services::SceneRenderer(m_Renderer));
+
+			m_Renderer.BindSurface(m_Window.GetRenderSurface());
+			m_Renderer.Clear(0.0f, 0.0f, 0.0f, 1.0f);
 			m_ImGuiBackend.Render();
 
-			m_LayerStack.Render(Graphics::Services::SceneRenderer(m_Renderer));
 
 			m_Window.SwapBuffers();
 		}

@@ -54,22 +54,31 @@ namespace Core::Assets
         Material(
             Graphics::SurfaceModel surface,
             Handle<Texture> albedo,
+            Handle<Texture> specular,
+            Handle<Texture> shininess,
             Handle<Texture> roughness,
             Handle<Texture> metallic,
             Handle<Texture> ao,
+            Handle<Texture> emission,
             Handle<Texture> normal)
             : surface(surface),
               albedo(albedo),
+              specular(specular),
+              shininess(shininess),
               roughness(roughness),
               metallic(metallic),
               ao(ao),
+              emission(emission),
               normal(normal) {}
 
         Graphics::SurfaceModel surface;
         Handle<Texture> albedo;
+        Handle<Texture> specular;
+        Handle<Texture> shininess;
         Handle<Texture> roughness;
         Handle<Texture> metallic;
         Handle<Texture> ao;
+        Handle<Texture> emission;
         Handle<Texture> normal;
     };
 

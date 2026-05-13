@@ -37,6 +37,20 @@ namespace App::Ui::Utils
 			ImGui::InputInt(label, value);
 		}
 	}
+	
+	void BuildResponsiveInputUInt(const char* label, const char* id, uint32_t* value, bool expandInputs)
+	{
+		if (expandInputs)
+		{
+			ImGui::TextUnformatted(label);
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+			ImGui::InputScalar(id, ImGuiDataType_U32, value);
+		}
+		else
+		{
+			ImGui::InputScalar(label, ImGuiDataType_U32, value);
+		}
+	}
 
 	bool BeginResponsiveCombo(const char* label, const char* id, const char* previewValue, bool expandInputs)
 	{

@@ -59,19 +59,4 @@ namespace Core::Graphics::Cuda::Memory
 
         return {};
     }
-
-    std::expected<void, Core::Utils::Error> DeviceQueue::ResetCounter()
-    {
-        return m_Counter.Reset();
-    }
-
-    std::expected<void, Core::Utils::Error> DeviceQueue::SyncCounterFromDevice()
-    {
-        return m_Counter.SyncFromDevice();
-    }
-
-    std::expected<void, Core::Utils::Error> DeviceQueue::SyncCounterFromHost()
-    {
-        return m_Counter.SyncFromHost();
-    }
 }
