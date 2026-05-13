@@ -36,16 +36,12 @@ namespace Core::Graphics::Cuda::Memory
 
     std::expected<void, Core::Utils::Error> DeviceBuffer2D::Allocate(size_t width, size_t height, size_t elementSize)
     {
-        auto freeResult = Free();
-        if (!freeResult)
-            return std::unexpected(freeResult.error());
+        CORE_TRY_DISCARD(Free());
 
         void* data = nullptr;
         size_t pitch = 0;
 
-        cudaError_t error = cudaMallocPitch(&data, &pitch, width * elementSize, height);
-        if (error != cudaSuccess)
-            return std::unexpected(Utils::MakeCudaError("cudaMallocPitch", error));
+        CORE_CUDA_TRY("cudaMallocPitch", cudaMallocPitch(&data, &pitch, width * elementSize, height));
 
         m_Data = data;
         m_Width = width;
@@ -60,17 +56,14 @@ namespace Core::Graphics::Cuda::Memory
         assert(m_Data != nullptr);
         assert(hostData != nullptr);
 
-        cudaError_t error = cudaMemcpy2D(
+        CORE_CUDA_TRY("cudaMemcpy2D", cudaMemcpy2D(
             m_Data,
             m_PitchBytes,
             hostData,
             hostPitchElement * m_ElementSize,
             m_Width * m_ElementSize,
             m_Height,
-            cudaMemcpyHostToDevice);
-
-        if (error != cudaSuccess)
-            return std::unexpected(Utils::MakeCudaError("cudaMemcpy2D", error));
+            cudaMemcpyKind::cudaMemcpyHostToDevice));
 
         return {};
     }
@@ -81,18 +74,15 @@ namespace Core::Graphics::Cuda::Memory
         assert(hostData != nullptr);
         assert(stream != nullptr);
 
-        cudaError_t error = cudaMemcpy2DAsync(
+        CORE_CUDA_TRY("cudaMemcpy2DAsync", cudaMemcpy2DAsync(
             m_Data,
             m_PitchBytes,
             hostData,
             hostPitchElement * m_ElementSize,
             m_Width * m_ElementSize,
             m_Height,
-            cudaMemcpyHostToDevice,
-            static_cast<cudaStream_t>(stream));
-
-        if (error != cudaSuccess)
-            return std::unexpected(Utils::MakeCudaError("cudaMemcpy2DAsync", error));
+            cudaMemcpyKind::cudaMemcpyHostToDevice,
+            static_cast<cudaStream_t>(stream)));
 
         return {};
     }
@@ -101,15 +91,12 @@ namespace Core::Graphics::Cuda::Memory
 	{
 		assert(m_Data != nullptr);
 
-		cudaError_t error = cudaMemset2D(
+		CORE_CUDA_TRY("cudaMemset2D", cudaMemset2D(
 			m_Data,
 			m_PitchBytes,
 			value,
 			m_Width * m_ElementSize,
-			m_Height);
-
-		if (error != cudaSuccess)
-			return std::unexpected(Utils::MakeCudaError("cudaMemset2D", error));
+			m_Height));
 
 		return {};
 	}
@@ -119,16 +106,13 @@ namespace Core::Graphics::Cuda::Memory
 		assert(m_Data != nullptr);
 		assert(stream != nullptr);
 
-		cudaError_t error = cudaMemset2DAsync(
+		CORE_CUDA_TRY("cudaMemset2DAsync", cudaMemset2DAsync(
 			m_Data,
 			m_PitchBytes,
 			value,
 			m_Width * m_ElementSize,
 			m_Height,
-			static_cast<cudaStream_t>(stream));
-
-		if (error != cudaSuccess)
-			return std::unexpected(Utils::MakeCudaError("cudaMemset2DAsync", error));
+			static_cast<cudaStream_t>(stream)));
 
 		return {};
 	}
@@ -138,9 +122,7 @@ namespace Core::Graphics::Cuda::Memory
         if (m_Data == nullptr)
             return {};
 
-        cudaError_t error = cudaFree(m_Data);
-        if (error != cudaSuccess)
-            return std::unexpected(Utils::MakeCudaError("cudaFree", error));
+        CORE_CUDA_TRY("cudaFree", cudaFree(m_Data));
 
 		m_Data = nullptr;
 		m_Width = 0;

@@ -8,19 +8,13 @@ namespace Core::Graphics::Cuda::Utils
         const char* message = cudaGetErrorString(error);
 
         if (name && message)
-        {
             return std::string(name) + ": " + message;
-        }
 
         if (message)
-        {
             return std::string(message);
-        }
 
         if (name)
-        {
             return std::string(name);
-        }
 
         return "Unknown CUDA error";
     }

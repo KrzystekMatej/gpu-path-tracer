@@ -51,11 +51,7 @@ namespace Core::Ecs
 					std::string typeStr = std::move(typeResult).value();
 					Utils::Guid builderId = Utils::Hasher::MakeId(typeStr);
 					
-					auto builderResult = builderRegistry.Get(builderId);
-					if (!builderResult)
-						return std::unexpected(Utils::Error(builderResult.error().Message()));
-
-					const Builder& builder = builderResult.value();
+					CORE_TRY(builder, builderRegistry.Get(builderId));
 
 					BuildContext context{
 						.node = componentNode,
@@ -63,10 +59,7 @@ namespace Core::Ecs
 						.parent = current.parent
 					};
 
-					auto ok = builder.Build(context, registry, assetManager);
-
-					if (!ok)
-						return std::unexpected(ok.error());
+					CORE_TRY_DISCARD(builder.get().Build(context, registry, assetManager));
 				}
 			}
 

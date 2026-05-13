@@ -30,14 +30,10 @@ namespace Core::Graphics::Cuda::Memory
 
     std::expected<void, Core::Utils::Error> SharedBuffer1D::Allocate(size_t size, size_t elementSize)
     {
-        auto freeResult = Free();
-        if (!freeResult)
-            return std::unexpected(freeResult.error());
+        CORE_TRY_DISCARD(Free());
 
         void* hostData = nullptr;
-        cudaError_t error = cudaMallocHost(&hostData, size * elementSize);
-        if (error != cudaSuccess)
-            return std::unexpected(Utils::MakeCudaError("cudaMallocHost", error));
+        CORE_CUDA_TRY("cudaMallocHost", cudaMallocHost(&hostData, size * elementSize));
 
         auto deviceAllocateResult = m_DeviceBuffer.Allocate(size, elementSize);
         if (!deviceAllocateResult)
@@ -66,14 +62,11 @@ namespace Core::Graphics::Cuda::Memory
     {
         assert(m_HostData != nullptr);
 
-        cudaError_t error = cudaMemcpy(
+        CORE_CUDA_TRY("cudaMemcpy", cudaMemcpy(
             m_HostData,
             m_DeviceBuffer.GetData(),
             m_DeviceBuffer.GetSize() * m_DeviceBuffer.GetElementSize(),
-            cudaMemcpyDeviceToHost);
-
-        if (error != cudaSuccess)
-            return std::unexpected(Utils::MakeCudaError("cudaMemcpy", error));
+            cudaMemcpyKind::cudaMemcpyDeviceToHost));
 
         return {};
     }
@@ -83,15 +76,12 @@ namespace Core::Graphics::Cuda::Memory
         assert(m_HostData != nullptr);
         assert(stream != nullptr);
 
-        cudaError_t error = cudaMemcpyAsync(
+        CORE_CUDA_TRY("cudaMemcpyAsync", cudaMemcpyAsync(
             m_HostData,
             m_DeviceBuffer.GetData(),
             m_DeviceBuffer.GetSize() * m_DeviceBuffer.GetElementSize(),
-            cudaMemcpyDeviceToHost,
-            static_cast<cudaStream_t>(stream));
-
-        if (error != cudaSuccess)
-            return std::unexpected(Utils::MakeCudaError("cudaMemcpyAsync", error));
+            cudaMemcpyKind::cudaMemcpyDeviceToHost,
+            static_cast<cudaStream_t>(stream)));
 
         return {};
     }

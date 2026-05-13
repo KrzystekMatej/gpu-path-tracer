@@ -72,8 +72,8 @@ namespace Core::Graphics::Cuda
         std::expected<Memory::DeviceBuffer1D, Core::Utils::Error> BuildMaterialBuffer(const std::vector<Material>& materials)
         {
             Memory::DeviceBuffer1D buffer;
-            CORE_TRY_VOID(buffer.Allocate(materials.size(), sizeof(Material)));
-            CORE_TRY_VOID(buffer.UploadSync(materials.data(), materials.size()));
+            CORE_TRY_DISCARD(buffer.Allocate(materials.size(), sizeof(Material)));
+            CORE_TRY_DISCARD(buffer.UploadSync(materials.data(), materials.size()));
             return buffer;
 		}
 
@@ -127,7 +127,7 @@ namespace Core::Graphics::Cuda
         {
 			HostBvh bvh(std::move(triangles));
 			DeviceBvh deviceBvh;
-			CORE_TRY_VOID(deviceBvh.Build(bvh.GetRoot(), bvh.GetDepth(), bvh.GetNodeCount(), bvh.GetTriangles()));
+			CORE_TRY_DISCARD(deviceBvh.Build(bvh.GetRoot(), bvh.GetDepth(), bvh.GetNodeCount(), bvh.GetTriangles()));
             return deviceBvh;
 		}
 
@@ -161,20 +161,20 @@ namespace Core::Graphics::Cuda
 
     std::expected<void, Core::Utils::Error> Renderer::InitializeRenderingBuffers(uint32_t width, uint32_t height)
     {
-		CORE_TRY_VOID(m_PathPool.Allocate(PathPoolSize));
+		CORE_TRY_DISCARD(m_PathPool.Allocate(PathPoolSize));
         for (auto& rayQueue : m_RayQueues)
         {
-            CORE_TRY_VOID(rayQueue.Allocate(PathPoolSize, sizeof(uint32_t)));
+            CORE_TRY_DISCARD(rayQueue.Allocate(PathPoolSize, sizeof(uint32_t)));
         }
 
-		CORE_TRY_VOID(m_HitQueue.Allocate(PathPoolSize, sizeof(HitData)));
-		CORE_TRY_VOID(m_RegenQueue.Allocate(PathPoolSize, sizeof(uint32_t)));
-		CORE_TRY_VOID(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)));
-        CORE_TRY_VOID(m_Framebuffer.Allocate(width * height, sizeof(uchar4)));
+		CORE_TRY_DISCARD(m_HitQueue.Allocate(PathPoolSize, sizeof(HitData)));
+		CORE_TRY_DISCARD(m_RegenQueue.Allocate(PathPoolSize, sizeof(uint32_t)));
+		CORE_TRY_DISCARD(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)));
+        CORE_TRY_DISCARD(m_Framebuffer.Allocate(width * height, sizeof(uchar4)));
         m_Width = width;
         m_Height = height;
-        CORE_TRY_VOID(m_Framebuffer.GetDeviceBuffer().MemsetBytesSync(0));
-		CORE_TRY_VOID(m_Framebuffer.CopyDeviceToHostSync());
+        CORE_TRY_DISCARD(m_Framebuffer.GetDeviceBuffer().MemsetBytesSync(0));
+		CORE_TRY_DISCARD(m_Framebuffer.CopyDeviceToHostSync());
 		return {};
     }
 
@@ -239,8 +239,8 @@ namespace Core::Graphics::Cuda
 
         if (width != m_Width || height != m_Height)
         {
-            CORE_TRY_VOID(m_Framebuffer.Allocate(width * height, sizeof(uchar4)));
-            CORE_TRY_VOID(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)));
+            CORE_TRY_DISCARD(m_Framebuffer.Allocate(width * height, sizeof(uchar4)));
+            CORE_TRY_DISCARD(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)));
             m_Width = width;
             m_Height = height;
 		}
@@ -345,8 +345,8 @@ namespace Core::Graphics::Cuda
         m_DoneSamples.store(0, std::memory_order_relaxed);
 
         uint32_t currentQueue = 0;
-        CORE_TRY_VOID(m_RayQueues[currentQueue].ResetCounter());
-        CORE_TRY_VOID(m_AccumulationBuffer.MemsetBytesSync(0));
+        CORE_TRY_DISCARD(m_RayQueues[currentQueue].ResetCounter());
+        CORE_TRY_DISCARD(m_AccumulationBuffer.MemsetBytesSync(0));
         
         CORE_CUDA_TRY_KERNEL("InitializePaths", 
             Kernels::InitializePaths(
@@ -359,15 +359,15 @@ namespace Core::Graphics::Cuda
                 m_RayQueues[currentQueue].GetView<uint32_t>()));
         if (stopToken.stop_requested()) return {};
         m_RayQueues[currentQueue].SetCounterHostValue(generateCount);
-        CORE_TRY_VOID(m_RayQueues[currentQueue].SyncCounterFromHost());
+        CORE_TRY_DISCARD(m_RayQueues[currentQueue].SyncCounterFromHost());
 
         uint64_t launchedSampleCount = generateCount;
         uint32_t iteration = 0;
 
         while (m_RayQueues[currentQueue].GetCounterHostValue() > 0)
         {
-            CORE_TRY_VOID(m_HitQueue.ResetCounter());
-            CORE_TRY_VOID(m_RegenQueue.ResetCounter());
+            CORE_TRY_DISCARD(m_HitQueue.ResetCounter());
+            CORE_TRY_DISCARD(m_RegenQueue.ResetCounter());
             CORE_CUDA_TRY_KERNEL("IntersectRaysWithScene", 
                 Kernels::IntersectRaysWithScene(
                     m_RayQueues[currentQueue].GetCounterHostValue(),
@@ -377,9 +377,9 @@ namespace Core::Graphics::Cuda
                     m_HitQueue.GetView<HitData>(),
                     m_RegenQueue.GetView<uint32_t>()));
             if (stopToken.stop_requested()) return {};
-            CORE_TRY_VOID(m_HitQueue.SyncCounterFromDevice());
+            CORE_TRY_DISCARD(m_HitQueue.SyncCounterFromDevice());
             uint32_t nextQueue = currentQueue ^ 1;
-            CORE_TRY_VOID(m_RayQueues[nextQueue].ResetCounter());
+            CORE_TRY_DISCARD(m_RayQueues[nextQueue].ResetCounter());
             CORE_CUDA_TRY_KERNEL("ResolveHits", 
                 Kernels::ResolveHits(
                     m_HitQueue.GetCounterHostValue(),
@@ -392,7 +392,7 @@ namespace Core::Graphics::Cuda
                     m_AccumulationBuffer.GetView<float4>(),
                     m_RayQueues[nextQueue].GetView<uint32_t>()));
             if (stopToken.stop_requested()) return {};
-            CORE_TRY_VOID(m_RegenQueue.SyncCounterFromDevice());
+            CORE_TRY_DISCARD(m_RegenQueue.SyncCounterFromDevice());
             uint32_t regenerateCount = std::min<uint64_t>(m_RegenQueue.GetCounterHostValue(), m_TotalSamples - launchedSampleCount);
             CORE_CUDA_TRY_KERNEL("RegeneratePaths", 
                 Kernels::RegeneratePaths(
@@ -408,7 +408,7 @@ namespace Core::Graphics::Cuda
             if (stopToken.stop_requested()) return {};
             uint32_t nextRayCount = m_RayQueues[currentQueue].GetCounterHostValue() - m_RegenQueue.GetCounterHostValue() + regenerateCount;
             m_RayQueues[nextQueue].SetCounterHostValue(nextRayCount);
-            CORE_TRY_VOID(m_RayQueues[nextQueue].SyncCounterFromHost());
+            CORE_TRY_DISCARD(m_RayQueues[nextQueue].SyncCounterFromHost());
 
             currentQueue = nextQueue;
             launchedSampleCount += regenerateCount;

@@ -59,21 +59,13 @@ namespace Core::Utils::Yaml
 
 	std::expected<std::string, Error> GetString(const YAML::Node& node, const char* key)
 	{
-		auto scalarResult = GetScalar(node, key);
-		if (!scalarResult)
-			return std::unexpected(std::move(scalarResult).error());
-
-		YAML::Node scalarNode = scalarResult.value();
+		CORE_TRY(scalarNode, GetScalar(node, key));
 		return scalarNode.as<std::string>();
 	}
 
 	std::expected<float, Error> GetFloat(const YAML::Node& node, const char* key)
 	{
-		auto scalarResult = GetScalar(node, key);
-		if (!scalarResult)
-			return std::unexpected(std::move(scalarResult).error());
-
-		YAML::Node scalarNode = scalarResult.value();
+		CORE_TRY(scalarNode, GetScalar(node, key));
 
 		try
 		{
@@ -88,11 +80,7 @@ namespace Core::Utils::Yaml
 
 	std::expected<glm::vec3, Error> GetVec3(const YAML::Node& node, const char* key)
 	{
-		auto sequenceResult = GetSizedSequence(node, key, 3);
-		if (!sequenceResult)
-			return std::unexpected(std::move(sequenceResult).error());
-
-		YAML::Node vecNode = sequenceResult.value();
+		CORE_TRY(vecNode, GetSizedSequence(node, key, 3));
 
 		try
 		{
@@ -110,11 +98,7 @@ namespace Core::Utils::Yaml
 
 	std::expected<glm::vec4, Error> GetVec4(const YAML::Node& node, const char* key)
 	{
-		auto sequenceResult = GetSizedSequence(node, key, 4);
-		if (!sequenceResult)
-			return std::unexpected(std::move(sequenceResult).error());
-
-		YAML::Node vecNode = sequenceResult.value();
+		CORE_TRY(vecNode, GetSizedSequence(node, key, 4));
 
 		try
 		{

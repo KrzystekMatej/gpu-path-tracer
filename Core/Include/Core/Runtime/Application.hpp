@@ -38,7 +38,7 @@ namespace Core::Runtime
 		
 		Layer::CommandQueue& GetCommandQueue() { return m_CommandQueue; }
 		void PrintInfo() const;
-		void Run();
+		std::expected<void, Utils::Error> Run();
 
 	public:
 		static std::expected<std::unique_ptr<Application>, Utils::Error> Create(

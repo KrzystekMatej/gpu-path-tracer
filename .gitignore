@@ -10,6 +10,8 @@ Build/
 !/External/mikktspace/
 !/External/mikktspace/**
 
+imgui.ini
+imgui.ini.bak
 
 /Assets/*
 !/Assets/Shaders/

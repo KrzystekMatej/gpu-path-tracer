@@ -30,16 +30,9 @@ namespace Core::Graphics::Cuda::Memory
 
     std::expected<void, Core::Utils::Error> SharedCounter::Allocate()
     {
-        auto freeResult = Free();
-        if (!freeResult)
-            return std::unexpected(freeResult.error());
-
+        CORE_TRY_DISCARD(Free());
         m_HostValue = 0;
-
-        auto allocateResult = m_DeviceBuffer.Allocate(1, sizeof(uint32_t));
-        if (!allocateResult)
-            return std::unexpected(allocateResult.error());
-
+        CORE_TRY_DISCARD(m_DeviceBuffer.Allocate(1, sizeof(uint32_t)));
         return Reset();
     }
 
@@ -60,14 +53,12 @@ namespace Core::Graphics::Cuda::Memory
         assert(m_DeviceBuffer.GetData() != nullptr);
 
 
-        cudaError_t error = cudaMemcpy(
+        CORE_CUDA_TRY("cudaMemcpy",cudaMemcpy(
             &m_HostValue,
             m_DeviceBuffer.GetData(),
             m_DeviceBuffer.GetSize() * m_DeviceBuffer.GetElementSize(),
-            cudaMemcpyDeviceToHost);
+            cudaMemcpyKind::cudaMemcpyDeviceToHost));
 
-        if (error != cudaSuccess)
-            return std::unexpected(Utils::MakeCudaError("cudaMemcpy", error));
 
         return {};
     }

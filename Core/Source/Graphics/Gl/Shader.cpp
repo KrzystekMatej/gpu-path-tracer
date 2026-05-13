@@ -60,11 +60,9 @@ namespace Core::Graphics::Gl
 
 	std::expected<Shader, Utils::Error> Shader::Create(const Import::Shader& shader)
 	{
-		auto typeResult = GetGlShaderType(shader.type);
-		if (!typeResult)
-			return std::unexpected(std::move(typeResult).error());
-		uint32_t glType = typeResult.value();
+		CORE_TRY(glType, GetGlShaderType(shader.type));
 		Shader glShader(glType);
+		
 		const char* sourcEcstr = shader.source.c_str();
 		glShaderSource(glShader.m_Id, 1, &sourcEcstr, nullptr);
 		glCompileShader(glShader.m_Id);

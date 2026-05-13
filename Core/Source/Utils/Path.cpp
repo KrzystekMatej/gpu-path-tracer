@@ -18,10 +18,8 @@ namespace Core::Utils::Path
 
 	std::expected<ResolvedPath, Utils::Error> ResolvePath(const std::filesystem::path& path, const std::filesystem::path& root)
 	{
-		auto relativeResult = NormalizeRelativePath(path);
-		if (!relativeResult)
-			return std::unexpected(std::move(relativeResult).error());
-		std::filesystem::path absolute = root / relativeResult.value();
-		return ResolvedPath{ .absolute = std::move(absolute), .relative = std::move(relativeResult).value() };
+		CORE_TRY(relativePath, NormalizeRelativePath(path));
+		std::filesystem::path absolute = root / relativePath;
+		return ResolvedPath{ .absolute = std::move(absolute), .relative = std::move(relativePath) };
 	}
 }

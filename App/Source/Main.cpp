@@ -18,7 +18,7 @@ int main()
 
 	if (!appResult)
 	{
-		appResult.error().Log();
+		spdlog::error("Failed to create application: {}", appResult.error().FullMessage());
 		return 1;
 	}
 	
@@ -29,7 +29,13 @@ int main()
 		app->PushLayer<App::CameraRecorder::Layer>(App::LayerKeys::CameraRecorder);
 		app->PushLayer<App::PathTracer::Layer>(App::LayerKeys::PathTracer);
 		app->PushLayer<App::Ui::Layer>(App::LayerKeys::Ui);
-		app->Run();
+		
+		auto runResult = app->Run();
+		if (!runResult)
+		{
+			spdlog::error("Application crashed while running: {}", runResult.error().FullMessage());
+			return 1;
+		}
 	}	
 
 	return 0;

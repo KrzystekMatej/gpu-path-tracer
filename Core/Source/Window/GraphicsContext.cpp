@@ -49,8 +49,7 @@ namespace Core::Window
 		GraphicsContext context(windowHandle);
 		context.MakeCurrent();
 
-		if (auto loadResult = LoadOpenGL(); !loadResult)
-			return std::unexpected(std::move(loadResult).error());
+		CORE_TRY_DISCARD_CONTEXT(LoadOpenGL(), "Failed to load OpenGL");
 
 		context.InitDebugCallback();
 		return context;

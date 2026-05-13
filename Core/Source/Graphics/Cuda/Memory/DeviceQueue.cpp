@@ -28,14 +28,8 @@ namespace Core::Graphics::Cuda::Memory
 
     std::expected<void, Core::Utils::Error> DeviceQueue::Allocate(size_t capacity, size_t elementSize)
     {
-        auto freeResult = Free();
-        if (!freeResult)
-            return std::unexpected(freeResult.error());
-
-        auto bufferAllocateResult = m_Buffer.Allocate(capacity, elementSize);
-        if (!bufferAllocateResult)
-            return std::unexpected(bufferAllocateResult.error());
-
+        CORE_TRY_DISCARD(Free());
+        CORE_TRY_DISCARD(m_Buffer.Allocate(capacity, elementSize));
         auto counterAllocateResult = m_Counter.Allocate();
         if (!counterAllocateResult)
         {

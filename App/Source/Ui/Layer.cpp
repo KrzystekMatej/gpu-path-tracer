@@ -63,6 +63,9 @@ namespace App::Ui
 
 	void Layer::OnRender(Core::Graphics::Services::SceneRenderer renderer)
 	{
+		if (m_ViewMode != ViewMode::LivePreview)
+			return;
+			
 		Core::Graphics::Services::SceneViewDesc sceneViewDesc = {
 			.target = *m_SceneTarget,
 			.scene = Core::Runtime::Application::Scene(),

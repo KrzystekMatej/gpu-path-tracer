@@ -62,11 +62,11 @@ namespace Core::Capture
 				int nextIndex = static_cast<int>(recorder.elapsedTime / recorder.sampleInterval) + 1;
 				recorder.nextSampleTime = nextIndex * recorder.sampleInterval;
 
-				spdlog::info("Recording motion sample at time {:.2f}s (position: {}, quaternion: {}, euler: {})", 
-					recorder.elapsedTime, 
-					Utils::Math::ToString(state.position), 
-					Utils::Math::ToString(state.rotation),
-					Utils::Math::ToStringEulerRadians(state.rotation));
+				// spdlog::info("Recording motion sample at time {:.2f}s (position: {}, quaternion: {}, euler: {})", 
+				// 	recorder.elapsedTime, 
+				// 	Utils::Math::ToString(state.position), 
+				// 	Utils::Math::ToString(state.rotation),
+				// 	Utils::Math::ToStringEulerRadians(state.rotation));
 			}
 		}
 	}

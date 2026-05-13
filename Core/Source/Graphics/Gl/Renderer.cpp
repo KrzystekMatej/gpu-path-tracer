@@ -69,66 +69,33 @@ namespace Core::Graphics::Gl
 
     std::expected<Renderer, Utils::Error> Renderer::Create(Assets::Manager& assetManager)
     {
-		auto unlit = assetManager.ImportShaderProgram(unlitPaths);
-        if (!unlit)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(unlit).error()), "Failed to load unlit shader program"));
+		CORE_TRY_CONTEXT(unlit, assetManager.ImportShaderProgram(unlitPaths), "Failed to load unlit shader program");
+        CORE_TRY_CONTEXT(normal, assetManager.ImportShaderProgram(normalPaths), "Failed to load normal shader program");
+		CORE_TRY_CONTEXT(lambert, assetManager.ImportShaderProgram(lambertPaths), "Failed to load lambert shader program");
+		CORE_TRY_CONTEXT(phong, assetManager.ImportShaderProgram(phongPaths), "Failed to load phong shader program");
+        CORE_TRY_CONTEXT(directPbr, assetManager.ImportShaderProgram(directPbrPaths), "Failed to load direct PBR shader program");
+		CORE_TRY_CONTEXT(fullPbr, assetManager.ImportShaderProgram(fullPbrPaths), "Failed to load full PBR shader program");
+		CORE_TRY_CONTEXT(emissive, assetManager.ImportShaderProgram(emissivePaths), "Failed to load emissive shader program");
+		CORE_TRY_CONTEXT(background, assetManager.ImportShaderProgram(backgroundPaths), "Failed to load background shader program");
 
-        auto normal = assetManager.ImportShaderProgram(normalPaths);
-		if (!normal)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(normal).error()), "Failed to load normal shader program"));
+		CORE_TRY_CONTEXT(brdfMap, Import::LoadImage(assetManager.GetRootPath() / brdfMapPath, ColorSpace::Linear), "Failed to load BRDF map image");
+		CORE_TRY_CONTEXT(brdfMapTexture, Texture::Create2D(brdfMap), "Failed to create BRDF map texture");
 
-		auto lambert = assetManager.ImportShaderProgram(lambertPaths);
-        if (!lambert)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(lambert).error()), "Failed to load lambert shader program"));
-		
-		auto phong = assetManager.ImportShaderProgram(phongPaths);
-		if (!phong)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(phong).error()), "Failed to load phong shader program"));
-
-        auto directPbr = assetManager.ImportShaderProgram(directPbrPaths);
-		if (!directPbr)
-            return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(directPbr).error()), "Failed to load direct PBR shader program"));
-
-		auto fullPbr = assetManager.ImportShaderProgram(fullPbrPaths);
-        if (!fullPbr)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(fullPbr).error()), "Failed to load full PBR shader program"));
-
-		auto emissive = assetManager.ImportShaderProgram(emissivePaths);
-        if (!emissive)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(emissive).error()), "Failed to load emissive shader program"));
-
-		auto background = assetManager.ImportShaderProgram(backgroundPaths);
-        if (!background)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(background).error()), "Failed to load background shader program"));
-
-		auto imageResult = Import::LoadImage(assetManager.GetRootPath() / brdfMapPath, ColorSpace::Linear);
-		if (!imageResult)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(imageResult).error()), "Failed to load BRDF map image"));
-
-		auto textureResult = Texture::Create2D(imageResult.value());
-		if (!textureResult)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(textureResult).error()), "Failed to create BRDF map texture"));
-
-		auto objResult = Import::LoadObj(assetManager.GetRootPath() / skyboxPath);
-		if (!objResult)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(objResult).error()), "Failed to load skybox mesh"));
-
-		auto meshResult = Mesh::Create(objResult.value().meshes[0]);
-		if (!meshResult)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(std::move(meshResult).error()), "Failed to create skybox mesh"));
+		CORE_TRY_CONTEXT(skyboxObj, Import::LoadObj(assetManager.GetRootPath() / skyboxPath), "Failed to load skybox mesh");
+		CORE_TRY_CONTEXT(skyboxMesh, Mesh::Create(skyboxObj.meshes[0]), "Failed to create skybox mesh");
 
 		return Renderer(
 			nullptr, 
-			unlit.value(), 
-			normal.value(), 
-			lambert.value(), 
-			phong.value(),
-			directPbr.value(), 
-			fullPbr.value(),
-			emissive.value(),
-			background.value(),
-			std::move(textureResult).value(),
-			std::move(meshResult).value());
+			unlit,
+			normal,
+			lambert,
+			phong,
+			directPbr,
+			fullPbr,
+			emissive,
+			background,
+			std::move(brdfMapTexture),
+			std::move(skyboxMesh));
     }
 
     void Renderer::BindSurface(RenderSurface surface)

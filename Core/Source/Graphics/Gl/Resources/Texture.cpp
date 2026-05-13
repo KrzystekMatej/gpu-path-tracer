@@ -106,10 +106,7 @@ namespace Core::Graphics::Gl
 
 	std::expected<Texture, Utils::Error> Texture::Create2D(const Import::Image& image)
 	{
-		auto internalFormatResult = GetInternalFormat(image.format);
-		if (!internalFormatResult)
-			return std::unexpected(internalFormatResult.error());
-		uint32_t internalFormat = internalFormatResult.value();
+		CORE_TRY(internalFormat, GetInternalFormat(image.format));
 		uint32_t externalFormat = GetExternalFormat(image.format);
 		uint32_t pixelType = GetPixelType(image.format);
 
@@ -142,10 +139,7 @@ namespace Core::Graphics::Gl
 		if (mipMaps.empty())
 			return std::unexpected(Utils::Error("Mipmap list cannot be empty"));
 
-		auto internalFormatResult = GetInternalFormat(mipChain.format);
-		if (!internalFormatResult)
-			return std::unexpected(internalFormatResult.error());
-		uint32_t internalFormat = internalFormatResult.value();
+		CORE_TRY(internalFormat, GetInternalFormat(mipChain.format));
 		uint32_t externalFormat = GetExternalFormat(mipChain.format);
 		uint32_t pixelType = GetPixelType(mipChain.format);
 
@@ -186,10 +180,7 @@ namespace Core::Graphics::Gl
 
 	std::expected<Texture, Utils::Error> Texture::CreateCubemap(const Import::Cubemap& cubemap)
 	{
-		auto internalFormatResult = GetInternalFormat(cubemap.format);
-		if (!internalFormatResult)
-			return std::unexpected(internalFormatResult.error());
-		uint32_t internalFormat = internalFormatResult.value();
+		CORE_TRY(internalFormat, GetInternalFormat(cubemap.format));
 		uint32_t externalFormat = GetExternalFormat(cubemap.format);
 		uint32_t pixelType = GetPixelType(cubemap.format);
 
@@ -236,10 +227,7 @@ namespace Core::Graphics::Gl
 		if (mipMaps.empty())
 			return std::unexpected(Utils::Error("Mipmap list cannot be empty"));
 
-		auto internalFormatResult = GetInternalFormat(mipChain.format);
-		if (!internalFormatResult)
-			return std::unexpected(internalFormatResult.error());
-		uint32_t internalFormat = internalFormatResult.value();
+		CORE_TRY(internalFormat, GetInternalFormat(mipChain.format));
 		uint32_t externalFormat = GetExternalFormat(mipChain.format);
 		uint32_t pixelType = GetPixelType(mipChain.format);
 

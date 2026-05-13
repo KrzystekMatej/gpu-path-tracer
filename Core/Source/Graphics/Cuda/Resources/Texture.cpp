@@ -10,7 +10,7 @@ namespace Core::Graphics::Cuda
         using Core::Graphics::ChannelLayout;
         using Core::Graphics::ComponentType;
 
-        std::expected<cudaChannelFormatDesc, Core::Utils::Error> CreateChannelDesc(const Import::Image& image)
+        std::expected<cudaChannelFormatDesc, Core::Utils::Error> CreateChannelDescription(const Import::Image& image)
         {
             switch (image.format.componentType)
             {
@@ -60,28 +60,28 @@ namespace Core::Graphics::Cuda
             return std::unexpected(Core::Utils::Error("Unsupported CUDA texture format"));
         }
 
-        cudaTextureDesc CreateTextureDesc(const Import::Image& image)
+        cudaTextureDesc CreateTextureDescription(const Import::Image& image)
         {
-            cudaTextureDesc textureDesc{};
-            textureDesc.addressMode[0] = cudaAddressModeClamp;
-            textureDesc.addressMode[1] = cudaAddressModeClamp;
-            textureDesc.filterMode = cudaFilterModeLinear;
-            textureDesc.normalizedCoords = 1;
-            textureDesc.sRGB = (image.format.colorSpace == Graphics::ColorSpace::SRGB) ? 1 : 0;
+            cudaTextureDesc textureDescription{};
+            textureDescription.addressMode[0] = cudaAddressModeClamp;
+            textureDescription.addressMode[1] = cudaAddressModeClamp;
+            textureDescription.filterMode = cudaFilterModeLinear;
+            textureDescription.normalizedCoords = 1;
+            textureDescription.sRGB = (image.format.colorSpace == Graphics::ColorSpace::SRGB) ? 1 : 0;
 
             switch (image.format.componentType)
             {
                 case ComponentType::UInt8:
-                    textureDesc.readMode = cudaReadModeNormalizedFloat;
+                    textureDescription.readMode = cudaReadModeNormalizedFloat;
                     break;
 
                 case ComponentType::Float16:
                 case ComponentType::Float32:
-                    textureDesc.readMode = cudaReadModeElementType;
+                    textureDescription.readMode = cudaReadModeElementType;
                     break;
             }
 
-            return textureDesc;
+            return textureDescription;
         }
     }
     Texture::~Texture()
@@ -134,26 +134,20 @@ namespace Core::Graphics::Cuda
 			sourceImage = &convertedImage.value();
 		}
 
-        auto channelDescResult = CreateChannelDesc(*sourceImage);
-        if (!channelDescResult)
-            return std::unexpected(Core::Utils::Error(std::move(channelDescResult).error()));
+        CORE_TRY(channelDesc, CreateChannelDescription(*sourceImage));
 
         Texture texture;
 
-        cudaError_t error = cudaMallocArray(
+        CORE_CUDA_TRY("cudaMallocArray", cudaMallocArray(
             reinterpret_cast<cudaArray_t*>(&texture.m_CudaArray),
-            &channelDescResult.value(),
+            &channelDesc,
             sourceImage->width,
-            sourceImage->height);
+            sourceImage->height));
 
-        if (error != cudaSuccess)
-        {
-            return std::unexpected(Utils::MakeCudaError("cudaCreateTextureObject", error));
-        }
 
         const size_t pitchBytes = static_cast<size_t>(sourceImage->width) * static_cast<size_t>(sourceImage->format.GetBytesPerPixel());
 
-        error = cudaMemcpy2DToArray(
+        cudaError_t error = cudaMemcpy2DToArray(
             reinterpret_cast<cudaArray_t>(texture.m_CudaArray),
             0,
             0,
@@ -166,20 +160,19 @@ namespace Core::Graphics::Cuda
 
         if (error != cudaSuccess)
         {
-            const std::string cudaMessage = Utils::GetCudaErrorMessage(error);
             cudaFreeArray(reinterpret_cast<cudaArray_t>(texture.m_CudaArray));
             texture.m_CudaArray = nullptr;
             return std::unexpected(Utils::MakeCudaError("cudaMemcpy2DToArray", error));
         }
 
-        cudaResourceDesc resourceDesc{};
-        resourceDesc.resType = cudaResourceTypeArray;
-        resourceDesc.res.array.array = reinterpret_cast<cudaArray_t>(texture.m_CudaArray);
+        cudaResourceDesc resourceDescription{};
+        resourceDescription.resType = cudaResourceType::cudaResourceTypeArray;
+        resourceDescription.res.array.array = reinterpret_cast<cudaArray_t>(texture.m_CudaArray);
 
-        cudaTextureDesc textureDesc = CreateTextureDesc(*sourceImage);
+        cudaTextureDesc textureDescription = CreateTextureDescription(*sourceImage);
 
         cudaTextureObject_t textureObject = 0;
-        error = cudaCreateTextureObject(&textureObject, &resourceDesc, &textureDesc, nullptr);
+        error = cudaCreateTextureObject(&textureObject, &resourceDescription, &textureDescription, nullptr);
 
         if (error != cudaSuccess)
         {

@@ -9,11 +9,11 @@ namespace Core::Ecs
 {
 	void BuilderRegistry::RegisterCoreBuilders()
 	{
-		Register("Transform", std::make_unique<TransformBuilder>());
-		Register("Camera", std::make_unique<Graphics::Ecs::CameraBuilder>());
-		Register("Model", std::make_unique<Graphics::Ecs::ModelBuilder>());
-		Register("Background", std::make_unique<Graphics::Ecs::BackgroundBuilder>());
-		Register("Light", std::make_unique<Graphics::Ecs::LightBuilder>());
-		Register("MotionRecorder", std::make_unique<Capture::MotionRecorderBuilder>());
+		assert(Register("Transform", std::make_unique<TransformBuilder>()));
+		assert(Register("Camera", std::make_unique<Graphics::Ecs::CameraBuilder>()));
+		assert(Register("Model", std::make_unique<Graphics::Ecs::ModelBuilder>()));
+		assert(Register("Background", std::make_unique<Graphics::Ecs::BackgroundBuilder>()));
+		assert(Register("Light", std::make_unique<Graphics::Ecs::LightBuilder>()));
+		assert(Register("MotionRecorder", std::make_unique<Capture::MotionRecorderBuilder>()));
 	}
 }

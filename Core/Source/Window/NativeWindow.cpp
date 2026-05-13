@@ -90,12 +90,8 @@ namespace Core::Window
 		glfwSetWindowSizeLimits(windowHandle, windowAttributes.minWidth, windowAttributes.minHeight, GLFW_DONT_CARE, GLFW_DONT_CARE);
 		glfwSetInputMode(windowHandle, GLFW_LOCK_KEY_MODS, GLFW_TRUE);
 
-		auto graphicsContext = GraphicsContext::Create(windowHandle);
-
-		if (!graphicsContext)
-			return std::unexpected(graphicsContext.error());
-
-		return NativeWindow(windowHandle, std::move(windowAttributes), std::move(graphicsContext).value());
+		CORE_TRY_CONTEXT(graphicsContext, GraphicsContext::Create(windowHandle), "Failed to create graphics context for window");
+		return NativeWindow(windowHandle, std::move(windowAttributes), std::move(graphicsContext));
 	}
 
 	std::expected<void, Utils::Error> NativeWindow::InitBackend()

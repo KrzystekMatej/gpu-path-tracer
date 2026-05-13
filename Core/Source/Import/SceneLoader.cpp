@@ -46,12 +46,8 @@ namespace Core::Import
 				}
 			}
 
-			auto sceneResult = Utils::Yaml::GetSequence(root, "scene");
-
-			if (!sceneResult)
-				return std::unexpected(Utils::Error(std::move(sceneResult).error()));
-
-			scene.sceneRoot = sceneResult.value();
+			CORE_TRY_CONTEXT(sceneRoot, Utils::Yaml::GetSequence(root, "scene"), "Failed to get scene root sequence");
+			scene.sceneRoot = sceneRoot;
 			return scene;
 		}
 		catch (const std::exception& e)

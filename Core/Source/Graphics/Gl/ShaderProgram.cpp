@@ -43,9 +43,7 @@ namespace Core::Graphics::Gl
 			program.AttachShader(shader);
 		}
 
-		auto ok = program.Link();
-		if (!ok)
-			return std::unexpected(Utils::Error(std::move(ok).error()));
+		CORE_TRY_DISCARD(program.Link());
 
 		for (const auto& shader : shaders)
 		{

@@ -30,16 +30,12 @@ namespace Core::Graphics::Cuda::Memory
 
     std::expected<void, Core::Utils::Error> SharedBuffer2D::Allocate(size_t width, size_t height, size_t elementSize)
     {
-        auto freeResult = Free();
-        if (!freeResult)
-            return std::unexpected(freeResult.error());
+        CORE_TRY_DISCARD(Free());
 
         const size_t rowSize = width * elementSize;
 
         void* hostData = nullptr;
-        cudaError_t error = cudaMallocHost(&hostData, rowSize * height);
-        if (error != cudaSuccess)
-            return std::unexpected(Utils::MakeCudaError("cudaMallocHost", error));
+        CORE_CUDA_TRY("cudaMallocHost", cudaMallocHost(&hostData, rowSize * height));
 
         auto deviceAllocateResult = m_DeviceBuffer.Allocate(width, height, elementSize);
         if (!deviceAllocateResult)
@@ -70,17 +66,14 @@ namespace Core::Graphics::Cuda::Memory
 
         const size_t rowSize = m_DeviceBuffer.GetWidth() * m_DeviceBuffer.GetElementSize();
 
-        cudaError_t error = cudaMemcpy2D(
+        CORE_CUDA_TRY("cudaMemcpy2D", cudaMemcpy2D(
             m_HostData,
             rowSize,
             m_DeviceBuffer.GetData(),
             m_DeviceBuffer.GetPitchBytes(),
             rowSize,
             m_DeviceBuffer.GetHeight(),
-            cudaMemcpyDeviceToHost);
-
-        if (error != cudaSuccess)
-            return std::unexpected(Utils::MakeCudaError("cudaMemcpy2D", error));
+            cudaMemcpyKind::cudaMemcpyDeviceToHost));
 
         return {};
     }
@@ -92,18 +85,15 @@ namespace Core::Graphics::Cuda::Memory
 
         const size_t rowSize = m_DeviceBuffer.GetWidth() * m_DeviceBuffer.GetElementSize();
 
-        cudaError_t error = cudaMemcpy2DAsync(
+        CORE_CUDA_TRY("cudaMemcpy2DAsync", cudaMemcpy2DAsync(
             m_HostData,
             rowSize,
             m_DeviceBuffer.GetData(),
             m_DeviceBuffer.GetPitchBytes(),
             rowSize,
             m_DeviceBuffer.GetHeight(),
-            cudaMemcpyDeviceToHost,
-            static_cast<cudaStream_t>(stream));
-
-        if (error != cudaSuccess)
-            return std::unexpected(Utils::MakeCudaError("cudaMemcpy2DAsync", error));
+            cudaMemcpyKind::cudaMemcpyDeviceToHost,
+            static_cast<cudaStream_t>(stream)));
 
         return {};
     }

@@ -68,18 +68,12 @@ namespace Core::Graphics::Ecs
 		entt::registry& registry,
 		Assets::Manager& assetManager) const
 	{
-		auto pathResult = Utils::Yaml::GetString(context.node, "path");
-		if (!pathResult)
-			return std::unexpected(Utils::Error(std::move(pathResult).error()));
-		
-		auto modelHandleResult = assetManager.ImportObj(std::move(pathResult).value());
-		if (!modelHandleResult)
-			return std::unexpected(Utils::Error(std::move(modelHandleResult).error()));
+		CORE_TRY(path, Utils::Yaml::GetString(context.node, "path"));
+		CORE_TRY(modelHandle, assetManager.ImportObj(path));
 
 		const Assets::Storage& storage = assetManager.GetStorage();
 
-		auto modelResult = storage.Get(modelHandleResult.value());
-		const Assets::Model& model = modelResult.value();
+		const Assets::Model& model = storage.Get(modelHandle).value();
 		std::vector<entt::entity> children;
 		children.reserve(model.parts.size());
 
@@ -122,13 +116,9 @@ namespace Core::Graphics::Ecs
 		entt::registry& registry,
 		Assets::Manager& assetManager) const
 	{
-		auto pathResult = Utils::Yaml::GetString(context.node, "path");
-		if (!pathResult)
-			return std::unexpected(Utils::Error(std::move(pathResult).error()));
-		auto envMapHandleResult = assetManager.ImportEnvironmentMap(std::move(pathResult).value(), Graphics::ColorSpace::Linear);
-		if (!envMapHandleResult)
-			return std::unexpected(Utils::Error(std::move(envMapHandleResult).error()));
-		registry.emplace<Background>(context.entity, envMapHandleResult.value());
+		CORE_TRY(path, Utils::Yaml::GetString(context.node, "path"));
+		CORE_TRY(envMapHandle, assetManager.ImportEnvironmentMap(path, Graphics::ColorSpace::Linear));
+		registry.emplace<Background>(context.entity, envMapHandle);
 		return {};
 	}
 }

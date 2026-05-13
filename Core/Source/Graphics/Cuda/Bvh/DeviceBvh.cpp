@@ -25,16 +25,11 @@ namespace Core::Graphics::Cuda
 		nodes.reserve(nodeCount);
 		m_Depth = depth;
 		FlattenBvh(root, nodes);
-		auto result = m_Nodes.Allocate(nodes.size(), sizeof(DeviceBvhNode));
-		if (!result)
-			return std::unexpected(std::move(result).error());
-		result = m_Nodes.UploadSync(nodes.data(), nodes.size());
-		if (!result)
-			return std::unexpected(std::move(result).error());
-		result = m_Triangles.Allocate(triangles.size(), sizeof(Triangle));
-		if (!result)
-			return std::unexpected(std::move(result).error());
-		return m_Triangles.UploadSync(triangles.data(), triangles.size());
+		CORE_TRY_DISCARD(m_Nodes.Allocate(nodes.size(), sizeof(DeviceBvhNode)));
+		CORE_TRY_DISCARD(m_Nodes.UploadSync(nodes.data(), nodes.size()));
+		CORE_TRY_DISCARD(m_Triangles.Allocate(triangles.size(), sizeof(Triangle)));
+		CORE_TRY_DISCARD(m_Triangles.UploadSync(triangles.data(), triangles.size()));
+		return {};
 	}
 
 	std::expected<void, Utils::Error> DeviceBvh::Free()

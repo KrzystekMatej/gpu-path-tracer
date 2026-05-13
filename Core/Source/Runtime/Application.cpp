@@ -49,15 +49,8 @@ namespace Core::Runtime
 		if (s_Instance)
 			return std::unexpected(Utils::Error("Application instance already exists"));
 
-		auto windowBackendResult = Window::NativeWindow::InitBackend();
-		if (!windowBackendResult)
-			return std::unexpected(std::move(windowBackendResult).error());
-
-		auto windowResult = Window::NativeWindow::Create(std::move(windowAttributes));
-		if (!windowResult)
-			return std::unexpected(std::move(windowResult).error());
-
-		Window::NativeWindow window = std::move(windowResult).value();
+		CORE_TRY_DISCARD_CONTEXT(Window::NativeWindow::InitBackend(), "Failed to initialize window backend");
+		CORE_TRY_CONTEXT(window, Window::NativeWindow::Create(std::move(windowAttributes)), "Failed to create window");
 		window.GetContext().MakeCurrent();
 		window.GetContext().SetSwapInterval(1);
 
@@ -66,26 +59,13 @@ namespace Core::Runtime
 		Ecs::BuilderRegistry builderRegistry;
 		builderRegistry.RegisterCoreBuilders();
 
-		auto projectResult = Project::Descriptor::Create(projectConfigPath);
-
-		if (!projectResult)
-			return std::unexpected(std::move(projectResult).error());
-
-		Project::Descriptor project = std::move(projectResult).value();
-
-		auto assetManagerResult = Assets::Manager::Create(project.GetContentPath());
-		if (!assetManagerResult)
-			return std::unexpected(std::move(assetManagerResult).error());
-
-		Assets::Manager assetManager = std::move(assetManagerResult).value();
-
-		auto rendererResult = Graphics::Gl::Renderer::Create(assetManager);
-		if (!rendererResult)
-			return std::unexpected(std::move(rendererResult).error());
+		CORE_TRY_CONTEXT(project, Project::Descriptor::Create(projectConfigPath), "Failed to create project descriptor");
+		CORE_TRY_CONTEXT(assetManager, Assets::Manager::Create(project.GetContentPath()), "Failed to create asset manager");
+		CORE_TRY_CONTEXT(renderer, Graphics::Gl::Renderer::Create(assetManager), "Failed to create renderer");
 
 		std::unique_ptr<Application> app = std::unique_ptr<Application>(new Application(
 			std::move(window),
-			std::move(std::move(rendererResult).value()),
+			std::move(renderer),
 			std::move(scriptCatalog),
 			std::move(builderRegistry),
 			std::move(assetManager), 
@@ -98,20 +78,13 @@ namespace Core::Runtime
 
 	std::expected<void, Utils::Error> Application::SetScene(const std::filesystem::path& path)
 	{
-		auto loadedScene = Import::LoadScene(path);
-		if (!loadedScene)
-			return std::unexpected(std::move(loadedScene).error());
-		Import::Scene scene = std::move(loadedScene).value();
-		auto resolvedScene = Ecs::Scene::Create(std::move(scene), m_BuilderRegistry, m_AssetManager);
-		if (!resolvedScene)
-			return std::unexpected(std::move(resolvedScene).error());
-		m_Scene = std::move(resolvedScene).value();
+		CORE_TRY_CONTEXT(sceneSource, Import::LoadScene(path), "Failed to load scene");
+		CORE_TRY_CONTEXT(scene, Ecs::Scene::Create(std::move(sceneSource), m_BuilderRegistry, m_AssetManager), "Failed to create scene");
+		m_Scene = std::move(scene);
 
 		Ecs::UpdateWorldTransforms(m_Scene);
 
-		auto ok = m_ScriptRunner.Bind(m_ScriptCatalog, m_Scene);
-		if (!ok)
-			return std::unexpected(std::move(ok).error());
+		CORE_TRY_DISCARD_CONTEXT(m_ScriptRunner.Bind(m_ScriptCatalog, m_Scene), "Failed to bind script runner");
 		m_EventDispatcher.trigger(Ecs::SceneChangedEvent());
 		return {};
 	}
@@ -129,14 +102,11 @@ namespace Core::Runtime
 		spdlog::info("GLFW Version: {}.{}.{}", glfwVersion.major, glfwVersion.minor, glfwVersion.revision);
 	}
 
-	void Application::Run()
+	std::expected<void, Utils::Error> Application::Run()
 	{
 		m_CommandQueue.Commit(m_LayerStack);
 
-		auto initSceneResult = SetScene(m_Project.GetStartScenePath());
-
-		if (!initSceneResult)
-			return initSceneResult.error().Log();
+		CORE_TRY_DISCARD_CONTEXT(SetScene(m_Project.GetStartScenePath()), "Failed to initialize start scene");
 
 		m_ScriptRunner.Awake();
 		while (m_Window.IsOpen())
@@ -167,5 +137,6 @@ namespace Core::Runtime
 
 			m_Window.SwapBuffers();
 		}
+		return {};
 	}
 }

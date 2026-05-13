@@ -111,7 +111,7 @@ namespace Core::Assets
 
 	std::expected<Manager, Utils::Error> Manager::Create(std::filesystem::path assetsPath)
 	{
-		 std::error_code errorCode;
+		std::error_code errorCode;
 		assetsPath = std::filesystem::weakly_canonical(std::filesystem::absolute(assetsPath), errorCode);
 		if (errorCode) return std::unexpected(Utils::Error("Invalid assets root: {}", assetsPath.string()));
 		if (!std::filesystem::is_directory(assetsPath))
@@ -119,9 +119,7 @@ namespace Core::Assets
 
 		Manager manager;
 		manager.m_Root = std::move(assetsPath);
-		auto defaultMaterial = manager.ImportDefaultMaterial();
-		if (!defaultMaterial)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(defaultMaterial.error()), "Failed to import default material"));
+		CORE_TRY_DISCARD_CONTEXT(manager.ImportDefaultMaterial(), "Failed to import default material");
 		return manager;
 	}
 
@@ -141,18 +139,13 @@ namespace Core::Assets
 			.data = std::vector<uint8_t>(value.begin(), value.end())
 		};
 
-		auto glResult = Graphics::Gl::Texture::Create2D(image);
-		if (!glResult)
-			return std::unexpected(Utils::Error(std::move(glResult).error()));
-
-		auto cudaResult = Graphics::Cuda::Texture::Create2D(image);
-		if (!cudaResult)
-			return std::unexpected(Utils::Error(std::move(cudaResult).error()));
+		CORE_TRY(glTexture, Graphics::Gl::Texture::Create2D(image));
+		CORE_TRY(cudaTexture, Graphics::Cuda::Texture::Create2D(image));
 
 		Texture asset(
 			Graphics::Cpu::Texture::Create(std::move(image)),
-			std::move(glResult).value(),
-			std::move(cudaResult).value());
+			std::move(glTexture),
+			std::move(cudaTexture));
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		return handle.value();
@@ -195,49 +188,27 @@ namespace Core::Assets
 			.colorSpace = Graphics::ColorSpace::Linear
 		};
 
-		auto albedo = ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultAlbedo);
-		if (!albedo)
-			return std::unexpected(std::move(albedo).error());
-		
-		auto specular = ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultPhongSpecular);
-		if (!specular)
-			return std::unexpected(std::move(specular).error());
-
-		auto shininess = ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultShininess);
-		if (!shininess)
-			return std::unexpected(std::move(shininess).error());
-
-		auto roughness = ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultRoughness);
-		if (!roughness)
-			return std::unexpected(std::move(roughness).error());
-
-		auto metallic = ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultMetallic);
-		if (!metallic)
-			return std::unexpected(std::move(metallic).error());
-
-		auto ao = ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultAo);
-		if (!ao)
-			return std::unexpected(std::move(ao).error());
+		CORE_TRY_CONTEXT(albedo, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultAlbedo), "Failed to import albedo texture");
+		CORE_TRY_CONTEXT(specular, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultPhongSpecular), "Failed to import specular texture");
+		CORE_TRY_CONTEXT(shininess, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultShininess), "Failed to import shininess texture");
+		CORE_TRY_CONTEXT(roughness, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultRoughness), "Failed to import roughness texture");
+		CORE_TRY_CONTEXT(metallic, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultMetallic), "Failed to import metallic texture");
+		CORE_TRY_CONTEXT(ao, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultAo), "Failed to import ambient occlusion texture");
 		
 		const std::array<float, 3>& emissionDefault = Graphics::MaterialDefaults::DefaultEmission;
-		auto emission = ImportPixelTexture(rgbLinearHdr, { reinterpret_cast<const uint8_t*>(&emissionDefault[0]), sizeof(emissionDefault) });
-		if (!emission)
-			return std::unexpected(std::move(emission).error());
-
-		auto normal = ImportPixelTexture(rgbLinear, Graphics::MaterialDefaults::DefaultNormal);
-		if (!normal)
-			return std::unexpected(std::move(normal).error());
+		CORE_TRY_CONTEXT(emission, ImportPixelTexture(rgbLinearHdr, { reinterpret_cast<const uint8_t*>(&emissionDefault[0]), sizeof(emissionDefault) }), "Failed to import emission texture");
+		CORE_TRY_CONTEXT(normal, ImportPixelTexture(rgbLinear, Graphics::MaterialDefaults::DefaultNormal), "Failed to import normal texture");
 
 		Material asset(
 			Graphics::MaterialDefaults::DefaultSurfaceModel,
-			albedo.value(),
-			specular.value(),
-			shininess.value(),
-			roughness.value(),
-			metallic.value(),
-			ao.value(),
-			emission.value(),
-			normal.value());
+			albedo,
+			specular,
+			shininess,
+			roughness,
+			metallic,
+			ao,
+			emission,
+			normal);
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		return handle.value();
@@ -249,12 +220,9 @@ namespace Core::Assets
 		std::optional<std::filesystem::path> root)
 	{
 		std::filesystem::path actualRoot = root ? *root : m_Root;
-		auto pathResult = Utils::Path::ResolvePath(path, actualRoot);
-		if (!pathResult)
-			return std::unexpected(std::move(pathResult).error());
-		Utils::Path::ResolvedPath resolvedPath = std::move(pathResult).value();
+		CORE_TRY(resolvedPath, Utils::Path::ResolvePath(path, actualRoot));
+		
 		std::string absoluteStr = resolvedPath.absolute.generic_string();
-
 		std::string relativeStr = resolvedPath.relative.generic_string();
 		if (root)
 			relativeStr = std::filesystem::relative(resolvedPath.absolute, m_Root).generic_string();
@@ -266,33 +234,16 @@ namespace Core::Assets
 		if (cached)
 			return cached.value();
 
-		auto imageResult = Import::LoadImage(resolvedPath.absolute, colorSpace);
-		if (!imageResult)
-			return std::unexpected(Utils::Error(
-				std::make_shared<Utils::Error>(imageResult.error()), 
-				"Failed to load image, file path: {}", 
-				absoluteStr));
+		CORE_TRY(image, Import::LoadImage(resolvedPath.absolute, colorSpace));
 
-		Import::Image image = std::move(imageResult.value());
-
-		auto glResult = Graphics::Gl::Texture::Create2D(image);
-		if (!glResult)
-			return std::unexpected(Utils::Error(
-				std::make_shared<Utils::Error>(glResult.error()), 
-				"Failed to create GL texture, file path: {}", 
-				absoluteStr));
-
-		auto cudaResult = Graphics::Cuda::Texture::Create2D(image);
-		if (!cudaResult)
-			return std::unexpected(Utils::Error(
-				std::make_shared<Utils::Error>(cudaResult.error()), 
-				"Failed to create GL texture, file path: {}", 
-				absoluteStr));
+		CORE_TRY_CONTEXT(glTexture, Graphics::Gl::Texture::Create2D(image), "Failed to create GL texture, file path: {}", absoluteStr);
+		CORE_TRY_CONTEXT(cudaTexture, Graphics::Cuda::Texture::Create2D(image), "Failed to create CUDA texture, file path: {}", absoluteStr);
+		Graphics::Cpu::Texture cpuTexture = Graphics::Cpu::Texture::Create(std::move(image));
 
 		Texture asset(
-			Graphics::Cpu::Texture::Create(std::move(image)),
-			std::move(glResult).value(),
-			std::move(cudaResult).value());
+			std::move(cpuTexture),
+			std::move(glTexture),
+			std::move(cudaTexture));
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		return handle.value();
@@ -308,15 +259,10 @@ namespace Core::Assets
 		if (cached)
 			return cached.value();
 
-		auto glResult = Graphics::Gl::Mesh::Create(mesh);
-		if (!glResult)
-			return std::unexpected(Utils::Error(
-				std::make_shared<Utils::Error>(glResult.error()),
-				"Failed to create GL mesh, obj path: {}",
-				objPath.absolute.generic_string()));
+		CORE_TRY_CONTEXT(glMesh, Graphics::Gl::Mesh::Create(mesh), "Failed to create GL mesh, obj path: {}", objPath.absolute.generic_string());
+		Graphics::Cpu::Mesh cpuMesh = Graphics::Cpu::Mesh::Create(std::move(mesh));
 
-		Mesh asset(Graphics::Cpu::Mesh::Create(std::move(mesh)), std::move(glResult.value()));
-
+		Mesh asset(std::move(cpuMesh), std::move(glMesh));
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		return handle.value();
 	}
@@ -449,40 +395,33 @@ namespace Core::Assets
 		if (cached)
 			return cached.value();
 
-		auto parsedResult = Import::LoadObj(resolved.absolute);
-		if (!parsedResult)
-			return std::unexpected(Utils::Error(std::move(parsedResult).error()));
-
-		Import::ParsedModel parsed = std::move(parsedResult.value());
-		auto defaultMat = ImportDefaultMaterial();
-		if (!defaultMat)
-			return std::unexpected(defaultMat.error());
+		CORE_TRY_CONTEXT(parsed, Import::LoadObj(resolved.absolute), "Failed to parse OBJ file, file path: {}", absoluteStr);
+		CORE_TRY(defaultMaterial, ImportDefaultMaterial());
 
 		Model model{};
 		model.parts.reserve(parsed.meshes.size());
 
 		for (auto& mesh : parsed.meshes)
 		{
-			Handle<Material> materialHandle = defaultMat.value();
+			Handle<Material> materialHandle = defaultMaterial;
 
 			if (mesh.materialIndex)
 			{
 				if (*mesh.materialIndex >= parsed.materials.size())
 					return std::unexpected(Utils::Error("Invalid material index {}, file path: {}", *mesh.materialIndex, absoluteStr));
 
-				auto handleResult = ImportMaterial(resolved, parsed.materials[*mesh.materialIndex]);
-				if (!handleResult)
-					return std::unexpected(handleResult.error());
+				CORE_TRY_CONTEXT(
+					importedMaterial, 
+					ImportMaterial(resolved, parsed.materials[*mesh.materialIndex]), 
+					"Failed to import material for mesh {}, file path: {}", mesh.index, absoluteStr);
 
-				materialHandle = handleResult.value();
+				materialHandle = importedMaterial;
 			}
 
-			auto meshHandle = ImportMesh(resolved, std::move(mesh), mesh.index);
-			if (!meshHandle)
-				return std::unexpected(meshHandle.error());
+			CORE_TRY_CONTEXT(meshHandle, ImportMesh(resolved, std::move(mesh), mesh.index), "Failed to import mesh {}, file path: {}", mesh.index, absoluteStr);
 
 			model.parts.push_back(ModelPart{
-				.mesh = meshHandle.value(),
+				.mesh = meshHandle,
 				.material = materialHandle
 			});
 		}
@@ -493,13 +432,10 @@ namespace Core::Assets
 
 	std::expected<Handle<EnvironmentMap>, Utils::Error> Manager::ImportEnvironmentMap(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
 	{
-		auto pathResult = Utils::Path::ResolvePath(path, m_Root);
-		if (!pathResult)
-			return std::unexpected(std::move(pathResult).error());
-		Utils::Path::ResolvedPath resolved = std::move(pathResult).value();
+		CORE_TRY(resolvedPath, Utils::Path::ResolvePath(path, m_Root));
 
-		std::string absoluteStr = resolved.absolute.generic_string();
-		std::string relativeStr = resolved.relative.generic_string();
+		std::string absoluteStr = resolvedPath.absolute.generic_string();
+		std::string relativeStr = resolvedPath.relative.generic_string();
 
 		Source source = SourcePath{ relativeStr };
 		Subkey subkey = SubkeyNone{};
@@ -508,49 +444,25 @@ namespace Core::Assets
 		if (cached)
 			return cached.value();
 
-		std::filesystem::path backgroundPath = resolved.absolute / std::string(BackgroundFile);
-		std::filesystem::path irradiancePath = resolved.absolute / std::string(IrradianceDir);
-		std::filesystem::path prefilteredPath = resolved.absolute / std::string(PrefilteredDir);
-		std::filesystem::path skyboxPath = resolved.absolute / std::string(SkyboxDir);
+		std::filesystem::path backgroundPath = resolvedPath.absolute / std::string(BackgroundFile);
+		std::filesystem::path irradiancePath = resolvedPath.absolute / std::string(IrradianceDir);
+		std::filesystem::path prefilteredPath = resolvedPath.absolute / std::string(PrefilteredDir);
+		std::filesystem::path skyboxPath = resolvedPath.absolute / std::string(SkyboxDir);
 
-		auto backgroundResult = Import::LoadImage(backgroundPath, colorSpace);
-		if (!backgroundResult)
-			return std::unexpected(Utils::Error(
-				std::make_shared<Utils::Error>(backgroundResult.error()), 
-				"Failed to load environment background, file path: {}", 
-				backgroundPath.string()));
-
-		Import::Image backgroundImage = std::move(backgroundResult.value());
+		CORE_TRY_CONTEXT(backgroundImage, Import::LoadImage(backgroundPath, colorSpace), "Failed to load environment background, file path: {}", backgroundPath.string());
 
 		if (!IsHdrTexture(backgroundImage.format))
 			return std::unexpected(Utils::Error(
 				"Environment background must be HDR (Float16/Float32), file path: {}", 
 				backgroundPath.string()));
 
-		auto skybox = LoadCubemapTexture(skyboxPath, colorSpace);
-		if (!skybox)
-			return std::unexpected(Utils::Error(
-				std::make_shared<Utils::Error>(skybox.error()), 
-				"Failed to load skybox cubemap, dir: {}", 
-				skyboxPath.string()));
-
-		auto irradiance = LoadCubemapTexture(irradiancePath, colorSpace);
-		if (!irradiance)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(
-				irradiance.error()), 
-				"Failed to load irradiance cubemap, dir: {}", 
-				irradiancePath.string()));
-
-		auto prefiltered = LoadCubemapTexture(prefilteredPath, colorSpace);
-		if (!prefiltered)
-			return std::unexpected(Utils::Error(std::make_shared<Utils::Error>(
-				prefiltered.error()), 
-				"Failed to load prefiltered cubemap, dir: {}", 
-				prefilteredPath.string()));
-
+		CORE_TRY_CONTEXT(skybox, LoadCubemapTexture(skyboxPath, colorSpace), "Failed to load skybox cubemap, dir: {}", skyboxPath.string());
+		CORE_TRY_CONTEXT(irradiance, LoadCubemapTexture(irradiancePath, colorSpace), "Failed to load irradiance cubemap, dir: {}", irradiancePath.string());
+		CORE_TRY_CONTEXT(prefiltered, LoadCubemapTexture(prefilteredPath, colorSpace), "Failed to load prefiltered cubemap, dir: {}", prefilteredPath.string());
+		
 		EnvironmentMap asset(
 			Graphics::Cpu::EnvironmentMap::Create(Graphics::Cpu::Texture::Create(std::move(backgroundImage))),
-			Graphics::Gl::EnvironmentMap(std::move(skybox.value()), std::move(irradiance.value()), std::move(prefiltered.value())),
+			Graphics::Gl::EnvironmentMap(std::move(skybox), std::move(irradiance), std::move(prefiltered)),
 			Graphics::Cuda::EnvironmentMap{}
 		);
 
@@ -558,8 +470,7 @@ namespace Core::Assets
 		return handle.value();
 	}
 
-	std::expected<Handle<ShaderProgram>, Utils::Error> Manager::ImportShaderProgram(
-		std::span<std::pair<std::filesystem::path, Graphics::Gl::ShaderType>> shaderPaths)
+	std::expected<Handle<ShaderProgram>, Utils::Error> Manager::ImportShaderProgram(std::span<std::pair<std::filesystem::path, Graphics::Gl::ShaderType>> shaderPaths)
 	{
 		
 		std::ranges::sort(shaderPaths, [](const auto& a, const auto& b)
@@ -573,12 +484,9 @@ namespace Core::Assets
 		
 		for (const auto& [path, shaderType] : shaderPaths)
 		{
-			auto pathResult = Utils::Path::ResolvePath(path, m_Root);
-			if (!pathResult)
-				return std::unexpected(std::move(pathResult).error());
-			auto resolved = std::move(pathResult).value();
-			combinedPaths += resolved.relative.generic_string() + ";";
-			resolvedShaderPaths.emplace_back(std::move(resolved), shaderType);
+			CORE_TRY(resolvedPath, Utils::Path::ResolvePath(path, m_Root));
+			combinedPaths += resolvedPath.relative.generic_string() + ";";
+			resolvedShaderPaths.emplace_back(std::move(resolvedPath), shaderType);
 		}
 		
 		Source source = SourcePath{ combinedPaths };
@@ -591,21 +499,14 @@ namespace Core::Assets
 		shaders.reserve(shaderPaths.size());
 		for (const auto& [path, shaderType] : resolvedShaderPaths)
 		{
-			auto loadedShader = Import::LoadShader(path.absolute, shaderType);
-			if (!loadedShader)
-				return std::unexpected(Utils::Error(std::move(loadedShader).error()));
-
-			auto shader = Graphics::Gl::Shader::Create(std::move(loadedShader).value());
-			if (!shader)
-				return std::unexpected(Utils::Error(std::move(shader).error()));
-			shaders.emplace_back(std::move(shader).value());
+			CORE_TRY_CONTEXT(shaderSource, Import::LoadShader(path.absolute, shaderType), "Failed to load shader, file path: {}", path.absolute.string());
+			CORE_TRY_CONTEXT(shader, Graphics::Gl::Shader::Create(std::move(shaderSource)), "Failed to create shader, file path: {}", path.absolute.string());
+			shaders.emplace_back(std::move(shader));
 		}
 
-		auto program = Graphics::Gl::ShaderProgram::Create(shaders);
-		if (!program)
-			return std::unexpected(Utils::Error(std::move(program).error()));
+		CORE_TRY_CONTEXT(program, Graphics::Gl::ShaderProgram::Create(shaders), "Failed to create shader program");
 
-		ShaderProgram programAsset(std::move(program).value());
+		ShaderProgram programAsset(std::move(program));
 		return m_Storage.Emplace(source, subkey, std::move(programAsset));
 	}
 }

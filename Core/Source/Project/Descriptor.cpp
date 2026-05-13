@@ -20,15 +20,13 @@ namespace Core::Project
 			));
 		}
 
-		auto configResult = Config::LoadFromYAML(absoluteConfigPath);
-		if (!configResult)
-			return std::unexpected(Utils::Error(std::move(configResult).error()));
+		CORE_TRY_CONTEXT(config, Config::LoadFromYAML(absoluteConfigPath), "Failed to load project config");
 
-		Descriptor descriptor(absoluteConfigPath.parent_path(), std::move(configResult).value());
-		auto normalizedContent = Utils::Path::NormalizeRelativePath(descriptor.m_Config.contentDirectory);
-		if (!normalizedContent)
-			return std::unexpected(Utils::Error(std::move(normalizedContent).error()));
-		descriptor.m_Config.contentDirectory = std::move(normalizedContent).value();
+		Descriptor descriptor(absoluteConfigPath.parent_path(), std::move(config));
+		CORE_TRY_CONTEXT(normalizedContentPath, Utils::Path::NormalizeRelativePath(descriptor.m_Config.contentDirectory), "Failed to normalize project content directory path");
+		
+		descriptor.m_Config.contentDirectory = std::move(normalizedContentPath);
+
 		if (!std::filesystem::is_directory(descriptor.GetRootPath()))
 			return std::unexpected(Utils::Error("Project root directory '{}' does not exist!", descriptor.GetRootPath().string()));
 		if (!std::filesystem::is_directory(descriptor.GetContentPath()))

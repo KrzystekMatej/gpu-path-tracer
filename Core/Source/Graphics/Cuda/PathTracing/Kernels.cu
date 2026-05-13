@@ -371,7 +371,6 @@ namespace Core::Graphics::Cuda::Kernels
 				break;
 			}
 			case GlobalShadingModel::Diffuse:
-			case GlobalShadingModel::Phong:
 			case GlobalShadingModel::Ggx:
 			{
 				Triangle triangle = Memory::At(triangles, hitData.triangle);
@@ -439,6 +438,28 @@ namespace Core::Graphics::Cuda::Kernels
 				ray.tMin = PathTracerDefaults::MinT;
 				ray.tMax = PathTracerDefaults::MaxT;
 				contribution.throughput *= reflectance;
+				break;
+			}
+			case GlobalShadingModel::Phong:
+			{
+				Triangle triangle = Memory::At(triangles, hitData.triangle);
+
+				float b0 = 1.0f - hitData.u - hitData.v;
+				float b1 = hitData.u;
+				float b2 = hitData.v;
+				float2 uv =
+					b0 * triangle.vertices[0].uv +
+					b1 * triangle.vertices[1].uv +
+					b2 * triangle.vertices[2].uv;
+
+				Ray& ray = Memory::At(pathPool.rays, hitData.path);
+				float3 normal = GetShadingNormal(
+						triangle,
+						Memory::Sample(material.normal, uv.x, uv.y),
+						b0,
+						b1,
+						b2);
+				
 				break;
 			}
 			case GlobalShadingModel::Emissive:
@@ -648,7 +669,7 @@ namespace Core::Graphics::Cuda::Kernels
 		DeviceCamera camera, 
 		uint32_t width, 
 		uint32_t height, 
-		uint32_t sampleGridSize, 
+		uint32_t sampleGridSize,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{

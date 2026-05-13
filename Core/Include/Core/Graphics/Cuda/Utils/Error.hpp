@@ -9,21 +9,31 @@ namespace Core::Graphics::Cuda::Utils
     Core::Utils::Error MakeCudaError(const char* operation, cudaError_t error);
 }
 
-#define CORE_CUDA_TRY_KERNEL(operation, ...)                            \
-	do {                                                                \
-		__VA_ARGS__;                                                     \
-		                                                                 \
-		cudaError_t core_cuda_launch_error = cudaGetLastError();         \
-		if (core_cuda_launch_error != cudaSuccess) {                    \
-			return std::unexpected(                                      \
-				Utils::MakeCudaError((operation), core_cuda_launch_error) \
-			);                                                           \
-		}                                                               \
-		                                                                 \
-		cudaError_t core_cuda_execution_error = cudaDeviceSynchronize(); \
-		if (core_cuda_execution_error != cudaSuccess) {                 \
-			return std::unexpected(                                      \
-				Utils::MakeCudaError((operation), core_cuda_execution_error) \
-			);                                                           \
-		}                                                               \
+#define CORE_CUDA_TRY(operation, cuda_expression)                           \
+	do {                                                                	\
+		cudaError_t core_cuda_error = (cuda_expression);         			\
+		if (core_cuda_error != cudaSuccess) {                    			\
+			return std::unexpected(                                      	\
+				Utils::MakeCudaError((operation), core_cuda_error) 			\
+			);                                                           	\
+		}                                                               	\
+	} while (false)
+
+#define CORE_CUDA_TRY_KERNEL(operation, ...)                            	\
+	do {                                                                	\
+		__VA_ARGS__;                                                     	\
+		                                                                 	\
+		cudaError_t core_cuda_launch_error = cudaGetLastError();         	\
+		if (core_cuda_launch_error != cudaSuccess) {                    	\
+			return std::unexpected(                                      	\
+				Utils::MakeCudaError((operation), core_cuda_launch_error) 	\
+			);                                                           	\
+		}                                                               	\
+		                                                                 	\
+		cudaError_t core_cuda_execution_error = cudaDeviceSynchronize(); 	\
+		if (core_cuda_execution_error != cudaSuccess) {                 	\
+			return std::unexpected(                                      	\
+				Utils::MakeCudaError((operation), core_cuda_execution_error)\
+			);                                                           	\
+		}                                                               	\
 	} while (false)

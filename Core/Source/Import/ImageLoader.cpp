@@ -85,17 +85,7 @@ namespace Core::Import
 		for (size_t i = 0; i < mipPaths.size(); i++)
 		{
 			auto& path = mipPaths[i];
-			auto imageResult = LoadImage(path, colorSpace);
-			if (!imageResult)
-			{
-				return std::unexpected(Utils::Error(
-						"Failed to load mip level {}, error: {}, file path: {}",
-						i,
-						imageResult.error().Message(),
-						path.string()));
-			}
-
-			Image image = std::move(imageResult.value());
+			CORE_TRY_CONTEXT(image, LoadImage(path, colorSpace), "Failed to load mip level {}, file path: {}", i, path.string());
 
 			if (i == 0)
 			{
@@ -233,49 +223,39 @@ namespace Core::Import
 		{
 			const auto& path = facePaths[i];
 
-			auto imageResult = LoadImage(path, colorSpace);
-			if (!imageResult)
-			{
-				return std::unexpected(Utils::Error(
-					"Failed to load cubemap face {}, error: {}, file path: {}",
-					std::string(cubemapFaceNames[i]),
-					imageResult.error().Message(),
-					path.string()));
-			}
+			CORE_TRY_CONTEXT(image, LoadImage(path, colorSpace), "Failed to load cubemap face {}, file path: {}", std::string(cubemapFaceNames[i]), path.string());
 
-			Image img = std::move(imageResult.value());
-
-			if (img.width != img.height)
+			if (image.width != image.height)
 			{
 				return std::unexpected(Utils::Error(
 					"Cubemap face {} is not square, got {}x{}, file path: {}",
 					std::string(cubemapFaceNames[i]),
-					img.width,
-					img.height,
+					image.width,
+					image.height,
 					path.string()));
 			}
 
 			if (!initialized)
 			{
-				result.size = img.width;
-				result.format = img.format;
+				result.size = image.width;
+				result.format = image.format;
 				initialized = true;
 			}
 			else
 			{
-				if (img.width != result.size || img.height != result.size)
+				if (image.width != result.size || image.height != result.size)
 				{
 					return std::unexpected(Utils::Error(
 						"Cubemap face {} has invalid dimensions, expected {}x{}, but got {}x{}, file path: {}",
 						std::string(cubemapFaceNames[i]),
 						result.size,
 						result.size,
-						img.width,
-						img.height,
+						image.width,
+						image.height,
 						path.string()));
 				}
 
-				if (img.format != result.format)
+				if (image.format != result.format)
 				{
 					return std::unexpected(Utils::Error(
 						"Cubemap face {} pixel format mismatch, file path: {}",
@@ -284,7 +264,7 @@ namespace Core::Import
 				}
 			}
 
-			result.faces[i] = std::move(img.data);
+			result.faces[i] = std::move(image.data);
 		}
 
 		return result;
@@ -470,38 +450,28 @@ namespace Core::Import
 			const uint32_t level = levelIndices[i];
 			const auto& e = levels[level];
 
-			auto cubemapResult = LoadCubemapFromFiles(e.faces, colorSpace);
-			if (!cubemapResult)
-			{
-				return std::unexpected(Utils::Error(
-					"Failed to load cubemap mip level {}, error: {}, folder path: {}",
-					level,
-					cubemapResult.error().Message(),
-					folderPath.string()));
-			}
-
-			Cubemap cm = std::move(cubemapResult.value());
+			CORE_TRY_CONTEXT(cubemap, LoadCubemapFromFiles(e.faces, colorSpace), "Failed to load cubemap mip level {}, folder path: {}", level, folderPath.string());
 
 			if (i == 0)
 			{
-				chain.format = cm.format;
-				expectedSize = cm.size;
+				chain.format = cubemap.format;
+				expectedSize = cubemap.size;
 			}
 			else
 			{
 				expectedSize = std::max(1u, expectedSize / 2);
 
-				if (cm.size != expectedSize)
+				if (cubemap.size != expectedSize)
 				{
 					return std::unexpected(Utils::Error(
 						"Invalid cubemap mip level {}, expected size {}, but got {}, folder path: {}",
 						level,
 						expectedSize,
-						cm.size,
+						cubemap.size,
 						folderPath.string()));
 				}
 
-				if (cm.format != chain.format)
+				if (cubemap.format != chain.format)
 				{
 					return std::unexpected(Utils::Error(
 						"Invalid cubemap mip level {}, pixel format mismatch, folder path: {}",
@@ -511,8 +481,8 @@ namespace Core::Import
 			}
 
 			CubemapMip mip{};
-			mip.size = cm.size;
-			mip.faces = std::move(cm.faces);
+			mip.size = cubemap.size;
+			mip.faces = std::move(cubemap.faces);
 			chain.mipMaps.push_back(std::move(mip));
 		}
 
