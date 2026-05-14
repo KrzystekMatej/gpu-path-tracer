@@ -78,9 +78,7 @@ namespace Core::Graphics::Gl
 		const Texture& albedo;
 		const Texture& specular;
 		const Texture& shininess;
-		const Texture& roughness;
-		const Texture& metallic;
-		const Texture& ao;
+		const Texture& rma;
 		const Texture& normal;
 		const Texture& emission;
 	};

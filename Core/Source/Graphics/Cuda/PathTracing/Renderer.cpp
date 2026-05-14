@@ -58,9 +58,7 @@ namespace Core::Graphics::Cuda
                         .albedo = storage.Get(materialAsset.albedo).value().get().cuda.GetView<float4>(),
                         .specular = storage.Get(materialAsset.specular).value().get().cuda.GetView<float4>(),
                         .shininess = storage.Get(materialAsset.shininess).value().get().cuda.GetView<float>(),
-                        .roughness = storage.Get(materialAsset.roughness).value().get().cuda.GetView<float>(),
-                        .metallic = storage.Get(materialAsset.metallic).value().get().cuda.GetView<float>(),
-                        .ao = storage.Get(materialAsset.ao).value().get().cuda.GetView<float>(),
+                        .rma = storage.Get(materialAsset.rma).value().get().cuda.GetView<float4>(),
                         .emission = storage.Get(materialAsset.emission).value().get().cuda.GetView<float4>(),
                         .normal = storage.Get(materialAsset.normal).value().get().cuda.GetView<float4>(),
                     });

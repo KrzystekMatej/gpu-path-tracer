@@ -8,6 +8,7 @@
 
 int main()
 {
+	spdlog::set_level(spdlog::level::trace);
 	std::filesystem::path projectConfigPath = "project-config.yaml";
 
 	auto appResult = Core::Runtime::Application::Create

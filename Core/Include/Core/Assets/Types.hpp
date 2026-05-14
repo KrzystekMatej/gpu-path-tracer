@@ -56,18 +56,14 @@ namespace Core::Assets
             Handle<Texture> albedo,
             Handle<Texture> specular,
             Handle<Texture> shininess,
-            Handle<Texture> roughness,
-            Handle<Texture> metallic,
-            Handle<Texture> ao,
+            Handle<Texture> rma,
             Handle<Texture> emission,
             Handle<Texture> normal)
             : surface(surface),
               albedo(albedo),
               specular(specular),
               shininess(shininess),
-              roughness(roughness),
-              metallic(metallic),
-              ao(ao),
+              rma(rma),
               emission(emission),
               normal(normal) {}
 
@@ -75,9 +71,7 @@ namespace Core::Assets
         Handle<Texture> albedo;
         Handle<Texture> specular;
         Handle<Texture> shininess;
-        Handle<Texture> roughness;
-        Handle<Texture> metallic;
-        Handle<Texture> ao;
+        Handle<Texture> rma;
         Handle<Texture> emission;
         Handle<Texture> normal;
     };

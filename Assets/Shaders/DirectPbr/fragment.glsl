@@ -10,9 +10,7 @@ layout(location = 0) out vec4 fragment_color;
 uniform vec3 camera_position;
 
 uniform sampler2D albedo_texture;
-uniform sampler2D roughness_texture;
-uniform sampler2D metallic_texture;
-uniform sampler2D ao_texture;
+uniform sampler2D rma_texture;
 uniform sampler2D normal_texture;
 
 const int LIGHT_LIMIT = 10;
@@ -113,10 +111,11 @@ void main()
     vec3 R = reflect(-V, N);
 
     vec3 albedo = texture(albedo_texture, fragment_uv).rgb;
-    float roughness = texture(roughness_texture, fragment_uv).r;
-    float metallic = texture(metallic_texture, fragment_uv).r;
-    float ao = texture(ao_texture, fragment_uv).r;
-
+    vec3 rma = texture(rma_texture, fragment_uv).rgb;
+    float roughness = rma.r;
+    float metallic = rma.g;
+    float ao = rma.b;
+    
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
 

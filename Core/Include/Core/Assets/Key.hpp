@@ -42,6 +42,8 @@ namespace Core::Assets
         Source source;
         Subkey subkey;
         AssetType type;
+
+        std::string ToString() const;
     };
 
     Utils::Guid MakeAssetId(const Key& key);

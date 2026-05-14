@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
 #include <cstddef>
+#include <string>
+#include <string_view>
 
 namespace Core::Graphics
 {
@@ -23,6 +25,41 @@ namespace Core::Graphics
 		Linear,
 		SRGB,
 	};
+	
+	[[nodiscard]] constexpr std::string_view ToString(ChannelLayout value) noexcept
+	{
+		switch (value)
+		{
+			case ChannelLayout::R:    return "R";
+			case ChannelLayout::RGB:  return "RGB";
+			case ChannelLayout::RGBA: return "RGBA";
+		}
+
+		return "Unknown";
+	}
+
+	[[nodiscard]] constexpr std::string_view ToString(ComponentType value) noexcept
+	{
+		switch (value)
+		{
+			case ComponentType::UInt8:   return "UInt8";
+			case ComponentType::Float16: return "Float16";
+			case ComponentType::Float32: return "Float32";
+		}
+
+		return "Unknown";
+	}
+
+	[[nodiscard]] constexpr std::string_view ToString(ColorSpace value) noexcept
+	{
+		switch (value)
+		{
+			case ColorSpace::Linear: return "Linear";
+			case ColorSpace::SRGB:   return "SRGB";
+		}
+
+		return "Unknown";
+	}
 
 	struct PixelFormat
 	{
@@ -47,6 +84,8 @@ namespace Core::Graphics
 				case ComponentType::Float32:
 					return 4;
 			}
+
+			return 0;
 		}
 
 		uint32_t GetBytesPerPixel() const
@@ -55,5 +94,12 @@ namespace Core::Graphics
 		}
 
 		bool operator==(const PixelFormat&) const = default;
+
+		std::string ToString() const
+		{
+			return std::string(Core::Graphics::ToString(layout)) + "_" +
+           		std::string(Core::Graphics::ToString(componentType)) + "_" +
+           		std::string(Core::Graphics::ToString(colorSpace));
+		}
 	};
 }

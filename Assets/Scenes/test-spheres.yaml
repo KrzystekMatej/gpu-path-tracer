@@ -23,41 +23,29 @@ scene:
           translation: [-10.0, 10.0, 10.0]
           euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
-        - type: Light
-          color: [1.0, 1.0, 1.0]
-          intensity: 1000.0
         - type: Model
-          path: Models/Spheres/Gold/mesh.obj
+          path: Models/Spheres/Light/mesh.obj
     - components:
         - type: Transform
           translation: [10.0, 10.0, 10.0]
           euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
-        - type: Light
-          color: [1.0, 1.0, 1.0]
-          intensity: 1000.0
         - type: Model
-          path: Models/Spheres/Gold/mesh.obj
+          path: Models/Spheres/Light/mesh.obj
     - components:
         - type: Transform
           translation: [-10.0, -10.0, 10.0]
           euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
-        - type: Light
-          color: [1.0, 1.0, 1.0]
-          intensity: 1000.0
         - type: Model
-          path: Models/Spheres/Gold/mesh.obj
+          path: Models/Spheres/Light/mesh.obj
     - components:
         - type: Transform
           translation: [10.0, -10.0, 10.0]
           euler-degrees: [0.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
-        - type: Light
-          color: [1.0, 1.0, 1.0]
-          intensity: 1000.0
         - type: Model
-          path: Models/Spheres/Gold/mesh.obj
+          path: Models/Spheres/Light/mesh.obj
     # Background
     - components:
         - type: Background

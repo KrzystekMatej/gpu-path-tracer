@@ -38,17 +38,17 @@ namespace Core::Assets
         }
 
         template<Asset T>
-        std::expected<std::reference_wrapper<const T>, Utils::Error> Get(Handle<T> handle) const
+        std::expected<std::reference_wrapper<T>, Utils::Error> Get(Handle<T> handle) const
         {
             auto it = m_Storage.find(handle.m_Id);
             if (it == m_Storage.end())
                 return std::unexpected(Utils::Error("Asset not found"));
 
-            return std::cref(static_cast<const T&>(*it->second.value));
+            return std::ref(static_cast<T&>(*it->second.value));
         }
 
         template<Asset T>
-        std::expected<std::reference_wrapper<const T>, Utils::Error> GetByKey(const Source& source, const Subkey& subkey) const
+        std::expected<std::reference_wrapper<T>, Utils::Error> GetByKey(const Source& source, const Subkey& subkey) const
         {
             const Utils::Guid id = MakeAssetId(Key{ source, subkey, T::Type });
             return Get<T>(Handle<T>(id));
@@ -57,7 +57,9 @@ namespace Core::Assets
         template<Asset T>
         std::expected<Handle<T>, Utils::Error> Emplace(const Source& source, const Subkey& subkey, T&& asset)
         {
-            const Utils::Guid id = MakeAssetId(Key{ source, subkey, T::Type });
+            Key key = { source, subkey, T::Type };
+            spdlog::trace("Emplacing asset with key: {}", key.ToString());
+            const Utils::Guid id = MakeAssetId(key);
 
             if (m_Storage.contains(id))
                 return std::unexpected(Utils::Error("Asset already exists"));

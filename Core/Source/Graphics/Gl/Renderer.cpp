@@ -126,12 +126,10 @@ namespace Core::Graphics::Gl
         {
 			case LocalShadingModel::Unlit:
 			{
-				const ShaderProgram& program = context.storage.Get(m_Unlit).value().get().program;
+				ShaderProgram& program = context.storage.Get(m_Unlit).value().get().program;
 				program.Bind();
 
-				glActiveTexture(GL_TEXTURE0);
-				context.material.albedo.Bind();
-				program.SetInt32("albedo_texture", 0);
+				program.SetTexture("albedo_texture", context.material.albedo);
 
 				program.SetMatrix4x4("pvm_matrix", pvm);
 				program.SetMatrix4x4("model_matrix", context.model);
@@ -142,12 +140,10 @@ namespace Core::Graphics::Gl
 			}
 			case LocalShadingModel::Normal:
 			{
-				const ShaderProgram& program = context.storage.Get(m_Normal).value().get().program;
+				ShaderProgram& program = context.storage.Get(m_Normal).value().get().program;
 				program.Bind();
 
-				glActiveTexture(GL_TEXTURE0);
-				context.material.normal.Bind();
-				program.SetInt32("normal_texture", 0);
+				program.SetTexture("normal_texture", context.material.normal);
 
 				program.SetMatrix4x4("pvm_matrix", pvm);
 				program.SetMatrix4x4("model_matrix", context.model);
@@ -159,15 +155,12 @@ namespace Core::Graphics::Gl
 			}
 			case LocalShadingModel::Lambert:
 			{
-				const ShaderProgram& program = context.storage.Get(m_Lambert).value().get().program;
+				ShaderProgram& program = context.storage.Get(m_Lambert).value().get().program;
 
 				program.Bind();
-				glActiveTexture(GL_TEXTURE0);
-				context.material.albedo.Bind();
-				program.SetInt32("albedo_texture", 0);
-				glActiveTexture(GL_TEXTURE0 + 1);
-				context.material.normal.Bind();
-				program.SetInt32("normal_texture", 1);
+
+				program.SetTexture("albedo_texture", context.material.albedo);
+				program.SetTexture("normal_texture", context.material.normal);
 
 				program.SetMatrix4x4("pvm_matrix", pvm);
 				program.SetMatrix4x4("model_matrix", context.model);
@@ -188,21 +181,14 @@ namespace Core::Graphics::Gl
 			}
 			case LocalShadingModel::Phong:
 			{
-				const ShaderProgram& program = context.storage.Get(m_Phong).value().get().program;
+				ShaderProgram& program = context.storage.Get(m_Phong).value().get().program;
 
 				program.Bind();
-				glActiveTexture(GL_TEXTURE0);
-				context.material.albedo.Bind();
-				program.SetInt32("albedo_texture", 0);
-				glActiveTexture(GL_TEXTURE0 + 1);
-				context.material.specular.Bind();
-				program.SetInt32("specular_texture", 1);
-				glActiveTexture(GL_TEXTURE0 + 2);
-				context.material.shininess.Bind();
-				program.SetInt32("shininess_texture", 2);
-				glActiveTexture(GL_TEXTURE0 + 3);
-				context.material.normal.Bind();
-				program.SetInt32("normal_texture", 3);
+				
+				program.SetTexture("albedo_texture", context.material.albedo);
+				program.SetTexture("specular_texture", context.material.specular);
+				program.SetTexture("shininess_texture", context.material.shininess);
+				program.SetTexture("normal_texture", context.material.normal);
 
 				program.SetMatrix4x4("pvm_matrix", pvm);
 				program.SetMatrix4x4("model_matrix", context.model);
@@ -224,21 +210,15 @@ namespace Core::Graphics::Gl
 			}
 			case LocalShadingModel::Pbr:
 			{
-				const ShaderProgram* program = nullptr;
+				ShaderProgram* program = nullptr;
 				if (context.environmentMap)
 				{
 					program = &context.storage.Get(m_FullPbr).value().get().program;
 					program->Bind();
-					
-					glActiveTexture(GL_TEXTURE0 + 5);
-					context.environmentMap->GetIrradianceMap().Bind();
-					program->SetInt32("irradiance_map", 5);
-					glActiveTexture(GL_TEXTURE0 + 6);
-					context.environmentMap->GetPrefilteredMap().Bind();
-					program->SetInt32("prefiltered_map", 6);
-					glActiveTexture(GL_TEXTURE0 + 7);
-					m_BrdfMap.Bind();
-					program->SetInt32("brdf_map", 7);
+
+					program->SetTexture("irradiance_map", context.environmentMap->GetIrradianceMap());
+					program->SetTexture("prefiltered_map", context.environmentMap->GetPrefilteredMap());
+					program->SetTexture("brdf_map", m_BrdfMap);
 				}
 				else
 				{
@@ -246,21 +226,9 @@ namespace Core::Graphics::Gl
 					program->Bind();
 				}
 
-				glActiveTexture(GL_TEXTURE0);
-				context.material.albedo.Bind();
-				program->SetInt32("albedo_texture", 0);
-				glActiveTexture(GL_TEXTURE0 + 1);
-				context.material.roughness.Bind();
-				program->SetInt32("roughness_texture", 1);
-				glActiveTexture(GL_TEXTURE0 + 2);
-				context.material.metallic.Bind();
-				program->SetInt32("metallic_texture", 2);
-				glActiveTexture(GL_TEXTURE0 + 3);
-				context.material.ao.Bind();
-				program->SetInt32("ao_texture", 3);
-				glActiveTexture(GL_TEXTURE0 + 4);
-				context.material.normal.Bind();
-				program->SetInt32("normal_texture", 4);
+				program->SetTexture("albedo_texture", context.material.albedo);
+				program->SetTexture("rma_texture", context.material.rma);
+				program->SetTexture("normal_texture", context.material.normal);
 
 				program->SetMatrix4x4("pvm_matrix", pvm);
 				program->SetMatrix4x4("model_matrix", context.model);
@@ -281,13 +249,11 @@ namespace Core::Graphics::Gl
 			}
 			case LocalShadingModel::Emissive:
 			{
-				const ShaderProgram& program = context.storage.Get(m_Emissive).value().get().program;
+				ShaderProgram& program = context.storage.Get(m_Emissive).value().get().program;
 				program.Bind();
 
-				glActiveTexture(GL_TEXTURE0);
-				context.material.emission.Bind();
-				program.SetInt32("emission_texture", 0);
-
+				program.SetTexture("emission_texture", context.material.emission);
+				
 				program.SetMatrix4x4("pvm_matrix", pvm);
 
 				context.mesh.BindVertexArray();
@@ -302,7 +268,7 @@ namespace Core::Graphics::Gl
 	void Renderer::DrawSkybox(const Assets::Storage& storage, const glm::mat4& view, const glm::mat4& projection, const Texture& skybox) const
 	{
 		glDepthFunc(GL_LEQUAL);
-		const ShaderProgram& program = storage.Get(m_Background).value().get().program;
+		ShaderProgram& program = storage.Get(m_Background).value().get().program;
 		program.Bind();
 
 		glActiveTexture(GL_TEXTURE0);

@@ -5,6 +5,7 @@
 #include <tiny_obj_loader.h>
 #include <spdlog/spdlog.h>
 #include <Core/Utils/Math/TangentSpace.hpp>
+#include <Core/Graphics/Common/Material.hpp>
 
 namespace Core::Import
 {
@@ -197,6 +198,7 @@ namespace Core::Import
 
 			std::optional<std::string> normal = source.normal_texname.empty() ? std::nullopt : std::make_optional(source.normal_texname);
 			std::optional<std::string> bump = source.bump_texname.empty() ? std::nullopt : std::make_optional(source.bump_texname);
+			auto rmaIt = source.unknown_parameter.find(RmaTextureKey);
 
 			materials.push_back(ParsedMaterial{
 				.name = source.name,
@@ -204,15 +206,12 @@ namespace Core::Import
 				.albedo = { source.diffuse[0], source.diffuse[1], source.diffuse[2] },
 				.specular = { source.specular[0], source.specular[1], source.specular[2] },
 				.shininess = source.shininess,
-				.roughness = source.roughness,
-				.metallic = source.metallic,
+				.rma = { source.roughness, source.metallic, Graphics::MaterialDefaults::DefaultRma[2] / 255.0f },
 				.emission = { source.emission[0], source.emission[1], source.emission[2] },
 				.albedoTexture = source.diffuse_texname.empty() ? std::nullopt : std::make_optional(source.diffuse_texname),
 				.specularTexture = source.specular_texname.empty() ? std::nullopt : std::make_optional(source.specular_texname),
 				.shininessTexture = source.specular_highlight_texname.empty() ? std::nullopt : std::make_optional(source.specular_highlight_texname),
-				.roughnessTexture = source.roughness_texname.empty() ? std::nullopt : std::make_optional(source.roughness_texname),
-				.metallicTexture = source.metallic_texname.empty() ? std::nullopt : std::make_optional(source.metallic_texname),
-				.aoTexture = source.ambient_texname.empty() ? std::nullopt : std::make_optional(source.ambient_texname),
+				.rmaTexture = rmaIt == source.unknown_parameter.end() || rmaIt->second.empty() ? std::nullopt : std::make_optional(rmaIt->second),
 				.emissionTexture = source.emissive_texname.empty() ? std::nullopt : std::make_optional(source.emissive_texname),
 				.normalTexture = normal ? normal : bump,
 			});

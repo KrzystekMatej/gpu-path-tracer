@@ -321,8 +321,12 @@ namespace Core::Assets
 		std::array<uint8_t, 3> albedoPixel = LinearRgbToSrgbU8(material.albedo);
 		std::array<uint8_t, 3> specularPixel = LinearRgbToSrgbU8(material.specular);
 		std::array<uint8_t, 1> shininessPixel = { NormalizedFloatToU8(NormalizeFloat(material.shininess, Graphics::MaterialDefaults::MinShininess, Graphics::MaterialDefaults::MaxShininess)) };
-		std::array<uint8_t, 1> roughnessPixel = { NormalizedFloatToU8(material.roughness) };
-		std::array<uint8_t, 1> metallicPixel = { NormalizedFloatToU8(material.metallic) };
+		std::array<uint8_t, 3> rmaPixel = {
+			NormalizedFloatToU8(material.rma[0]),
+			NormalizedFloatToU8(material.rma[1]),
+			NormalizedFloatToU8(material.rma[2])
+		};
+
 		std::span<const uint8_t> emissionPixel = {
 			reinterpret_cast<const uint8_t*>(&material.emission[0]),
 			sizeof(material.emission)
@@ -351,17 +355,9 @@ namespace Core::Assets
 			fileOrPixelTexture(material.shininessTexture, {Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, shininessPixel), 
 			"Failed to import shininess texture");
 		CORE_TRY_CONTEXT(
-			roughness, 
-			fileOrPixelTexture(material.roughnessTexture, {Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, roughnessPixel), 
-			"Failed to import roughness texture");
-		CORE_TRY_CONTEXT(
-			metallic, 
-			fileOrPixelTexture(material.metallicTexture, {Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, metallicPixel), 
-			"Failed to import metallic texture");
-		CORE_TRY_CONTEXT(
-			ao, 
-			fileOrPixelTexture(material.aoTexture, {Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, { Graphics::MaterialDefaults::DefaultAo }), 
-			"Failed to import ambient occlusion texture");
+			rma, 
+			fileOrPixelTexture(material.rmaTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, { Graphics::MaterialDefaults::DefaultRma }), 
+			"Failed to import RMA texture");
 		CORE_TRY_CONTEXT(
 			emission, 
 			fileOrPixelTexture(material.emissionTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::Float32, Graphics::ColorSpace::Linear}, emissionPixel), 
@@ -392,9 +388,7 @@ namespace Core::Assets
 			albedo,
 			specular,
 			shininess,
-			roughness,
-			metallic,
-			ao,
+			rma,
 			emission,
 			normal);
 
@@ -442,9 +436,7 @@ namespace Core::Assets
 		CORE_TRY_CONTEXT(albedo, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultAlbedo), "Failed to import albedo texture");
 		CORE_TRY_CONTEXT(specular, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultPhongSpecular), "Failed to import specular texture");
 		CORE_TRY_CONTEXT(shininess, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultShininess), "Failed to import shininess texture");
-		CORE_TRY_CONTEXT(roughness, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultRoughness), "Failed to import roughness texture");
-		CORE_TRY_CONTEXT(metallic, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultMetallic), "Failed to import metallic texture");
-		CORE_TRY_CONTEXT(ao, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultAo), "Failed to import ambient occlusion texture");
+		CORE_TRY_CONTEXT(rma, ImportPixelTexture(rgbLinear, Graphics::MaterialDefaults::DefaultRma), "Failed to import RMA texture");
 		
 		const std::array<float, 3>& emissionDefault = Graphics::MaterialDefaults::DefaultEmission;
 		CORE_TRY_CONTEXT(emission, ImportPixelTexture(rgbLinearHdr, { reinterpret_cast<const uint8_t*>(&emissionDefault[0]), sizeof(emissionDefault) }), "Failed to import emission texture");
@@ -455,9 +447,7 @@ namespace Core::Assets
 			albedo,
 			specular,
 			shininess,
-			roughness,
-			metallic,
-			ao,
+			rma,
 			emission,
 			normal);
 

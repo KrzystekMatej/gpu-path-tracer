@@ -75,9 +75,7 @@ namespace Core::Graphics::Cuda
 		TextureView<float4> albedo;
 		TextureView<float4> specular;
 		TextureView<float> shininess;
-		TextureView<float> roughness;
-		TextureView<float> metallic;
-		TextureView<float> ao;
+		TextureView<float4> rma;
 		TextureView<float4> emission;
 		TextureView<float4> normal;
 	};

@@ -1,5 +1,6 @@
 #include <Core/Assets/Key.hpp>
 #include <Core/Utils/Hash.hpp>
+#include <string>
 
 namespace Core::Assets
 {
@@ -59,5 +60,59 @@ namespace Core::Assets
         HashAppend(hasher, key.source);
         HashAppend(hasher, key.subkey);
         return hasher.Digest();
+    }
+
+    std::string Key::ToString() const
+    {
+        std::string result;
+
+        std::visit([&](const auto& source) {
+            using T = std::decay_t<decltype(source)>;
+            if constexpr (std::is_same_v<T, SourcePath>)
+                result += "Path: " + std::string(source.path);
+            else if constexpr (std::is_same_v<T, SourcePixel>)
+                result += "Pixel: " + source.format.ToString() + ", Data size: " + std::to_string(source.data.size());
+        }, source);
+
+        result += ", ";
+
+        std::visit([&](const auto& subkey) {
+            using T = std::decay_t<decltype(subkey)>;
+            if constexpr (std::is_same_v<T, SubkeyNone>)
+                result += "Subkey: None";
+            else if constexpr (std::is_same_v<T, SubkeyIndex>)
+                result += "Subkey: Index " + std::to_string(subkey.value);
+            else if constexpr (std::is_same_v<T, SubkeyName>)
+                result += "Subkey: Name " + std::string(subkey.name);
+        }, subkey);
+
+        result += ", Type: ";
+
+        switch (type)
+        {
+        case AssetType::Texture:
+            result += "Texture";
+            break;
+        case AssetType::Mesh:
+            result += "Mesh";
+            break;
+        case AssetType::Model:
+            result += "Model";
+            break;
+        case AssetType::Shader:
+            result += "Shader";
+            break;
+        case AssetType::Material:
+            result += "Material";
+            break;
+        case AssetType::EnvironmentMap:
+            result += "EnvironmentMap";
+            break;
+        default:
+            result += "Unknown";
+            break;
+        }
+
+        return result;
     }
 }

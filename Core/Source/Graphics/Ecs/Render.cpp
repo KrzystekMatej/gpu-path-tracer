@@ -54,9 +54,7 @@ namespace Core::Graphics::Ecs
 				.albedo = storage.Get(materialAsset.albedo).value().get().gl,
 				.specular = storage.Get(materialAsset.specular).value().get().gl,
 				.shininess = storage.Get(materialAsset.shininess).value().get().gl,
-				.roughness = storage.Get(materialAsset.roughness).value().get().gl,
-				.metallic = storage.Get(materialAsset.metallic).value().get().gl,
-				.ao = storage.Get(materialAsset.ao).value().get().gl,
+				.rma = storage.Get(materialAsset.rma).value().get().gl,
 				.normal = storage.Get(materialAsset.normal).value().get().gl,
 				.emission = storage.Get(materialAsset.emission).value().get().gl
 			};

@@ -6,6 +6,7 @@
 #include <Core/External/Glm.hpp>
 #include <Core/Utils/Error.hpp>
 #include <Core/Graphics/Gl/Shader.hpp>
+#include <Core/Graphics/Gl/Resources/Texture.hpp>
 
 namespace Core::Graphics::Gl
 {
@@ -18,18 +19,19 @@ namespace Core::Graphics::Gl
 		ShaderProgram& operator=(ShaderProgram&&) noexcept;
 		~ShaderProgram();
 
-		static std::expected<ShaderProgram, Utils::Error> Create(std::span<Shader> shaders);
-		void Bind() const;
+		static std::expected<ShaderProgram, Utils::Error> Create(std::span<const Shader> shaders);
+		void Bind();
 
-		int GetUniformLocation(const std::string& name) const;
-		void SetInt32(const std::string& name, int value) const;
-		void SetUInt32(const std::string& name, unsigned int value) const;
-		void SetFloat(const std::string& name, float value) const;
-		void SetVec2(const std::string& name, const glm::vec2& vec) const;
-		void SetVec3(const std::string& name, const glm::vec3& vec) const;
-		void SetVec4(const std::string& name, const glm::vec4& vec) const;
-		void SetMatrix3x3(const std::string& name, const glm::mat3& mat) const;
-		void SetMatrix4x4(const std::string& name, const glm::mat4& mat) const;
+		int GetUniformLocation(const std::string& name);
+		void SetInt32(const std::string& name, int value);
+		void SetUInt32(const std::string& name, unsigned int value);
+		void SetFloat(const std::string& name, float value);
+		void SetVec2(const std::string& name, const glm::vec2& vec);
+		void SetVec3(const std::string& name, const glm::vec3& vec);
+		void SetVec4(const std::string& name, const glm::vec4& vec);
+		void SetMatrix3x3(const std::string& name, const glm::mat3& mat);
+		void SetMatrix4x4(const std::string& name, const glm::mat4& mat);
+		void SetTexture(const std::string& name, const Texture& texture);
 	private:
 		ShaderProgram();
 		std::expected<void, Utils::Error> Link();
@@ -37,6 +39,7 @@ namespace Core::Graphics::Gl
 		void DetachShader(const Shader& shader);
 
 		uint32_t m_Id = 0;
-		mutable std::unordered_map<std::string, int> m_UniformLocationCache;
+		uint32_t m_TextureUnitCounter = 0;
+		std::unordered_map<std::string, int> m_UniformLocationCache;
 	};
 }
