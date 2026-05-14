@@ -7,6 +7,8 @@
 #include <Core/Graphics/Cuda/Bvh/BvhDefaults.hpp>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
 #include <math_constants.h>
+#include <Core/Graphics/Cuda/Utils/Math.hpp>
+#include <Core/Graphics/Common/Material.hpp>
 
 namespace Core::Graphics::Cuda::Kernels
 {
@@ -266,25 +268,26 @@ namespace Core::Graphics::Cuda::Kernels
 		);
 	}
 
-	__device__ __forceinline__ float3 SampleHemisphereCosineWeighted(float3 normal, curandStatePhilox4_32_10_t& state)
+	__device__ __forceinline__ float3 SampleCosineWeightedHemisphere(float3 normal, curandStatePhilox4_32_10_t& state)
 	{
-		float r1 = curand_uniform(&state);
-		float r2 = curand_uniform(&state);
+		float u1 = curand_uniform(&state);
+		float u2 = curand_uniform(&state);
 
-		float phi = 2.0f * CUDART_PI_F * r1;
-		float cosTheta = sqrtf(1.0f - r2);
-		float sinTheta = sqrtf(r2);
+		float phi = 2.0f * CUDART_PI_F * u1;
+		float cosTheta = sqrtf(u2);
+		float sinTheta = sqrtf(1.0f - u2);
 
-		float3 tangent, bitangent;
+		float3 tangent;
 		if (fabsf(normal.x) > fabsf(normal.z))
 		{
-			tangent = normalize(cross(make_float3(0.0f, 1.0f, 0.0f), normal));
+			tangent = normalize(make_float3(normal.y, -normal.x, 0.0f)); // cross shortcut - n x (0, 0, 1) = ( n.y, -n.x, 0 )
 		}
 		else
 		{
-			tangent = normalize(cross(make_float3(1.0f, 0.0f, 0.0f), normal));
+			tangent = normalize(make_float3(0.0f, normal.z, -normal.y)); // cross shortcut - n x (1, 0, 0) = ( 0, n.z, -n.y )
 		}
-		bitangent = cross(normal, tangent);
+
+		float3 bitangent = cross(normal, tangent);
 
 		return normalize(
 			cosTheta * normal +
@@ -293,32 +296,33 @@ namespace Core::Graphics::Cuda::Kernels
 		);
 	}
 
-	__device__ __forceinline__ float3 SampleHemisphereUniform(float3 normal, curandStatePhilox4_32_10_t& state)
+	__device__ __forceinline__ float3 SamplePhongLobe(float3 axis, float exponent, curandStatePhilox4_32_10_t& state)
 	{
-		float r1 = curand_uniform(&state);
-		float r2 = curand_uniform(&state);
-
-		float phi = 2.0f * CUDART_PI_F * r1;
-		float cosTheta = 1.0f - r2;
+		float u1 = curand_uniform(&state);
+		float u2 = curand_uniform(&state);
+		
+		float phi = 2.0f * CUDART_PI_F * u1;
+		float cosTheta = powf(u2, 1.0f / (exponent + 1.0f));
 		float sinTheta = sqrtf(1.0f - cosTheta * cosTheta);
 
-		float3 tangent, bitangent;
-		if (fabsf(normal.x) > fabsf(normal.z))
+		float3 tangent;
+		if (fabsf(axis.x) > fabsf(axis.z))
 		{
-			tangent = normalize(cross(make_float3(0.0f, 1.0f, 0.0f), normal));
+			tangent = normalize(make_float3(axis.y, -axis.x, 0.0f)); // cross shortcut - n x (0, 0, 1) = ( n.y, -n.x, 0 )
 		}
 		else
 		{
-			tangent = normalize(cross(make_float3(1.0f, 0.0f, 0.0f), normal));
+			tangent = normalize(make_float3(0.0f, axis.z, -axis.y)); // cross shortcut - n x (1, 0, 0) = ( 0, n.z, -n.y )
 		}
-		bitangent = cross(normal, tangent);
 
+		float3 bitangent = cross(axis, tangent);
 		return normalize(
-			cosTheta * normal +
+			cosTheta * axis +
 			sinTheta * cosf(phi) * tangent +
 			sinTheta * sinf(phi) * bitangent
 		);
 	}
+
 
 	__global__ void ResolveHitsKernel(
 		PathPoolView pathPool, 
@@ -371,7 +375,6 @@ namespace Core::Graphics::Cuda::Kernels
 				break;
 			}
 			case GlobalShadingModel::Diffuse:
-			case GlobalShadingModel::Ggx:
 			{
 				Triangle triangle = Memory::At(triangles, hitData.triangle);
 				
@@ -393,7 +396,7 @@ namespace Core::Graphics::Cuda::Kernels
 						b2);
 
 				float4 albedo = Memory::Sample(material.albedo, uv.x, uv.y);
-				float3 omegaI = SampleHemisphereCosineWeighted(normal, Memory::At(pathPool.randoms, hitData.path).state);
+				float3 omegaI = SampleCosineWeightedHemisphere(normal, Memory::At(pathPool.randoms, hitData.path).state);
 																												  
 				float3 geometricNormal = GetGeometricNormal(triangle);
 				if (dot(ray.direction, geometricNormal) > 0.0f)
@@ -447,20 +450,124 @@ namespace Core::Graphics::Cuda::Kernels
 				float b0 = 1.0f - hitData.u - hitData.v;
 				float b1 = hitData.u;
 				float b2 = hitData.v;
+
 				float2 uv =
 					b0 * triangle.vertices[0].uv +
 					b1 * triangle.vertices[1].uv +
 					b2 * triangle.vertices[2].uv;
 
 				Ray& ray = Memory::At(pathPool.rays, hitData.path);
+
+				float3 geometricNormal = GetGeometricNormal(triangle);
+				if (dot(ray.direction, geometricNormal) > 0.0f)
+					geometricNormal = -geometricNormal;
+
 				float3 normal = GetShadingNormal(
-						triangle,
-						Memory::Sample(material.normal, uv.x, uv.y),
-						b0,
-						b1,
-						b2);
-				
+					triangle,
+					Memory::Sample(material.normal, uv.x, uv.y),
+					b0,
+					b1,
+					b2);
+
+				if (dot(normal, geometricNormal) < 0.0f)
+					normal = -normal;
+
+				float4 albedo = Memory::Sample(material.albedo, uv.x, uv.y);
+				float4 specular = Memory::Sample(material.specular, uv.x, uv.y);
+
+				float shininess = Memory::Sample(material.shininess, uv.x, uv.y) * (MaterialDefaults::MaxShininess - MaterialDefaults::MinShininess) + MaterialDefaults::MinShininess;
+				float diffuseWeight = fmaxf(albedo.x, fmaxf(albedo.y, albedo.z));
+				float specularWeight = fmaxf(specular.x, fmaxf(specular.y, specular.z));
+				float weightSum = diffuseWeight + specularWeight;
+
+				if (weightSum <= 0.0f)
+				{
+					pathTerminated = true;
+					break;
+				}
+
+				float diffuseSelectionProbability = diffuseWeight / weightSum;
+				float specularSelectionProbability = 1.0f - diffuseSelectionProbability;
+
+				curandStatePhilox4_32_10_t& randomState = Memory::At(pathPool.randoms, hitData.path).state;
+
+				float3 reflectionDirection = normalize(reflect(ray.direction, normal));
+				float randomValue = curand_uniform(&randomState);
+
+				float3 omegaI;
+				if (randomValue < diffuseSelectionProbability)
+				{
+					omegaI = SampleCosineWeightedHemisphere(normal, randomState);
+				}
+				else
+				{
+					omegaI = SamplePhongLobe(reflectionDirection, shininess, randomState);
+				}
+
+				float cosThetaI = fmaxf(dot(normal, omegaI), 0.0f);
+				float geometricCosThetaI = fmaxf(dot(geometricNormal, omegaI), 0.0f);
+				float cosThetaR = fmaxf(dot(reflectionDirection, omegaI), 0.0f);
+
+				if (cosThetaI <= 0.0f || geometricCosThetaI <= 0.0f)
+				{
+					pathTerminated = true;
+					break;
+				}
+
+				float diffusePdf = cosThetaI / CUDART_PI_F;
+				float specularPdf = ((shininess + 1.0f) / (2.0f * CUDART_PI_F)) * powf(cosThetaR, shininess);
+
+				float pdf =
+					diffuseSelectionProbability * diffusePdf +
+					specularSelectionProbability * specularPdf;
+
+				if (pdf <= 0.0f)
+				{
+					pathTerminated = true;
+					break;
+				}
+
+				float4 diffuseBrdf = albedo / CUDART_PI_F;
+				float4 specularBrdf = specular * ((shininess + 2.0f) / (2.0f * CUDART_PI_F)) * powf(cosThetaR, shininess);
+
+				ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
+				ray.direction = omegaI;
+				ray.tMin = PathTracerDefaults::MinT;
+				ray.tMax = PathTracerDefaults::MaxT;
+
+				contribution.throughput *= (diffuseBrdf + specularBrdf) * (cosThetaI / pdf);
 				break;
+			}
+			case GlobalShadingModel::Ggx:
+			{
+				Triangle triangle = Memory::At(triangles, hitData.triangle);
+
+				float b0 = 1.0f - hitData.u - hitData.v;
+				float b1 = hitData.u;
+				float b2 = hitData.v;
+
+				float2 uv =
+					b0 * triangle.vertices[0].uv +
+					b1 * triangle.vertices[1].uv +
+					b2 * triangle.vertices[2].uv;
+
+				Ray& ray = Memory::At(pathPool.rays, hitData.path);
+
+				float3 geometricNormal = GetGeometricNormal(triangle);
+				if (dot(ray.direction, geometricNormal) > 0.0f)
+					geometricNormal = -geometricNormal;
+
+				float3 normal = GetShadingNormal(
+					triangle,
+					Memory::Sample(material.normal, uv.x, uv.y),
+					b0,
+					b1,
+					b2);
+
+				if (dot(normal, geometricNormal) < 0.0f)
+					normal = -normal;
+
+				
 			}
 			case GlobalShadingModel::Emissive:
 			{
@@ -495,7 +602,9 @@ namespace Core::Graphics::Cuda::Kernels
 		{
 			float alpha = fmaxf(contribution.throughput.x, fmaxf(contribution.throughput.y, contribution.throughput.z));
 			alpha = clamp(alpha, 0.0f, 1.0f);
-			pathTerminated = alpha <= curand_uniform(&Memory::At(pathPool.randoms, hitData.path).state);
+			float u = curand_uniform(&Memory::At(pathPool.randoms, hitData.path).state);
+
+			pathTerminated = alpha < u;
 
 			if (!pathTerminated)
 				Memory::At(pathPool.contributions, hitData.path).throughput = contribution.throughput / alpha;

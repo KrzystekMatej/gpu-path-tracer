@@ -47,6 +47,7 @@ namespace Core::Import
 		};
 
 		const std::string SurfaceModelKey = "surface";
+		const std::string RmaTextureKey = "map_RMA";
 
 		constexpr std::array<std::pair<std::string_view, Graphics::SurfaceModel>, 8> SurfaceModels = {
 			std::pair{ "unlit" , Graphics::SurfaceModel::Unlit},

@@ -123,261 +123,6 @@ namespace Core::Assets
 		return manager;
 	}
 
-	std::expected<Handle<Texture>, Utils::Error> Manager::ImportPixelTexture(const Graphics::PixelFormat& format, std::span<const uint8_t> value)
-	{
-		Source source = SourcePixel{ format, value };
-		Subkey subkey = SubkeyNone{};
-
-		auto cached = m_Storage.GetHandleByKey<Texture>(source, subkey);
-		if (cached)
-			return cached.value();
-
-		Import::Image image{
-			.width = 1,
-			.height = 1,
-			.format = format,
-			.data = std::vector<uint8_t>(value.begin(), value.end())
-		};
-
-		CORE_TRY(glTexture, Graphics::Gl::Texture::Create2D(image));
-		CORE_TRY(cudaTexture, Graphics::Cuda::Texture::Create2D(image));
-
-		Texture asset(
-			Graphics::Cpu::Texture::Create(std::move(image)),
-			std::move(glTexture),
-			std::move(cudaTexture));
-
-		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		return handle.value();
-	}
-
-	std::expected<Handle<Material>, Utils::Error> Manager::ImportDefaultMaterial()
-	{
-		Source source = SourcePath{ DefaultMaterialSource };
-		Subkey subkey = SubkeyNone{};
-
-		auto cached = m_Storage.GetHandleByKey<Material>(source, subkey);
-		if (cached)
-			return cached.value();
-
-		Graphics::PixelFormat rgbSrgb
-		{
-			.layout = Graphics::ChannelLayout::RGB,
-			.componentType = Graphics::ComponentType::UInt8,
-			.colorSpace = Graphics::ColorSpace::SRGB
-		};
-
-		Graphics::PixelFormat rLinear
-		{
-			.layout = Graphics::ChannelLayout::R,
-			.componentType = Graphics::ComponentType::UInt8,
-			.colorSpace = Graphics::ColorSpace::Linear
-		};
-
-		Graphics::PixelFormat rgbLinear
-		{
-			.layout = Graphics::ChannelLayout::RGB,
-			.componentType = Graphics::ComponentType::UInt8,
-			.colorSpace = Graphics::ColorSpace::Linear
-		};
-
-		Graphics::PixelFormat rgbLinearHdr
-		{
-			.layout = Graphics::ChannelLayout::RGB,
-			.componentType = Graphics::ComponentType::Float32,
-			.colorSpace = Graphics::ColorSpace::Linear
-		};
-
-		CORE_TRY_CONTEXT(albedo, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultAlbedo), "Failed to import albedo texture");
-		CORE_TRY_CONTEXT(specular, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultPhongSpecular), "Failed to import specular texture");
-		CORE_TRY_CONTEXT(shininess, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultShininess), "Failed to import shininess texture");
-		CORE_TRY_CONTEXT(roughness, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultRoughness), "Failed to import roughness texture");
-		CORE_TRY_CONTEXT(metallic, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultMetallic), "Failed to import metallic texture");
-		CORE_TRY_CONTEXT(ao, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultAo), "Failed to import ambient occlusion texture");
-		
-		const std::array<float, 3>& emissionDefault = Graphics::MaterialDefaults::DefaultEmission;
-		CORE_TRY_CONTEXT(emission, ImportPixelTexture(rgbLinearHdr, { reinterpret_cast<const uint8_t*>(&emissionDefault[0]), sizeof(emissionDefault) }), "Failed to import emission texture");
-		CORE_TRY_CONTEXT(normal, ImportPixelTexture(rgbLinear, Graphics::MaterialDefaults::DefaultNormal), "Failed to import normal texture");
-
-		Material asset(
-			Graphics::MaterialDefaults::DefaultSurfaceModel,
-			albedo,
-			specular,
-			shininess,
-			roughness,
-			metallic,
-			ao,
-			emission,
-			normal);
-
-		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		return handle.value();
-	}
-
-	std::expected<Handle<Texture>, Utils::Error> Manager::ImportTexture(
-		const std::filesystem::path& path, 
-		Graphics::ColorSpace colorSpace, 
-		std::optional<std::filesystem::path> root)
-	{
-		std::filesystem::path actualRoot = root ? *root : m_Root;
-		CORE_TRY(resolvedPath, Utils::Path::ResolvePath(path, actualRoot));
-		
-		std::string absoluteStr = resolvedPath.absolute.generic_string();
-		std::string relativeStr = resolvedPath.relative.generic_string();
-		if (root)
-			relativeStr = std::filesystem::relative(resolvedPath.absolute, m_Root).generic_string();
-
-		Source source = SourcePath{ relativeStr };
-		Subkey subkey = SubkeyNone{};
-
-		auto cached = m_Storage.GetHandleByKey<Texture>(source, subkey);
-		if (cached)
-			return cached.value();
-
-		CORE_TRY(image, Import::LoadImage(resolvedPath.absolute, colorSpace));
-
-		CORE_TRY_CONTEXT(glTexture, Graphics::Gl::Texture::Create2D(image), "Failed to create GL texture, file path: {}", absoluteStr);
-		CORE_TRY_CONTEXT(cudaTexture, Graphics::Cuda::Texture::Create2D(image), "Failed to create CUDA texture, file path: {}", absoluteStr);
-		Graphics::Cpu::Texture cpuTexture = Graphics::Cpu::Texture::Create(std::move(image));
-
-		Texture asset(
-			std::move(cpuTexture),
-			std::move(glTexture),
-			std::move(cudaTexture));
-
-		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		return handle.value();
-	}
-
-	std::expected<Handle<Mesh>, Utils::Error> Manager::ImportMesh(const Utils::Path::ResolvedPath& objPath, Import::ParsedMesh mesh, uint32_t index)
-	{
-		std::string relativeStr = objPath.relative.generic_string();
-		Source source = SourcePath{ relativeStr };
-		Subkey subkey = SubkeyIndex{ index };
-
-		auto cached = m_Storage.GetHandleByKey<Mesh>(source, subkey);
-		if (cached)
-			return cached.value();
-
-		CORE_TRY_CONTEXT(glMesh, Graphics::Gl::Mesh::Create(mesh), "Failed to create GL mesh, obj path: {}", objPath.absolute.generic_string());
-		Graphics::Cpu::Mesh cpuMesh = Graphics::Cpu::Mesh::Create(std::move(mesh));
-
-		Mesh asset(std::move(cpuMesh), std::move(glMesh));
-		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		return handle.value();
-	}
-
-	std::expected<Handle<Material>, Utils::Error> Manager::ImportMaterial(const Utils::Path::ResolvedPath& objPath, const Import::ParsedMaterial& material)
-	{
-		std::string relativeStr = objPath.relative.generic_string();
-		Source source = SourcePath{ relativeStr };
-		Subkey subkey = SubkeyName{ material.name };
-
-		auto cached = m_Storage.GetHandleByKey<Material>(source, subkey);
-		if (cached)
-			return cached.value();
-
-		const auto makePixel = [&](Graphics::ChannelLayout layout, Graphics::ComponentType componentType, Graphics::ColorSpace colorSpace, std::span<const uint8_t> value)
-		{
-			Graphics::PixelFormat format{
-				.layout = layout,
-				.componentType = componentType,
-				.colorSpace = colorSpace
-			};
-			return ImportPixelTexture(format, value);
-		};
-
-		std::array<uint8_t, 3> albedoPixel = LinearRgbToSrgbU8(material.albedo);
-		std::array<uint8_t, 3> specularPixel = LinearRgbToSrgbU8(material.specular);
-		std::array<uint8_t, 1> shininessPixel = { NormalizedFloatToU8(NormalizeFloat(material.shininess, Graphics::MaterialDefaults::MinShininess, Graphics::MaterialDefaults::MaxShininess)) };
-		std::array<uint8_t, 1> roughnessPixel = { NormalizedFloatToU8(material.roughness) };
-		std::array<uint8_t, 1> metallicPixel = { NormalizedFloatToU8(material.metallic) };
-		std::span<const uint8_t> emissionPixel = {
-			reinterpret_cast<const uint8_t*>(&material.emission[0]),
-			sizeof(material.emission)
-		};
-
-		std::optional<std::filesystem::path> root = objPath.absolute.parent_path();
-
-		auto albedo = material.albedoTexture
-			? ImportTexture(material.albedoTexture.value(), Graphics::ColorSpace::SRGB, root)
-			: makePixel(Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB, albedoPixel);
-
-		if (!albedo) return std::unexpected(std::move(albedo).error());
-
-		auto specular = material.specularTexture
-			? ImportTexture(material.specularTexture.value(), Graphics::ColorSpace::SRGB, root)
-			: makePixel(Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB, specularPixel);
-		
-		if (!specular) return std::unexpected(std::move(specular).error());
-
-		auto shininess = material.shininessTexture
-			? ImportTexture(material.shininessTexture.value(), Graphics::ColorSpace::Linear, root)
-			: makePixel(Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear, shininessPixel);
-
-		if (!shininess) return std::unexpected(std::move(shininess).error());
-
-		auto roughness = material.roughnessTexture
-			? ImportTexture(material.roughnessTexture.value(), Graphics::ColorSpace::Linear, root)
-			: makePixel(Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear, roughnessPixel);
-
-		if (!roughness) return std::unexpected(std::move(roughness).error());
-
-		auto metallic = material.metallicTexture
-			? ImportTexture(material.metallicTexture.value(), Graphics::ColorSpace::Linear, root)
-			: makePixel(Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear, metallicPixel);
-
-		if (!metallic) return std::unexpected(std::move(metallic).error());
-
-		auto ao = material.aoTexture
-			? ImportTexture(material.aoTexture.value(), Graphics::ColorSpace::Linear, root)
-			: makePixel(Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear, Graphics::MaterialDefaults::DefaultAo);
-
-		if (!ao) return std::unexpected(std::move(ao).error());
-		
-		auto emission = material.emissionTexture
-			? ImportTexture(material.emissionTexture.value(), Graphics::ColorSpace::Linear, root)
-			: makePixel(Graphics::ChannelLayout::RGB, Graphics::ComponentType::Float32, Graphics::ColorSpace::Linear, emissionPixel);
-		
-		if (!emission) return std::unexpected(std::move(emission).error());
-
-		auto normal = material.normalTexture
-			? ImportTexture(material.normalTexture.value(), Graphics::ColorSpace::Linear, root)
-			: makePixel(Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear, Graphics::MaterialDefaults::DefaultNormal);
-
-		if (!normal) return std::unexpected(std::move(normal).error());
-
-		auto localShading = Graphics::Gl::ToLocalShadingChecked(material.surface);
-		if (!localShading.second)
-			spdlog::warn(
-				"Material '{}' uses surface model, which is not supported with local illumination."
-				"It will be treated as Unlit when shading via OpenGL. File path: {}",
-				material.name,
-				objPath.absolute.generic_string());
-		
-		auto globalShading = Graphics::Cuda::ToGlobalShadingChecked(material.surface);
-		if (!globalShading.second)
-			spdlog::warn(
-				"Material '{}' uses surface model, which is not supported with global illumination."
-				"It will be treated as Diffuse when shading via CUDA. File path: {}",
-				material.name,
-				objPath.absolute.generic_string());
-
-		Material asset(
-			material.surface,
-			albedo.value(),
-			specular.value(),
-			shininess.value(),
-			roughness.value(),
-			metallic.value(),
-			ao.value(),
-			emission.value(),
-			normal.value());
-
-		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		return handle.value();
-	}
-
 	std::expected<Handle<Model>, Utils::Error> Manager::ImportObj(const std::filesystem::path& path)
 	{
 		auto pathResult = Utils::Path::ResolvePath(path, m_Root);
@@ -427,6 +172,41 @@ namespace Core::Assets
 		}
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(model));
+		return handle.value();
+	}
+	
+	std::expected<Handle<Texture>, Utils::Error> Manager::ImportTexture(
+		const std::filesystem::path& path, 
+		Graphics::ColorSpace colorSpace, 
+		std::optional<std::filesystem::path> root)
+	{
+		std::filesystem::path actualRoot = root ? *root : m_Root;
+		CORE_TRY(resolvedPath, Utils::Path::ResolvePath(path, actualRoot));
+		
+		std::string absoluteStr = resolvedPath.absolute.generic_string();
+		std::string relativeStr = resolvedPath.relative.generic_string();
+		if (root)
+			relativeStr = std::filesystem::relative(resolvedPath.absolute, m_Root).generic_string();
+
+		Source source = SourcePath{ relativeStr };
+		Subkey subkey = SubkeyNone{};
+
+		auto cached = m_Storage.GetHandleByKey<Texture>(source, subkey);
+		if (cached)
+			return cached.value();
+
+		CORE_TRY(image, Import::LoadImage(resolvedPath.absolute, colorSpace));
+
+		CORE_TRY_CONTEXT(glTexture, Graphics::Gl::Texture::Create2D(image), "Failed to create GL texture, file path: {}", absoluteStr);
+		CORE_TRY_CONTEXT(cudaTexture, Graphics::Cuda::Texture::Create2D(image), "Failed to create CUDA texture, file path: {}", absoluteStr);
+		Graphics::Cpu::Texture cpuTexture = Graphics::Cpu::Texture::Create(std::move(image));
+
+		Texture asset(
+			std::move(cpuTexture),
+			std::move(glTexture),
+			std::move(cudaTexture));
+
+		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		return handle.value();
 	}
 
@@ -508,5 +288,209 @@ namespace Core::Assets
 
 		ShaderProgram programAsset(std::move(program));
 		return m_Storage.Emplace(source, subkey, std::move(programAsset));
+	}
+
+	std::expected<Handle<Mesh>, Utils::Error> Manager::ImportMesh(const Utils::Path::ResolvedPath& path, Import::ParsedMesh mesh, uint32_t index)
+	{
+		std::string relativeStr = path.relative.generic_string();
+		Source source = SourcePath{ relativeStr };
+		Subkey subkey = SubkeyIndex{ index };
+
+		auto cached = m_Storage.GetHandleByKey<Mesh>(source, subkey);
+		if (cached)
+			return cached.value();
+
+		CORE_TRY_CONTEXT(glMesh, Graphics::Gl::Mesh::Create(mesh), "Failed to create GL mesh, obj path: {}", path.absolute.generic_string());
+		Graphics::Cpu::Mesh cpuMesh = Graphics::Cpu::Mesh::Create(std::move(mesh));
+
+		Mesh asset(std::move(cpuMesh), std::move(glMesh));
+		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
+		return handle.value();
+	}
+	
+	std::expected<Handle<Material>, Utils::Error> Manager::ImportMaterial(const Utils::Path::ResolvedPath& path, const Import::ParsedMaterial& material)
+	{
+		std::string relativeStr = path.relative.generic_string();
+		Source source = SourcePath{ relativeStr };
+		Subkey subkey = SubkeyName{ material.name };
+
+		auto cached = m_Storage.GetHandleByKey<Material>(source, subkey);
+		if (cached)
+			return cached.value();
+
+		std::array<uint8_t, 3> albedoPixel = LinearRgbToSrgbU8(material.albedo);
+		std::array<uint8_t, 3> specularPixel = LinearRgbToSrgbU8(material.specular);
+		std::array<uint8_t, 1> shininessPixel = { NormalizedFloatToU8(NormalizeFloat(material.shininess, Graphics::MaterialDefaults::MinShininess, Graphics::MaterialDefaults::MaxShininess)) };
+		std::array<uint8_t, 1> roughnessPixel = { NormalizedFloatToU8(material.roughness) };
+		std::array<uint8_t, 1> metallicPixel = { NormalizedFloatToU8(material.metallic) };
+		std::span<const uint8_t> emissionPixel = {
+			reinterpret_cast<const uint8_t*>(&material.emission[0]),
+			sizeof(material.emission)
+		};
+		
+		std::optional<std::filesystem::path> root = path.absolute.parent_path();
+
+		auto fileOrPixelTexture = [&](const std::optional<std::filesystem::path>& texturePath, const Graphics::PixelFormat& defaultFormat, std::span<const uint8_t> defaultValue)
+		{
+			if (texturePath)
+				return ImportTexture(*texturePath, defaultFormat.colorSpace, root);
+			else
+				return ImportPixelTexture(defaultFormat, defaultValue);
+		};
+
+		CORE_TRY_CONTEXT(
+			albedo, 
+			fileOrPixelTexture(material.albedoTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB}, albedoPixel),
+			"Failed to import albedo texture");
+		CORE_TRY_CONTEXT(
+			specular, 
+			fileOrPixelTexture(material.specularTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB}, specularPixel),
+			"Failed to import specular texture");
+		CORE_TRY_CONTEXT(
+			shininess, 
+			fileOrPixelTexture(material.shininessTexture, {Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, shininessPixel), 
+			"Failed to import shininess texture");
+		CORE_TRY_CONTEXT(
+			roughness, 
+			fileOrPixelTexture(material.roughnessTexture, {Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, roughnessPixel), 
+			"Failed to import roughness texture");
+		CORE_TRY_CONTEXT(
+			metallic, 
+			fileOrPixelTexture(material.metallicTexture, {Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, metallicPixel), 
+			"Failed to import metallic texture");
+		CORE_TRY_CONTEXT(
+			ao, 
+			fileOrPixelTexture(material.aoTexture, {Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, { Graphics::MaterialDefaults::DefaultAo }), 
+			"Failed to import ambient occlusion texture");
+		CORE_TRY_CONTEXT(
+			emission, 
+			fileOrPixelTexture(material.emissionTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::Float32, Graphics::ColorSpace::Linear}, emissionPixel), 
+			"Failed to import emission texture");
+		CORE_TRY_CONTEXT(
+			normal, 
+			fileOrPixelTexture(material.normalTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, Graphics::MaterialDefaults::DefaultNormal), 
+			"Failed to import normal texture");
+
+		auto localShading = Graphics::Gl::ToLocalShadingChecked(material.surface);
+		if (!localShading.second)
+			spdlog::warn(
+				"Material '{}' uses surface model, which is not supported with local illumination."
+				"It will be treated as Unlit when shading via OpenGL. File path: {}",
+				material.name,
+				path.absolute.generic_string());
+		
+		auto globalShading = Graphics::Cuda::ToGlobalShadingChecked(material.surface);
+		if (!globalShading.second)
+			spdlog::warn(
+				"Material '{}' uses surface model, which is not supported with global illumination."
+				"It will be treated as Diffuse when shading via CUDA. File path: {}",
+				material.name,
+				path.absolute.generic_string());
+
+		Material asset(
+			material.surface,
+			albedo,
+			specular,
+			shininess,
+			roughness,
+			metallic,
+			ao,
+			emission,
+			normal);
+
+		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
+		return handle.value();
+	}
+
+	std::expected<Handle<Material>, Utils::Error> Manager::ImportDefaultMaterial()
+	{
+		Source source = SourcePath{ DefaultMaterialSource };
+		Subkey subkey = SubkeyNone{};
+
+		auto cached = m_Storage.GetHandleByKey<Material>(source, subkey);
+		if (cached)
+			return cached.value();
+
+		Graphics::PixelFormat rgbSrgb
+		{
+			.layout = Graphics::ChannelLayout::RGB,
+			.componentType = Graphics::ComponentType::UInt8,
+			.colorSpace = Graphics::ColorSpace::SRGB
+		};
+
+		Graphics::PixelFormat rLinear
+		{
+			.layout = Graphics::ChannelLayout::R,
+			.componentType = Graphics::ComponentType::UInt8,
+			.colorSpace = Graphics::ColorSpace::Linear
+		};
+
+		Graphics::PixelFormat rgbLinear
+		{
+			.layout = Graphics::ChannelLayout::RGB,
+			.componentType = Graphics::ComponentType::UInt8,
+			.colorSpace = Graphics::ColorSpace::Linear
+		};
+
+		Graphics::PixelFormat rgbLinearHdr
+		{
+			.layout = Graphics::ChannelLayout::RGB,
+			.componentType = Graphics::ComponentType::Float32,
+			.colorSpace = Graphics::ColorSpace::Linear
+		};
+
+		CORE_TRY_CONTEXT(albedo, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultAlbedo), "Failed to import albedo texture");
+		CORE_TRY_CONTEXT(specular, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultPhongSpecular), "Failed to import specular texture");
+		CORE_TRY_CONTEXT(shininess, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultShininess), "Failed to import shininess texture");
+		CORE_TRY_CONTEXT(roughness, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultRoughness), "Failed to import roughness texture");
+		CORE_TRY_CONTEXT(metallic, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultMetallic), "Failed to import metallic texture");
+		CORE_TRY_CONTEXT(ao, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultAo), "Failed to import ambient occlusion texture");
+		
+		const std::array<float, 3>& emissionDefault = Graphics::MaterialDefaults::DefaultEmission;
+		CORE_TRY_CONTEXT(emission, ImportPixelTexture(rgbLinearHdr, { reinterpret_cast<const uint8_t*>(&emissionDefault[0]), sizeof(emissionDefault) }), "Failed to import emission texture");
+		CORE_TRY_CONTEXT(normal, ImportPixelTexture(rgbLinear, Graphics::MaterialDefaults::DefaultNormal), "Failed to import normal texture");
+
+		Material asset(
+			Graphics::MaterialDefaults::DefaultSurfaceModel,
+			albedo,
+			specular,
+			shininess,
+			roughness,
+			metallic,
+			ao,
+			emission,
+			normal);
+
+		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
+		return handle.value();
+	}
+
+
+	std::expected<Handle<Texture>, Utils::Error> Manager::ImportPixelTexture(const Graphics::PixelFormat& format, std::span<const uint8_t> value)
+	{
+		Source source = SourcePixel{ format, value };
+		Subkey subkey = SubkeyNone{};
+
+		auto cached = m_Storage.GetHandleByKey<Texture>(source, subkey);
+		if (cached)
+			return cached.value();
+
+		Import::Image image{
+			.width = 1,
+			.height = 1,
+			.format = format,
+			.data = std::vector<uint8_t>(value.begin(), value.end())
+		};
+
+		CORE_TRY(glTexture, Graphics::Gl::Texture::Create2D(image));
+		CORE_TRY(cudaTexture, Graphics::Cuda::Texture::Create2D(image));
+
+		Texture asset(
+			Graphics::Cpu::Texture::Create(std::move(image)),
+			std::move(glTexture),
+			std::move(cudaTexture));
+
+		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
+		return handle.value();
 	}
 }
