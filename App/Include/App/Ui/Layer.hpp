@@ -21,8 +21,9 @@ namespace App::Ui
 	class Layer : public Core::Runtime::Layer::Base
 	{
 	public:
+		Layer(uint32_t samples) : m_SceneTarget(samples) {}
+
 		void OnAttach() override;
-		void OnUpdate() override;
 		void OnBuildUi() override;
 		void OnRender(Core::Graphics::Services::SceneRenderer renderer) override;
 	private:
@@ -39,6 +40,6 @@ namespace App::Ui
 		bool m_LockDisplayRatio = true;
 		ViewMode m_ViewMode = ViewMode::LivePreview;
 
-		std::unique_ptr<Core::Graphics::Gl::RenderTarget> m_SceneTarget;
+		Core::Graphics::Gl::RenderTarget m_SceneTarget;
 	};
 }

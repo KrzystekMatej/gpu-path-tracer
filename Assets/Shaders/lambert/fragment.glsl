@@ -7,7 +7,7 @@ in vec2 fragment_uv;
 
 layout(location = 0) out vec4 fragment_color;
 
-uniform sampler2D albedo_texture;
+uniform sampler2D color_texture;
 uniform sampler2D normal_texture;
 
 const int LIGHT_LIMIT = 10;
@@ -52,6 +52,7 @@ vec3 lambert(vec3 albedo, vec3 normal, vec3 fragment_position)
 
 
         float cos_theta = max(dot(normal, light_direction), 0.0);
+        if (cos_theta <= 0.0) continue;
 
 
         float attenuation = lights[i].intensity / (4.0 * PI * distance_squared);
@@ -82,10 +83,10 @@ vec3 postprocess(vec3 color)
 
 void main()
 {
-    vec3 albedo = texture(albedo_texture, fragment_uv).rgb;
+    vec3 base_color = texture(color_texture, fragment_uv).rgb;
     vec3 normal = get_normal();
 
-    vec3 color = lambert(albedo, normal, world_position);
+    vec3 color = lambert(base_color, normal, world_position);
 
     fragment_color = vec4(postprocess(color), 1.0);
 }

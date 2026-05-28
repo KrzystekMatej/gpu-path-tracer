@@ -15,7 +15,7 @@ namespace Core::Utils::Yaml
 		}
 	}
 
-	std::expected<YAML::Node, Error> GetScalar(const YAML::Node& node, const char* key)
+	std::expected<YAML::Node, Error> GetScalarNode(const YAML::Node& node, const char* key)
 	{
 		YAML::Node scalarNode = node[key];
 		if (!scalarNode)
@@ -56,58 +56,41 @@ namespace Core::Utils::Yaml
 			return std::unexpected(Error("Expected '{}' field to be a map", key));
 		return mapNode;
 	}
-
-	std::expected<std::string, Error> GetString(const YAML::Node& node, const char* key)
+	
+	template<>
+	std::expected<glm::vec3, Error> GetValue<glm::vec3>(const YAML::Node& node, const char* key)
 	{
-		CORE_TRY(scalarNode, GetScalar(node, key));
-		return scalarNode.as<std::string>();
-	}
-
-	std::expected<float, Error> GetFloat(const YAML::Node& node, const char* key)
-	{
-		CORE_TRY(scalarNode, GetScalar(node, key));
-
-		try
 		{
-			float value = scalarNode.as<float>();
-			return value;
-		}
-		catch (const std::exception& e)
-		{
-			return std::unexpected(Error("Failed to parse '{}' field as float: {}", key, std::string(e.what())));
-		}
-	}
+			CORE_TRY(vecNode, GetSizedSequence(node, key, 3));
 
-	std::expected<glm::vec3, Error> GetVec3(const YAML::Node& node, const char* key)
-	{
-		CORE_TRY(vecNode, GetSizedSequence(node, key, 3));
-
-		try
-		{
-			glm::vec3 vec;
-			vec.x = vecNode[0].as<float>();
-			vec.y = vecNode[1].as<float>();
-			vec.z = vecNode[2].as<float>();
-			return vec;
-		}
-		catch (const std::exception& e)
-		{
-			return std::unexpected(Error("Failed to parse '{}' field as vec3: {}", key, std::string(e.what())));
+			try
+			{
+				glm::vec3 value;
+				value.x = vecNode[0].as<float>();
+				value.y = vecNode[1].as<float>();
+				value.z = vecNode[2].as<float>();
+				return value;
+			}
+			catch (const std::exception& e)
+			{
+				return std::unexpected(Error("Failed to parse '{}' field as vec3: {}", key, std::string(e.what())));
+			}
 		}
 	}
-
-	std::expected<glm::vec4, Error> GetVec4(const YAML::Node& node, const char* key)
+	
+	template<>
+	std::expected<glm::vec4, Error> GetValue<glm::vec4>(const YAML::Node& node, const char* key)
 	{
 		CORE_TRY(vecNode, GetSizedSequence(node, key, 4));
 
 		try
 		{
-			glm::vec4 vec;
-			vec.x = vecNode[0].as<float>();
-			vec.y = vecNode[1].as<float>();
-			vec.z = vecNode[2].as<float>();
-			vec.w = vecNode[3].as<float>();
-			return vec;
+			glm::vec4 value;
+			value.x = vecNode[0].as<float>();
+			value.y = vecNode[1].as<float>();
+			value.z = vecNode[2].as<float>();
+			value.w = vecNode[3].as<float>();
+			return value;
 		}
 		catch (const std::exception& e)
 		{

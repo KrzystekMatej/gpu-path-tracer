@@ -12,9 +12,9 @@ namespace Core::Graphics::Ecs
 		if (registry.view<Camera>().size() > 0)
 			return std::unexpected(Utils::Error("Scene cannot have more than one Camera component"));
 
-		CORE_TRY(fovYDegrees, Utils::Yaml::GetFloat(context.node, "fov-y"));
-		CORE_TRY(nearPlane, Utils::Yaml::GetFloat(context.node, "near-plane"));
-		CORE_TRY(farPlane, Utils::Yaml::GetFloat(context.node, "far-plane"));
+		CORE_TRY(fovYDegrees, Utils::Yaml::GetValue<float>(context.node, "fov-y"));
+		CORE_TRY(nearPlane, Utils::Yaml::GetValue<float>(context.node, "near-plane"));
+		CORE_TRY(farPlane, Utils::Yaml::GetValue<float>(context.node, "far-plane"));
 
 		if (fovYDegrees <= 0.0f || fovYDegrees >= 180.0f)
 			return std::unexpected(Utils::Error("Camera 'fov-y' must be in range (0, 180) degrees"));

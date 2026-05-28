@@ -16,6 +16,9 @@ namespace Core::Graphics::Gl
         ~Framebuffer();
 
         void Bind() const;
+        void BindRead() const;
+        void BindDraw() const;
+
         void AttachTexture(uint32_t attachment, const Texture& texture, int level = 0) const;
         void AttachRenderbuffer(uint32_t attachment, const Renderbuffer& rb) const;
         bool IsComplete() const;

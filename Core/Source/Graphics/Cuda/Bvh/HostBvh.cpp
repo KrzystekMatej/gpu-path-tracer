@@ -93,7 +93,7 @@ namespace Core::Graphics::Cuda
 			{
 				float3 centerA = (a.vertices[0].position + a.vertices[1].position + a.vertices[2].position) / 3.0f;
 				float3 centerB = (b.vertices[0].position + b.vertices[1].position + b.vertices[2].position) / 3.0f;
-				return Utils::Math::At(centerA, axis) < Utils::Math::At(centerB, axis);
+				return Math::At(centerA, axis) < Math::At(centerB, axis);
 			});
 		node->left = BuildRecurse(first, mid - first, depth + 1);
 		node->right = BuildRecurse(mid, count - (mid - first), depth + 1);

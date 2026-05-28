@@ -51,12 +51,13 @@ namespace Core::Graphics::Ecs
 			const Graphics::Gl::Material glMaterial = 
 			{
 				.localShading = Graphics::Gl::ToLocalShadingUnchecked(materialAsset.surface),
-				.albedo = storage.Get(materialAsset.albedo).value().get().gl,
+				.color = storage.Get(materialAsset.color).value().get().gl,
 				.specular = storage.Get(materialAsset.specular).value().get().gl,
 				.shininess = storage.Get(materialAsset.shininess).value().get().gl,
 				.rma = storage.Get(materialAsset.rma).value().get().gl,
 				.normal = storage.Get(materialAsset.normal).value().get().gl,
-				.emission = storage.Get(materialAsset.emission).value().get().gl
+				.emission = storage.Get(materialAsset.emission).value().get().gl,
+				.ior = materialAsset.ior
 			};
 
 			Graphics::Gl::DrawContext drawContext(

@@ -68,7 +68,7 @@ namespace Core::Graphics::Ecs
 		entt::registry& registry,
 		Assets::Manager& assetManager) const
 	{
-		CORE_TRY(path, Utils::Yaml::GetString(context.node, "path"));
+		CORE_TRY(path, Utils::Yaml::GetValue<std::string>(context.node, "path"));
 		CORE_TRY(modelHandle, assetManager.ImportObj(path));
 
 		const Assets::Storage& storage = assetManager.GetStorage();
@@ -116,9 +116,51 @@ namespace Core::Graphics::Ecs
 		entt::registry& registry,
 		Assets::Manager& assetManager) const
 	{
-		CORE_TRY(path, Utils::Yaml::GetString(context.node, "path"));
+		CORE_TRY(path, Utils::Yaml::GetValue<std::string>(context.node, "path"));
 		CORE_TRY(envMapHandle, assetManager.ImportEnvironmentMap(path, Graphics::ColorSpace::Linear));
 		registry.emplace<Background>(context.entity, envMapHandle);
+		return {};
+	}
+	
+	std::expected<void, Utils::Error> GridBuilder::Build(
+		const Core::Ecs::BuildContext& context,
+		entt::registry& registry,
+		Assets::Manager& assetManager) const
+	{
+		CORE_TRY(rows, Utils::Yaml::GetValue<uint32_t>(context.node, "rows"));
+		CORE_TRY(columns, Utils::Yaml::GetValue<uint32_t>(context.node, "columns"));
+		CORE_TRY(spacing, Utils::Yaml::GetValue<float>(context.node, "spacing"));
+
+		registry.emplace<Grid>(context.entity, rows, columns, spacing);
+		std::vector<entt::entity> children;
+		children.reserve(rows * columns);
+
+		for (uint32_t i = 0; i < rows; i++)
+		{
+			for (uint32_t j = 0; j < columns; j++)
+			{
+				entt::entity cellEntity = registry.create();
+
+				children.emplace_back(cellEntity);
+				registry.emplace<Core::Ecs::Parent>(cellEntity, context.entity);
+
+				glm::vec3 position = 
+				{
+					static_cast<float>(static_cast<int32_t>(j) - static_cast<int32_t>(columns) / 2) * spacing,
+					static_cast<float>(static_cast<int32_t>(i) - static_cast<int32_t>(rows) / 2) * spacing,
+					0.0f
+				};
+
+				registry.emplace<Core::Ecs::Transform>(cellEntity, position);
+				registry.emplace<Core::Ecs::WorldTransform>(cellEntity);
+
+				Core::Ecs::BuildContext cellContext{ .node = context.node, .entity = cellEntity, .parent = context.entity };
+				CORE_TRY_DISCARD(ModelBuilder().Build(cellContext, registry, assetManager));
+			}
+		}
+
+		if (!children.empty())
+			registry.emplace<Core::Ecs::Children>(context.entity, std::move(children));
 		return {};
 	}
 }

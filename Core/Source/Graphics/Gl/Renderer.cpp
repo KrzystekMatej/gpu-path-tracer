@@ -129,7 +129,7 @@ namespace Core::Graphics::Gl
 				ShaderProgram& program = context.storage.Get(m_Unlit).value().get().program;
 				program.Bind();
 
-				program.SetTexture("albedo_texture", context.material.albedo);
+				program.SetTexture("color_texture", context.material.color);
 
 				program.SetMatrix4x4("pvm_matrix", pvm);
 				program.SetMatrix4x4("model_matrix", context.model);
@@ -159,7 +159,7 @@ namespace Core::Graphics::Gl
 
 				program.Bind();
 
-				program.SetTexture("albedo_texture", context.material.albedo);
+				program.SetTexture("color_texture", context.material.color);
 				program.SetTexture("normal_texture", context.material.normal);
 
 				program.SetMatrix4x4("pvm_matrix", pvm);
@@ -185,7 +185,7 @@ namespace Core::Graphics::Gl
 
 				program.Bind();
 				
-				program.SetTexture("albedo_texture", context.material.albedo);
+				program.SetTexture("color_texture", context.material.color);
 				program.SetTexture("specular_texture", context.material.specular);
 				program.SetTexture("shininess_texture", context.material.shininess);
 				program.SetTexture("normal_texture", context.material.normal);
@@ -226,7 +226,7 @@ namespace Core::Graphics::Gl
 					program->Bind();
 				}
 
-				program->SetTexture("albedo_texture", context.material.albedo);
+				program->SetTexture("color_texture", context.material.color);
 				program->SetTexture("rma_texture", context.material.rma);
 				program->SetTexture("normal_texture", context.material.normal);
 
@@ -234,6 +234,10 @@ namespace Core::Graphics::Gl
 				program->SetMatrix4x4("model_matrix", context.model);
 				program->SetMatrix3x3("normal_matrix", normal);
 				program->SetVec3("camera_position", context.cameraPosition);
+				
+				float dielectricF0 = (context.material.ior - MaterialDefaults::AirIor) / (context.material.ior + MaterialDefaults::AirIor);
+
+				program->SetFloat("dielectric_F0", dielectricF0 * dielectricF0);
 
 				program->SetUInt32("light_count", static_cast<uint32_t>(context.lights.size()));
 				for (size_t i = 0; i < context.lights.size(); i++)

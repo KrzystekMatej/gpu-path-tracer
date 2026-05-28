@@ -27,13 +27,6 @@ namespace App::Ui
 	void Layer::OnAttach()
 	{
 		Core::Runtime::Application::EventDispatcher().sink<Core::Events::KeyPressed>().connect<&Layer::OnKeyPressed>(*this);
-
-		auto& window = Core::Runtime::Application::Window();
-		m_SceneTarget = std::make_unique<Core::Graphics::Gl::RenderTarget>(window.GetWidth(), window.GetHeight());
-	}
-
-	void Layer::OnUpdate()
-	{
 	}
 
 	void Layer::OnBuildUi()
@@ -66,14 +59,14 @@ namespace App::Ui
 		if (m_ViewMode != ViewMode::LivePreview)
 			return;
 			
-		Core::Graphics::Services::SceneViewDesc sceneViewDesc = {
-			.target = *m_SceneTarget,
+		Core::Graphics::Services::SceneViewDescription viewDescription = {
+			.target = m_SceneTarget,
 			.scene = Core::Runtime::Application::Scene(),
 			.storage = Core::Runtime::Application::AssetManager().GetStorage(),
-			.clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }
+			.clearColor = { 0.1f, 0.1f, 0.1f, 1.0f }
 		};
 
-		renderer.Render(sceneViewDesc);
+		renderer.Render(viewDescription);
 	}
 
 	void Layer::OnKeyPressed(const Core::Events::KeyPressed& event)
@@ -123,8 +116,8 @@ namespace App::Ui
 
 		uint32_t sceneWidth = static_cast<uint32_t>(displaySize.x);
 		uint32_t sceneHeight = static_cast<uint32_t>(displaySize.y);
-		if (sceneWidth != m_SceneTarget->GetWidth() || sceneHeight != m_SceneTarget->GetHeight())
-			m_SceneTarget->Resize(sceneWidth, sceneHeight);
+		if (sceneWidth != m_SceneTarget.GetWidth() || sceneHeight != m_SceneTarget.GetHeight())
+			m_SceneTarget.Resize(sceneWidth, sceneHeight);
 
 		entt::registry& blackboard = Core::Runtime::Application::Blackboard();
 		PathTracer::Status& pathTracerStatus = blackboard.ctx().get<PathTracer::Status>();
@@ -132,7 +125,7 @@ namespace App::Ui
 		pathTracerSettings.frameWidth = sceneWidth;
 		pathTracerSettings.frameHeight = sceneHeight;
 
-		uint32_t textureId = m_ViewMode == ViewMode::LivePreview ? m_SceneTarget->GetTexture().GetId() : pathTracerStatus.frameTexture->GetId();
+		uint32_t textureId = m_ViewMode == ViewMode::LivePreview ? m_SceneTarget.GetTexture().GetId() : pathTracerStatus.frameTexture->GetId();
 		ImGui::Image(static_cast<ImTextureID>(textureId), displaySize, ImVec2(0, 1), ImVec2(1, 0));
 
 		ImDrawList* drawList = ImGui::GetWindowDrawList();

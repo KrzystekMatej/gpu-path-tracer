@@ -55,12 +55,14 @@ namespace Core::Graphics::Cuda
                     table.indices.emplace(materialId, materialIndex);
                     table.materials.emplace_back(Material{
                         .shadingModel = ToGlobalShadingUnchecked(materialAsset.surface),
-                        .albedo = storage.Get(materialAsset.albedo).value().get().cuda.GetView<float4>(),
+                        .color = storage.Get(materialAsset.color).value().get().cuda.GetView<float4>(),
                         .specular = storage.Get(materialAsset.specular).value().get().cuda.GetView<float4>(),
                         .shininess = storage.Get(materialAsset.shininess).value().get().cuda.GetView<float>(),
                         .rma = storage.Get(materialAsset.rma).value().get().cuda.GetView<float4>(),
                         .emission = storage.Get(materialAsset.emission).value().get().cuda.GetView<float4>(),
                         .normal = storage.Get(materialAsset.normal).value().get().cuda.GetView<float4>(),
+                        .ior = materialAsset.ior,
+                        .transmission = materialAsset.transmission,
                     });
                 });
 

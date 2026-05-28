@@ -75,11 +75,12 @@ namespace Core::Graphics::Gl
 	struct Material
 	{
 		LocalShadingModel localShading;
-		const Texture& albedo;
+		const Texture& color;
 		const Texture& specular;
 		const Texture& shininess;
 		const Texture& rma;
 		const Texture& normal;
 		const Texture& emission;
+		float ior;
 	};
 }

@@ -16,6 +16,7 @@ namespace Core::Graphics::Cuda
 		float3 direction;
 		float tMin;
 		float tMax;
+		float ior;
 	};
 
 	struct Contribution

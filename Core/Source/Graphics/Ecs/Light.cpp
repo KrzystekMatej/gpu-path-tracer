@@ -5,8 +5,8 @@ namespace Core::Graphics::Ecs
 {
 	std::expected<Light, Utils::Error> LightBuilder::Extract(YAML::Node node)
 	{
-		CORE_TRY(color, Utils::Yaml::GetVec3(node, "color"));
-		CORE_TRY(intensity, Utils::Yaml::GetFloat(node, "intensity"));
+		CORE_TRY(color, Utils::Yaml::GetValue<glm::vec3>(node, "color"));
+		CORE_TRY(intensity, Utils::Yaml::GetValue<float>(node, "intensity"));
 		return Light{ color, intensity };
 	}
 

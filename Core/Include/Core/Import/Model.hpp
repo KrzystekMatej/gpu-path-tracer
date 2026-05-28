@@ -23,13 +23,16 @@ namespace Core::Import
 
 		Graphics::SurfaceModel surface;
 
-		float albedo[3];
+		float color[3];
 		float specular[3];
 		float shininess;
 		float rma[3];
 		float emission[3];
+		float ior;
+		float transmission;
+		float opacity;
 
-		std::optional<std::string> albedoTexture;
+		std::optional<std::string> colorTexture;
 		std::optional<std::string> specularTexture;
 		std::optional<std::string> shininessTexture;
 		std::optional<std::string> rmaTexture;

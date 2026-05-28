@@ -39,6 +39,16 @@ namespace Core::Graphics::Gl
         glBindFramebuffer(GL_FRAMEBUFFER, m_Id);
     }
 
+    void Framebuffer::BindRead() const
+    {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, m_Id);
+    }
+
+    void Framebuffer::BindDraw() const
+    {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_Id);
+    }
+
     void Framebuffer::AttachTexture(uint32_t attachment, const Texture& texture, int level) const
     {
         glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, texture.GetTarget(), texture.GetId(), level);

@@ -29,7 +29,7 @@ int main()
 		app->PushLayer<App::Scripts::Layer>(App::LayerKeys::Scripts);
 		app->PushLayer<App::CameraRecorder::Layer>(App::LayerKeys::CameraRecorder);
 		app->PushLayer<App::PathTracer::Layer>(App::LayerKeys::PathTracer);
-		app->PushLayer<App::Ui::Layer>(App::LayerKeys::Ui);
+		app->PushLayer<App::Ui::Layer>(App::LayerKeys::Ui, 8);
 		
 		auto runResult = app->Run();
 		if (!runResult)

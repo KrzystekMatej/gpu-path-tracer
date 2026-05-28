@@ -8,7 +8,7 @@ in vec2 fragment_uv;
 layout(location = 0) out vec4 fragment_color;
 
 uniform vec3 camera_position;
-uniform sampler2D albedo_texture;
+uniform sampler2D color_texture;
 uniform sampler2D specular_texture;
 uniform sampler2D shininess_texture;
 uniform sampler2D normal_texture;
@@ -45,19 +45,19 @@ vec3 get_normal()
     return N;
 }
 
-vec3 phong(vec3 albedo, vec3 specular, float shininess, vec3 N, vec3 P)
+vec3 phong(vec3 albedo, vec3 specular, float shininess, vec3 normal, vec3 fragment_position)
 {
     vec3 result = vec3(0.0);
-    vec3 view_direction = normalize(camera_position - P);
+    vec3 view_direction = normalize(camera_position - fragment_position);
 
     for (uint i = 0u; i < light_count; ++i)
     {
-        vec3 light_vector = lights[i].position - P;
+        vec3 light_vector = lights[i].position - fragment_position;
         float distance_squared = max(dot(light_vector, light_vector), 1e-6);
         vec3 light_direction = light_vector * inversesqrt(distance_squared);
-        vec3 reflect_direction = reflect(-light_direction, N);
+        vec3 reflect_direction = reflect(-light_direction, normal);
 
-        float cos_theta = max(dot(N, light_direction), 0.0);
+        float cos_theta = max(dot(normal, light_direction), 0.0);
         if (cos_theta <= 0.0) continue;
             
         float spec = pow(max(dot(view_direction, reflect_direction), 0.0), shininess);
@@ -93,12 +93,12 @@ vec3 postprocess(vec3 color)
 
 void main()
 {
-    vec3 albedo = texture(albedo_texture, fragment_uv).rgb;
+    vec3 base_color = texture(color_texture, fragment_uv).rgb;
     vec3 specular = texture(specular_texture, fragment_uv).rgb;
     float shininess = texture(shininess_texture, fragment_uv).r * (MAX_SHININESS - MIN_SHININESS) + MIN_SHININESS;
-    vec3 N = get_normal();
+    vec3 normal = get_normal();
 
-    vec3 color = phong(albedo, specular, shininess, N, world_position);
+    vec3 color = phong(base_color, specular, shininess, normal, world_position);
 
     fragment_color = vec4(postprocess(color), 1.0);
 }

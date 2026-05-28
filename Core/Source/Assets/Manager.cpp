@@ -318,7 +318,7 @@ namespace Core::Assets
 		if (cached)
 			return cached.value();
 
-		std::array<uint8_t, 3> albedoPixel = LinearRgbToSrgbU8(material.albedo);
+		std::array<uint8_t, 3> colorPixel = LinearRgbToSrgbU8(material.color);
 		std::array<uint8_t, 3> specularPixel = LinearRgbToSrgbU8(material.specular);
 		std::array<uint8_t, 1> shininessPixel = { NormalizedFloatToU8(NormalizeFloat(material.shininess, Graphics::MaterialDefaults::MinShininess, Graphics::MaterialDefaults::MaxShininess)) };
 		std::array<uint8_t, 3> rmaPixel = {
@@ -343,8 +343,8 @@ namespace Core::Assets
 		};
 
 		CORE_TRY_CONTEXT(
-			albedo, 
-			fileOrPixelTexture(material.albedoTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB}, albedoPixel),
+			color, 
+			fileOrPixelTexture(material.colorTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB}, colorPixel),
 			"Failed to import albedo texture");
 		CORE_TRY_CONTEXT(
 			specular, 
@@ -385,12 +385,15 @@ namespace Core::Assets
 
 		Material asset(
 			material.surface,
-			albedo,
+			color,
 			specular,
 			shininess,
 			rma,
 			emission,
-			normal);
+			normal,
+			material.ior,
+			material.transmission,
+			material.opacity);
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		return handle.value();
@@ -433,23 +436,26 @@ namespace Core::Assets
 			.colorSpace = Graphics::ColorSpace::Linear
 		};
 
-		CORE_TRY_CONTEXT(albedo, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultAlbedo), "Failed to import albedo texture");
-		CORE_TRY_CONTEXT(specular, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultPhongSpecular), "Failed to import specular texture");
-		CORE_TRY_CONTEXT(shininess, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultShininess), "Failed to import shininess texture");
-		CORE_TRY_CONTEXT(rma, ImportPixelTexture(rgbLinear, Graphics::MaterialDefaults::DefaultRma), "Failed to import RMA texture");
+		CORE_TRY_CONTEXT(color, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultColor), "Failed to import default albedo texture");
+		CORE_TRY_CONTEXT(specular, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultPhongSpecular), "Failed to import default specular texture");
+		CORE_TRY_CONTEXT(shininess, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultShininess), "Failed to import default shininess texture");
+		CORE_TRY_CONTEXT(rma, ImportPixelTexture(rgbLinear, Graphics::MaterialDefaults::DefaultRma), "Failed to import default RMA texture");
 		
 		const std::array<float, 3>& emissionDefault = Graphics::MaterialDefaults::DefaultEmission;
-		CORE_TRY_CONTEXT(emission, ImportPixelTexture(rgbLinearHdr, { reinterpret_cast<const uint8_t*>(&emissionDefault[0]), sizeof(emissionDefault) }), "Failed to import emission texture");
-		CORE_TRY_CONTEXT(normal, ImportPixelTexture(rgbLinear, Graphics::MaterialDefaults::DefaultNormal), "Failed to import normal texture");
+		CORE_TRY_CONTEXT(emission, ImportPixelTexture(rgbLinearHdr, { reinterpret_cast<const uint8_t*>(&emissionDefault[0]), sizeof(emissionDefault) }), "Failed to import default emission texture");
+		CORE_TRY_CONTEXT(normal, ImportPixelTexture(rgbLinear, Graphics::MaterialDefaults::DefaultNormal), "Failed to import default normal texture");
 
 		Material asset(
 			Graphics::MaterialDefaults::DefaultSurfaceModel,
-			albedo,
+			color,
 			specular,
 			shininess,
 			rma,
 			emission,
-			normal);
+			normal,
+			Graphics::MaterialDefaults::DefaultIor,
+			Graphics::MaterialDefaults::DefaultTransmission,
+			Graphics::MaterialDefaults::DefaultOpacity);
 
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		return handle.value();

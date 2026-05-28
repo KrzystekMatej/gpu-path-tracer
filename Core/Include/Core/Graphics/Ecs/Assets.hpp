@@ -42,4 +42,20 @@ namespace Core::Graphics::Ecs
 			entt::registry& registry,
 			Assets::Manager& assetManager) const override;
 	};
+	
+	struct Grid
+	{
+		uint32_t rows;
+		uint32_t columns;
+		float spacing;
+	};
+	
+	class GridBuilder : public Core::Ecs::Builder
+	{
+	public:
+		std::expected<void, Utils::Error> Build(
+			const Core::Ecs::BuildContext& context,
+			entt::registry& registry,
+			Assets::Manager& assetManager) const override;
+	};
 }

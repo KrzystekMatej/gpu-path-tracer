@@ -43,7 +43,7 @@ namespace Core::Ecs
 
 				for (const auto& componentNode : components)
 				{
-					auto typeResult = Utils::Yaml::GetString(componentNode, "type");
+					auto typeResult = Utils::Yaml::GetValue<std::string>(componentNode, "type");
 
 					if (!typeResult)
 						return std::unexpected(Utils::Error(std::move(typeResult).error()));

@@ -72,11 +72,13 @@ namespace Core::Graphics::Cuda
 	struct Material
 	{
 		GlobalShadingModel shadingModel;
-		TextureView<float4> albedo;
+		TextureView<float4> color;
 		TextureView<float4> specular;
 		TextureView<float> shininess;
 		TextureView<float4> rma;
 		TextureView<float4> emission;
 		TextureView<float4> normal;
+		float ior;
+		float transmission;
 	};
 }

@@ -6,7 +6,7 @@
 
 namespace Core::Graphics::Services
 {
-    struct SceneViewDesc
+    struct SceneViewDescription
     {
         Gl::RenderTarget& target;
         const Core::Ecs::Scene& scene;
@@ -20,7 +20,7 @@ namespace Core::Graphics::Services
         SceneRenderer(Gl::Renderer& renderer)
             : m_Renderer(renderer) { }
 
-        void Render(const SceneViewDesc& desc) const;
+        void Render(const SceneViewDescription& viewDescription) const;
     private:
         Gl::Renderer& m_Renderer;
     };

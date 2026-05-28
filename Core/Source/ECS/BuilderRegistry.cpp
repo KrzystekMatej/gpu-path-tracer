@@ -15,5 +15,6 @@ namespace Core::Ecs
 		assert(Register("Background", std::make_unique<Graphics::Ecs::BackgroundBuilder>()));
 		assert(Register("Light", std::make_unique<Graphics::Ecs::LightBuilder>()));
 		assert(Register("MotionRecorder", std::make_unique<Capture::MotionRecorderBuilder>()));
+		assert(Register("Grid", std::make_unique<Graphics::Ecs::GridBuilder>()));
 	}
 }

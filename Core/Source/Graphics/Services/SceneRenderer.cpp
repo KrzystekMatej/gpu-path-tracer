@@ -1,18 +1,20 @@
+#include <glad/gl.h>
 #include <Core/Graphics/Services/SceneRenderer.hpp>
 #include <Core/Graphics/Ecs/Render.hpp>
 
 
 namespace Core::Graphics::Services
 {
-    void SceneRenderer::Render(const SceneViewDesc& desc) const
+    void SceneRenderer::Render(const SceneViewDescription& viewDescription) const
     {
-        if (desc.target.GetWidth() == 0 || desc.target.GetHeight() == 0)
+        if (viewDescription.target.GetWidth() == 0 || viewDescription.target.GetHeight() == 0)
             return;
 
-        m_Renderer.BindSurface(desc.target.GetRenderSurface());
-        m_Renderer.Clear(desc.clearColor.r, desc.clearColor.g, desc.clearColor.b, desc.clearColor.a);
+        m_Renderer.BindSurface(viewDescription.target.GetRenderSurface());
+        m_Renderer.Clear(viewDescription.clearColor.r, viewDescription.clearColor.g, viewDescription.clearColor.b, viewDescription.clearColor.a);
 
-        float aspect = desc.target.GetWidth() / static_cast<float>(desc.target.GetHeight());
-        Ecs::RenderScene(m_Renderer, desc.scene, desc.storage, aspect);
+        float aspect = viewDescription.target.GetWidth() / static_cast<float>(viewDescription.target.GetHeight());
+        Ecs::RenderScene(m_Renderer, viewDescription.scene, viewDescription.storage, aspect);
+        viewDescription.target.Resolve();
     }
 }

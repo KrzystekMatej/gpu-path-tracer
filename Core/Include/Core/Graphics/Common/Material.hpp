@@ -18,7 +18,7 @@ namespace Core::Graphics
 	{
 		static constexpr SurfaceModel DefaultSurfaceModel = SurfaceModel::Unlit;
 
-		static constexpr std::array<uint8_t, 3> DefaultAlbedo = { 255, 255, 255 };
+		static constexpr std::array<uint8_t, 3> DefaultColor = { 255, 255, 255 };
 		static constexpr std::array<uint8_t, 3> DefaultPhongSpecular = { 0, 0, 0 };
 		static constexpr std::array<uint8_t, 3> DefaultMirrorReflectance = { 255, 255, 255 };
 
@@ -29,5 +29,10 @@ namespace Core::Graphics
 		static constexpr std::array<uint8_t, 3> DefaultRma = { 255, 0, 255 };
 		static constexpr std::array<float, 3> DefaultEmission = { 0, 0, 0 };
 		static constexpr std::array<uint8_t, 3> DefaultNormal = { 128, 128, 255 };
+		
+		static constexpr float DefaultIor = 1.0f;
+		static constexpr float AirIor = 1.0f;
+		static constexpr float DefaultTransmission = 0.0f;
+		static constexpr float DefaultOpacity = 1.0f;
 	};
 }

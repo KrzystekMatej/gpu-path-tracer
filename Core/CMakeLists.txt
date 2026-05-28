@@ -52,13 +52,14 @@ target_sources(core PRIVATE
 
     "Source/Graphics/Gl/Resources/Mesh.cpp"
     "Source/Graphics/Gl/Resources/Texture.cpp"
-    "Source/Graphics/Gl/DynamicTexture2D.cpp"
     "Source/Graphics/Gl/Framebuffer.cpp"
+    "Source/Graphics/Gl/MultisampleTexture2D.cpp"
     "Source/Graphics/Gl/Renderbuffer.cpp"
     "Source/Graphics/Gl/Renderer.cpp"
 	"Source/Graphics/Gl/RenderTarget.cpp"
     "Source/Graphics/Gl/Shader.cpp"
     "Source/Graphics/Gl/ShaderProgram.cpp" 
+    "Source/Graphics/Gl/Texture2D.cpp"
     "Source/Graphics/Gl/VertexLayout.cpp" 
     "Source/Graphics/Services/SceneRenderer.cpp"
 

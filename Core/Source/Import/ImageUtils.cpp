@@ -58,15 +58,15 @@ namespace Core::Import
             {
                 result.data.resize(static_cast<size_t>(pixelCount) * 4);
 
-                for (uint32_t i = 0; i < pixelCount; ++i)
+                for (uint32_t i = 0; i < pixelCount; i++)
                 {
-                    const size_t src = static_cast<size_t>(i) * 3;
-                    const size_t dst = static_cast<size_t>(i) * 4;
+                    const size_t s = static_cast<size_t>(i) * 3;
+                    const size_t d = static_cast<size_t>(i) * 4;
 
-                    result.data[dst + 0] = image.data[src + 0];
-                    result.data[dst + 1] = image.data[src + 1];
-                    result.data[dst + 2] = image.data[src + 2];
-                    result.data[dst + 3] = 255;
+                    result.data[d + 0] = image.data[s + 0];
+                    result.data[d + 1] = image.data[s + 1];
+                    result.data[d + 2] = image.data[s + 2];
+                    result.data[d + 3] = 255;
                 }
 
                 return result;
@@ -76,19 +76,19 @@ namespace Core::Import
             {
                 result.data.resize(static_cast<size_t>(pixelCount) * 4 * sizeof(uint16_t));
 
-                const auto* src = reinterpret_cast<const uint16_t*>(image.data.data());
-                auto* dst = reinterpret_cast<uint16_t*>(result.data.data());
+                const auto* source = reinterpret_cast<const uint16_t*>(image.data.data());
+                auto* destination = reinterpret_cast<uint16_t*>(result.data.data());
                 const uint16_t alpha = Float32ToFloat16Bits(1.0f);
 
-                for (uint32_t i = 0; i < pixelCount; ++i)
+                for (uint32_t i = 0; i < pixelCount; i++)
                 {
                     const size_t s = static_cast<size_t>(i) * 3;
                     const size_t d = static_cast<size_t>(i) * 4;
 
-                    dst[d + 0] = src[s + 0];
-                    dst[d + 1] = src[s + 1];
-                    dst[d + 2] = src[s + 2];
-                    dst[d + 3] = alpha;
+                    destination[d + 0] = source[s + 0];
+                    destination[d + 1] = source[s + 1];
+                    destination[d + 2] = source[s + 2];
+                    destination[d + 3] = alpha;
                 }
 
                 return result;
@@ -98,18 +98,18 @@ namespace Core::Import
             {
                 result.data.resize(static_cast<size_t>(pixelCount) * 4 * sizeof(float));
 
-                const auto* src = reinterpret_cast<const float*>(image.data.data());
-                auto* dst = reinterpret_cast<float*>(result.data.data());
+                const auto* source = reinterpret_cast<const float*>(image.data.data());
+                auto* destination = reinterpret_cast<float*>(result.data.data());
 
-                for (uint32_t i = 0; i < pixelCount; ++i)
+                for (uint32_t i = 0; i < pixelCount; i++)
                 {
                     const size_t s = static_cast<size_t>(i) * 3;
                     const size_t d = static_cast<size_t>(i) * 4;
 
-                    dst[d + 0] = src[s + 0];
-                    dst[d + 1] = src[s + 1];
-                    dst[d + 2] = src[s + 2];
-                    dst[d + 3] = 1.0f;
+                    destination[d + 0] = source[s + 0];
+                    destination[d + 1] = source[s + 1];
+                    destination[d + 2] = source[s + 2];
+                    destination[d + 3] = 1.0f;
                 }
 
                 return result;

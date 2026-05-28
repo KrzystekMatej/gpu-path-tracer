@@ -47,9 +47,9 @@ scene:
         - type: Model
           path: Models/Spheres/Light/mesh.obj
     # Background
-    - components:
-        - type: Background
-          path: Backgrounds/Restaurant
+    # - components:
+    #     - type: Background
+    #       path: Backgrounds/Restaurant
     # Spheres
     - components:
         - type: Transform

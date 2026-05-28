@@ -1,0 +1,101 @@
+
+scripts:
+    - phase: Awake
+      name: AwakeCameraController
+    - phase: Update
+      name: UpdateCameraController
+scene:
+    # Camera
+    - components:
+        - type: Transform
+          translation: [0.0, 0.0, 3.0]
+          target: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Camera
+          fov-y: 45.0
+          near-plane: 0.1
+          far-plane: 100.0
+        - type: CameraController
+          speed: 10.0
+          sensitivity: 0.01
+    # Lights
+    - components:
+        - type: Transform
+          translation: [-10.0, 10.0, 10.0]
+          euler-degrees: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        # - type: Light
+        #   color: [300.0, 300.0, 300.0]
+        #   intensity: 1.0
+        - type: Model
+          path: Models/Spheres/Light/mesh.obj
+    - components:
+        - type: Transform
+          translation: [10.0, 10.0, 10.0]
+          euler-degrees: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        # - type: Light
+        #   color: [300.0, 300.0, 300.0]
+        #   intensity: 1.0
+        - type: Model
+          path: Models/Spheres/Light/mesh.obj
+    - components:
+        - type: Transform
+          translation: [-10.0, -10.0, 10.0]
+          euler-degrees: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        # - type: Light
+        #   color: [300.0, 300.0, 300.0]
+        #   intensity: 1.0
+        - type: Model
+          path: Models/Spheres/Light/mesh.obj
+    - components:
+        - type: Transform
+          translation: [10.0, -10.0, 10.0]
+          euler-degrees: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        # - type: Light
+        #   color: [300.0, 300.0, 300.0]
+        #   intensity: 1.0
+        - type: Model
+          path: Models/Spheres/Light/mesh.obj
+    # # Background
+    # - components:
+    #     - type: Background
+    #       path: Backgrounds/NewPortLoft
+    # Spheres
+    - components:
+        - type: Transform
+          translation: [-5.0, 0.0, 2.0]
+          euler-degrees: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/RustedIron/mesh.obj
+    - components:
+        - type: Transform
+          translation: [-3.0, 0.0, 2.0]
+          euler-degrees: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Gold/mesh.obj
+    - components:
+        - type: Transform
+          translation: [-1.0, 0.0, 2.0]
+          euler-degrees: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Grass/mesh.obj
+    - components:
+        - type: Transform
+          translation: [1.0, 0.0, 2.0]
+          euler-degrees: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Plastic/mesh.obj
+    - components:
+        - type: Transform
+          translation: [3.0, 0.0, 2.0]
+          euler-degrees: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/Spheres/Wall/mesh.obj

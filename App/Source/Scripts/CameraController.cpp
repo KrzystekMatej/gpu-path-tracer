@@ -10,8 +10,8 @@ namespace App::Scripts
 		entt::registry& registry,
 		Core::Assets::Manager& assetManager) const
 	{
-		CORE_TRY_CONTEXT(speed, Core::Utils::Yaml::GetFloat(context.node, "speed"), "Failed to get 'speed' for CameraController");
-		CORE_TRY_CONTEXT(sensitivity, Core::Utils::Yaml::GetFloat(context.node, "sensitivity"), "Failed to get 'sensitivity' for CameraController");
+		CORE_TRY_CONTEXT(speed, Core::Utils::Yaml::GetValue<float>(context.node, "speed"), "Failed to get 'speed' for CameraController");
+		CORE_TRY_CONTEXT(sensitivity, Core::Utils::Yaml::GetValue<float>(context.node, "sensitivity"), "Failed to get 'sensitivity' for CameraController");
 
 		if (speed < 0.0f)
 			return std::unexpected(Core::Utils::Error("Camera 'speed' must be at least 0"));

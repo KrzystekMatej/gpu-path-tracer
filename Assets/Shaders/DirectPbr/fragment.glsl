@@ -8,8 +8,9 @@ in vec2 fragment_uv;
 layout(location = 0) out vec4 fragment_color;
 
 uniform vec3 camera_position;
+uniform float dielectric_F0;
 
-uniform sampler2D albedo_texture;
+uniform sampler2D color_texture;
 uniform sampler2D rma_texture;
 uniform sampler2D normal_texture;
 
@@ -66,11 +67,6 @@ vec3 fresnel_schlick(float cos_theta, vec3 F0)
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
 }
 
-vec3 fresnel_schlick_roughness(float cos_theta, vec3 F0, float roughness)
-{
-    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
-}
-
 vec3 reinhard(vec3 color)
 {
     return color / (color + vec3(1.0));
@@ -108,19 +104,17 @@ void main()
 {
     vec3 N = get_normal();
     vec3 V = normalize(camera_position - world_position);
-    vec3 R = reflect(-V, N);
 
-    vec3 albedo = texture(albedo_texture, fragment_uv).rgb;
+    vec3 base_color = texture(color_texture, fragment_uv).rgb;
     vec3 rma = texture(rma_texture, fragment_uv).rgb;
     float roughness = rma.r;
     float metallic = rma.g;
     float ao = rma.b;
     
-    vec3 F0 = vec3(0.04);
-    F0 = mix(F0, albedo, metallic);
+    vec3 F0 = mix(vec3(dielectric_F0), base_color, metallic);
 
     vec3 Lo = vec3(0.0);
-    for (uint i = 0u; i < light_count; ++i)
+    for (uint i = 0u; i < light_count; i++)
     {
         vec3 L_vec = lights[i].position - world_position;
         float d2 = max(dot(L_vec, L_vec), 1e-6);
@@ -143,10 +137,10 @@ void main()
         vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
 
         float NdotL = max(dot(N, L), 0.0);
-        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+        Lo += (kD * base_color / PI + specular) * radiance * NdotL;
     }
 
-    vec3 ambient = vec3(0.03) * albedo * ao;
+    vec3 ambient = vec3(0.03) * base_color * ao;
     vec3 color = ambient + Lo;
 
     fragment_color = vec4(postprocess(color), 1.0);

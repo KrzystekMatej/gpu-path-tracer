@@ -10,7 +10,7 @@ namespace App::PathTracer
 	class Layer : public Core::Runtime::Layer::Base
 	{
 	public:
-		Layer() : m_DisplayTexture(Core::Graphics::Gl::GetRgba8TextureFormat()) {}
+		Layer() : m_DisplayTexture(std::move(Core::Graphics::Gl::Texture2D::CreateRgba8())) {}
 
 		void OnAttach() override;
 		void OnDetach() override;
@@ -22,7 +22,7 @@ namespace App::PathTracer
 		void OnCameraRecordingFinish(const CameraRecorder::Events::Finish& event);
 	private:
 		Core::Graphics::Cuda::Renderer m_PathTracer;
-		Core::Graphics::Gl::DynamicTexture2D m_DisplayTexture;
+		Core::Graphics::Gl::Texture2D m_DisplayTexture;
 		std::vector<Core::Capture::MotionState> m_CameraMotionStates;
 		bool m_StatesUpdated = false;
 		bool m_SceneBuffersDirty = true;

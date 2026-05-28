@@ -53,27 +53,36 @@ namespace Core::Assets
         Material() = default;
         Material(
             Graphics::SurfaceModel surface,
-            Handle<Texture> albedo,
+            Handle<Texture> color,
             Handle<Texture> specular,
             Handle<Texture> shininess,
             Handle<Texture> rma,
             Handle<Texture> emission,
-            Handle<Texture> normal)
+            Handle<Texture> normal,
+            float ior,
+            float transmission,
+            float opacity)
             : surface(surface),
-              albedo(albedo),
+              color(color),
               specular(specular),
               shininess(shininess),
               rma(rma),
               emission(emission),
-              normal(normal) {}
+              normal(normal),
+              ior(ior),
+              transmission(transmission),
+              opacity(opacity) {}
 
         Graphics::SurfaceModel surface;
-        Handle<Texture> albedo;
+        Handle<Texture> color;
         Handle<Texture> specular;
         Handle<Texture> shininess;
         Handle<Texture> rma;
         Handle<Texture> emission;
         Handle<Texture> normal;
+        float ior;
+        float transmission;
+        float opacity;
     };
 
     struct ModelPart

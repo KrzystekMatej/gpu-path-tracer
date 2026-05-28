@@ -5,14 +5,14 @@
 
 namespace Core::Graphics::Gl
 {
-    Renderbuffer::Renderbuffer(uint32_t internalFormat)
-        : m_Width(0), m_Height(0), m_InternalFormat(internalFormat)
+    Renderbuffer::Renderbuffer(uint32_t internalFormat, uint32_t samples)
+        : m_Width(0), m_Height(0), m_InternalFormat(internalFormat), m_Samples(samples)
     {
         glGenRenderbuffers(1, &m_Id);
     }
 
-    Renderbuffer::Renderbuffer(uint32_t width, uint32_t height, uint32_t internalFormat)
-        : m_Width(width), m_Height(height), m_InternalFormat(internalFormat)
+    Renderbuffer::Renderbuffer(uint32_t width, uint32_t height, uint32_t internalFormat, uint32_t samples)
+        : m_Width(width), m_Height(height), m_InternalFormat(internalFormat), m_Samples(samples)
     {
         glGenRenderbuffers(1, &m_Id);
         Allocate();
@@ -20,27 +20,30 @@ namespace Core::Graphics::Gl
 
     Renderbuffer::Renderbuffer(Renderbuffer&& other) noexcept
         : m_Id(std::exchange(other.m_Id, 0)),
-        m_Width(other.m_Width),
-        m_Height(other.m_Height),
-        m_InternalFormat(other.m_InternalFormat)
+          m_Width(other.m_Width),
+          m_Height(other.m_Height),
+          m_InternalFormat(other.m_InternalFormat),
+          m_Samples(other.m_Samples)
     {
     }
 
-	Renderbuffer& Renderbuffer::operator=(Renderbuffer&& other) noexcept
-	{
-		if (this != &other)
-		{
-			if (m_Id)
-				glDeleteRenderbuffers(1, &m_Id);
+    Renderbuffer& Renderbuffer::operator=(Renderbuffer&& other) noexcept
+    {
+        if (this != &other)
+        {
+            if (m_Id)
+                glDeleteRenderbuffers(1, &m_Id);
 
-			m_Id = std::exchange(other.m_Id, 0);
-			m_Width = other.m_Width;
-			m_Height = other.m_Height;
-			m_InternalFormat = other.m_InternalFormat;
-		}
-		return *this;
-	}
+            m_Id = std::exchange(other.m_Id, 0);
+            m_Width = other.m_Width;
+            m_Height = other.m_Height;
+            m_InternalFormat = other.m_InternalFormat;
+            m_Samples = other.m_Samples;
+        }
 
+        return *this;
+    }
+    
     Renderbuffer::~Renderbuffer()
     {
         if (m_Id)
@@ -62,11 +65,27 @@ namespace Core::Graphics::Gl
         Allocate();
     }
 
+    void Renderbuffer::Allocate(uint32_t width, uint32_t height, uint32_t samples)
+    {
+        m_Width = width;
+        m_Height = height;
+        m_Samples = samples;
+        Allocate();
+    }
+
     void Renderbuffer::Allocate()
     {
         assert(m_Id != 0);
 
         Bind();
-        glRenderbufferStorage(GL_RENDERBUFFER, m_InternalFormat, m_Width, m_Height);
+
+        if (m_Samples > 1)
+        {
+            glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_Samples, m_InternalFormat, m_Width, m_Height);
+        }
+        else
+        {
+            glRenderbufferStorage(GL_RENDERBUFFER, m_InternalFormat, m_Width, m_Height);
+        }
     }
 }

@@ -10,8 +10,8 @@ namespace Core::Ecs
 		entt::registry& registry,
 		Assets::Manager& assetManager) const
 	{
-		CORE_TRY(translation, Utils::Yaml::GetVec3(context.node, "translation"));
-		CORE_TRY(scale, Utils::Yaml::GetVec3(context.node, "scale"));
+		CORE_TRY(translation, Utils::Yaml::GetValue<glm::vec3>(context.node, "translation"));
+		CORE_TRY(scale, Utils::Yaml::GetValue<glm::vec3>(context.node, "scale"));
 
 		const bool hasQuaternion = static_cast<bool>(context.node["quaternion"]);
 		const bool hasEulerDegrees = static_cast<bool>(context.node["euler-degrees"]);
@@ -25,22 +25,22 @@ namespace Core::Ecs
 
 		if (hasQuaternion)
 		{
-			CORE_TRY(quaternionWxyz, Utils::Yaml::GetVec4(context.node, "quaternion"));
+			CORE_TRY(quaternionWxyz, Utils::Yaml::GetValue<glm::vec4>(context.node, "quaternion"));
 			rotation = glm::normalize(glm::quat(quaternionWxyz.x, quaternionWxyz.y, quaternionWxyz.z, quaternionWxyz.w));
 		}
 		else if (hasEulerDegrees)
 		{
-			CORE_TRY(euler, Utils::Yaml::GetVec3(context.node, "euler-degrees"));
+			CORE_TRY(euler, Utils::Yaml::GetValue<glm::vec3>(context.node, "euler-degrees"));
 			rotation = glm::normalize(glm::quat(glm::radians(euler)));
 		}
 		else if (hasEulerRadians)
 		{
-			CORE_TRY(euler, Utils::Yaml::GetVec3(context.node, "euler-radians"));
+			CORE_TRY(euler, Utils::Yaml::GetValue<glm::vec3>(context.node, "euler-radians"));
 			rotation = glm::normalize(glm::quat(euler));
 		}
 		else if (hasTarget)
 		{
-			CORE_TRY(target, Utils::Yaml::GetVec3(context.node, "target"));
+			CORE_TRY(target, Utils::Yaml::GetValue<glm::vec3>(context.node, "target"));
 			
 			glm::vec3 forward = target - translation;
 			if (glm::length(forward) <= 1e-6f)
