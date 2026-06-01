@@ -238,6 +238,7 @@ namespace Core::Graphics::Gl
 				float dielectricF0 = (context.material.ior - MaterialDefaults::AirIor) / (context.material.ior + MaterialDefaults::AirIor);
 
 				program->SetFloat("dielectric_F0", dielectricF0 * dielectricF0);
+				
 
 				program->SetUInt32("light_count", static_cast<uint32_t>(context.lights.size()));
 				for (size_t i = 0; i < context.lights.size(); i++)

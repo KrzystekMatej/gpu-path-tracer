@@ -33,7 +33,7 @@ namespace Core::Graphics::Cuda::Memory
         CORE_TRY_DISCARD(Free());
 
         void* hostData = nullptr;
-        CORE_CUDA_TRY("cudaMallocHost", cudaMallocHost(&hostData, size * elementSize));
+        CUDA_TRY("cudaMallocHost", cudaMallocHost(&hostData, size * elementSize));
 
         auto deviceAllocateResult = m_DeviceBuffer.Allocate(size, elementSize);
         if (!deviceAllocateResult)
@@ -62,7 +62,7 @@ namespace Core::Graphics::Cuda::Memory
     {
         assert(m_HostData != nullptr);
 
-        CORE_CUDA_TRY("cudaMemcpy", cudaMemcpy(
+        CUDA_TRY("cudaMemcpy", cudaMemcpy(
             m_HostData,
             m_DeviceBuffer.GetData(),
             m_DeviceBuffer.GetSize() * m_DeviceBuffer.GetElementSize(),
@@ -76,7 +76,7 @@ namespace Core::Graphics::Cuda::Memory
         assert(m_HostData != nullptr);
         assert(stream != nullptr);
 
-        CORE_CUDA_TRY("cudaMemcpyAsync", cudaMemcpyAsync(
+        CUDA_TRY("cudaMemcpyAsync", cudaMemcpyAsync(
             m_HostData,
             m_DeviceBuffer.GetData(),
             m_DeviceBuffer.GetSize() * m_DeviceBuffer.GetElementSize(),

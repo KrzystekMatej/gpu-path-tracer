@@ -10,7 +10,6 @@ namespace Core::Graphics::Cuda::Math
 	inline constexpr float TwoPi = 2.0f * CUDART_PI_F;
 	inline constexpr float InvTwoPi = 1.0f / TwoPi;
 
-
 	__host__ __device__ __forceinline__ float At(float2 number, int index)
 	{
 		switch (index)
@@ -54,6 +53,18 @@ namespace Core::Graphics::Cuda::Math
 			default:
 				return 0.0f;
 		}
+	}
+
+	template<typename T>
+	__device__ __forceinline__ T Min(T a, T b)
+	{
+		return a < b ? a : b;
+	}
+	
+	template<typename T>
+	__device__ __forceinline__ T Max(T a, T b)
+	{
+		return a > b ? a : b;
 	}
 
 	__host__ __device__ __forceinline__ float MaxComponent(float3 vector)

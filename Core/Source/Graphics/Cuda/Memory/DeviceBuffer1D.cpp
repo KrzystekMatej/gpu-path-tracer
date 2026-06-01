@@ -35,7 +35,7 @@ namespace Core::Graphics::Cuda::Memory
         CORE_TRY_DISCARD(Free());
         
         void* data = nullptr;
-        CORE_CUDA_TRY("cudaMalloc", cudaMalloc(&data, size * elementSize));
+        CUDA_TRY("cudaMalloc", cudaMalloc(&data, size * elementSize));
 
         m_Data = data;
         m_Size = size;
@@ -49,7 +49,7 @@ namespace Core::Graphics::Cuda::Memory
         assert(hostData != nullptr);
         assert(size <= m_Size);
 
-        CORE_CUDA_TRY("cudaMemcpy", cudaMemcpy(m_Data, hostData, size * m_ElementSize, cudaMemcpyKind::cudaMemcpyHostToDevice));
+        CUDA_TRY("cudaMemcpy", cudaMemcpy(m_Data, hostData, size * m_ElementSize, cudaMemcpyKind::cudaMemcpyHostToDevice));
         return {};
     }
 
@@ -60,7 +60,7 @@ namespace Core::Graphics::Cuda::Memory
         assert(stream != nullptr);
         assert(size <= m_Size);
 
-        CORE_CUDA_TRY("cudaMemcpyAsync", cudaMemcpyAsync(
+        CUDA_TRY("cudaMemcpyAsync", cudaMemcpyAsync(
             m_Data,
             hostData,
             size * m_ElementSize,
@@ -74,7 +74,7 @@ namespace Core::Graphics::Cuda::Memory
     {
         assert(m_Data != nullptr);
 
-        CORE_CUDA_TRY("cudaMemset", cudaMemset(m_Data, value, m_Size * m_ElementSize));
+        CUDA_TRY("cudaMemset", cudaMemset(m_Data, value, m_Size * m_ElementSize));
         return {};
     }
 
@@ -83,7 +83,7 @@ namespace Core::Graphics::Cuda::Memory
         assert(m_Data != nullptr);
         assert(stream != nullptr);
 
-        CORE_CUDA_TRY("cudaMemsetAsync", cudaMemsetAsync(m_Data, value, m_Size * m_ElementSize, static_cast<cudaStream_t>(stream)));
+        CUDA_TRY("cudaMemsetAsync", cudaMemsetAsync(m_Data, value, m_Size * m_ElementSize, static_cast<cudaStream_t>(stream)));
         return {};
     }
 
@@ -92,7 +92,7 @@ namespace Core::Graphics::Cuda::Memory
         if (m_Data == nullptr)
             return {};
 
-        CORE_CUDA_TRY("cudaFree", cudaFree(m_Data));
+        CUDA_TRY("cudaFree", cudaFree(m_Data));
         m_Data = nullptr;
         m_Size = 0;
         m_ElementSize = 0;

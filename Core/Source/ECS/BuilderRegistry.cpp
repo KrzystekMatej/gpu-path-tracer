@@ -7,14 +7,15 @@
 
 namespace Core::Ecs
 {
-	void BuilderRegistry::RegisterCoreBuilders()
+	std::expected<void, Utils::Error> BuilderRegistry::RegisterCoreBuilders()
 	{
-		assert(Register("Transform", std::make_unique<TransformBuilder>()));
-		assert(Register("Camera", std::make_unique<Graphics::Ecs::CameraBuilder>()));
-		assert(Register("Model", std::make_unique<Graphics::Ecs::ModelBuilder>()));
-		assert(Register("Background", std::make_unique<Graphics::Ecs::BackgroundBuilder>()));
-		assert(Register("Light", std::make_unique<Graphics::Ecs::LightBuilder>()));
-		assert(Register("MotionRecorder", std::make_unique<Capture::MotionRecorderBuilder>()));
-		assert(Register("Grid", std::make_unique<Graphics::Ecs::GridBuilder>()));
+		CORE_TRY_DISCARD_CONTEXT(Register("Transform", std::make_unique<TransformBuilder>()), "Failed to register TransformBuilder");
+		CORE_TRY_DISCARD_CONTEXT(Register("Camera", std::make_unique<Graphics::Ecs::CameraBuilder>()), "Failed to register CameraBuilder");
+		CORE_TRY_DISCARD_CONTEXT(Register("Model", std::make_unique<Graphics::Ecs::ModelBuilder>()), "Failed to register ModelBuilder");
+		CORE_TRY_DISCARD_CONTEXT(Register("Background", std::make_unique<Graphics::Ecs::BackgroundBuilder>()), "Failed to register BackgroundBuilder");
+		CORE_TRY_DISCARD_CONTEXT(Register("Light", std::make_unique<Graphics::Ecs::LightBuilder>()), "Failed to register LightBuilder");
+		CORE_TRY_DISCARD_CONTEXT(Register("MotionRecorder", std::make_unique<Capture::MotionRecorderBuilder>()), "Failed to register MotionRecorderBuilder");
+		CORE_TRY_DISCARD_CONTEXT(Register("Grid", std::make_unique<Graphics::Ecs::GridBuilder>()), "Failed to register GridBuilder");
+		return {};
 	}
 }

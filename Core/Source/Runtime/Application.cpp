@@ -46,6 +46,12 @@ namespace Core::Runtime
 		Window::Attributes windowAttributes, 
 		const std::filesystem::path& projectConfigPath)
 	{
+#ifdef CORE_DEBUG
+		spdlog::set_level(spdlog::level::trace);
+#else
+		spdlog::set_level(spdlog::level::info);
+#endif
+
 		if (s_Instance)
 			return std::unexpected(Utils::Error("Application instance already exists"));
 
@@ -57,7 +63,7 @@ namespace Core::Runtime
 		Scripts::Catalog scriptCatalog;
 
 		Ecs::BuilderRegistry builderRegistry;
-		builderRegistry.RegisterCoreBuilders();
+		CORE_TRY_DISCARD_CONTEXT(builderRegistry.RegisterCoreBuilders(), "Failed to register core builders");
 
 		CORE_TRY_CONTEXT(project, Project::Descriptor::Create(projectConfigPath), "Failed to create project descriptor");
 		CORE_TRY_CONTEXT(assetManager, Assets::Manager::Create(project.GetContentPath()), "Failed to create asset manager");

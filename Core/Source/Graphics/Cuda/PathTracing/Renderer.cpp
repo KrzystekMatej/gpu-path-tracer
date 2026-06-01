@@ -13,10 +13,11 @@
 #include <Core/Graphics/Cuda/Utils/Error.hpp>
 #include <cmath>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
+#include <Core/Utils/Time.hpp>
 
 namespace Core::Graphics::Cuda
 {
-	constexpr size_t PathPoolSize = 1'000'000;
+	constexpr size_t PathPoolSize = 2 << 19;
 
     namespace
     {
@@ -169,6 +170,7 @@ namespace Core::Graphics::Cuda
 
 		CORE_TRY_DISCARD(m_HitQueue.Allocate(PathPoolSize, sizeof(HitData)));
 		CORE_TRY_DISCARD(m_RegenQueue.Allocate(PathPoolSize, sizeof(uint32_t)));
+        CORE_TRY_DISCARD(m_LaunchedSampleCounter.Allocate());
 		CORE_TRY_DISCARD(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)));
         CORE_TRY_DISCARD(m_Framebuffer.Allocate(width * height, sizeof(uchar4)));
         m_Width = width;
@@ -321,6 +323,9 @@ namespace Core::Graphics::Cuda
 
         for (uint32_t frameIndex = startFrame; frameIndex < m_TotalFrames; frameIndex++)
         {
+            Core::Utils::Timer timer;
+            timer.Start();
+            
             DeviceCamera camera = MakeDeviceCamera(m_Camera, aspect, m_CameraMotionStates[frameIndex]);
             auto result = RenderFrame(stopToken, camera, generateCount);
             if (!result)
@@ -332,6 +337,9 @@ namespace Core::Graphics::Cuda
             }
             if (stopToken.stop_requested()) break;
 			m_DoneFrames.fetch_add(1, std::memory_order_relaxed);
+
+            timer.Stop();
+            spdlog::info("Rendered frame {} in {:.2f} seconds", frameIndex, timer.GetElapsedSeconds());
         }
 
         m_IsRendering.store(false, std::memory_order_relaxed);
@@ -345,10 +353,15 @@ namespace Core::Graphics::Cuda
         m_DoneSamples.store(0, std::memory_order_relaxed);
 
         uint32_t currentQueue = 0;
-        CORE_TRY_DISCARD(m_RayQueues[currentQueue].ResetCounter());
+        CORE_TRY_DISCARD(m_RayQueues[0].ResetCounter());
+        CORE_TRY_DISCARD(m_RayQueues[1].ResetCounter());
+        CORE_TRY_DISCARD(m_HitQueue.ResetCounter());
+        CORE_TRY_DISCARD(m_RegenQueue.ResetCounter());
+        m_LaunchedSampleCounter.SetHostValue(generateCount);
+        CORE_TRY_DISCARD(m_LaunchedSampleCounter.SyncFromHost());
         CORE_TRY_DISCARD(m_AccumulationBuffer.MemsetBytesSync(0));
         
-        CORE_CUDA_TRY_KERNEL("InitializePaths", 
+        CUDA_TRY_KERNEL_DEBUG("InitializePaths", 
             Kernels::InitializePaths(
                 camera, 
                 m_Width,
@@ -357,32 +370,28 @@ namespace Core::Graphics::Cuda
                 generateCount,
                 m_PathPool.GetView(),
                 m_RayQueues[currentQueue].GetView<uint32_t>()));
-        if (stopToken.stop_requested()) return {};
         m_RayQueues[currentQueue].SetCounterHostValue(generateCount);
-        CORE_TRY_DISCARD(m_RayQueues[currentQueue].SyncCounterFromHost());
 
-        uint64_t launchedSampleCount = generateCount;
-        uint32_t iteration = 0;
 
         while (m_RayQueues[currentQueue].GetCounterHostValue() > 0)
         {
-            CORE_TRY_DISCARD(m_HitQueue.ResetCounter());
-            CORE_TRY_DISCARD(m_RegenQueue.ResetCounter());
-            CORE_CUDA_TRY_KERNEL("IntersectRaysWithScene", 
+            uint32_t nextQueue = currentQueue ^ 1;
+            CUDA_TRY_KERNEL_DEBUG("SetCounters", 
+                Kernels::SetCounters(
+                    m_RayQueues[nextQueue].GetView<uint32_t>(),
+                    m_HitQueue.GetView<HitData>(),
+                    m_RegenQueue.GetView<uint32_t>(),
+                    m_TotalSamples,
+                    m_LaunchedSampleCounter.GetView()));
+            CUDA_TRY_KERNEL_DEBUG("IntersectRaysWithScene", 
                 Kernels::IntersectRaysWithScene(
-                    m_RayQueues[currentQueue].GetCounterHostValue(),
                     m_PathPool.GetView(),
                     m_RayQueues[currentQueue].GetView<uint32_t>(),
                     m_Bvh.GetView(),
                     m_HitQueue.GetView<HitData>(),
                     m_RegenQueue.GetView<uint32_t>()));
-            if (stopToken.stop_requested()) return {};
-            CORE_TRY_DISCARD(m_HitQueue.SyncCounterFromDevice());
-            uint32_t nextQueue = currentQueue ^ 1;
-            CORE_TRY_DISCARD(m_RayQueues[nextQueue].ResetCounter());
-            CORE_CUDA_TRY_KERNEL("ResolveHits", 
+            CUDA_TRY_KERNEL_DEBUG("ResolveHits", 
                 Kernels::ResolveHits(
-                    m_HitQueue.GetCounterHostValue(),
                     m_PathPool.GetView(),
                     m_HitQueue.GetView<HitData>(),
                     m_Bvh.GetView().triangles,
@@ -391,48 +400,42 @@ namespace Core::Graphics::Cuda
                     m_RegenQueue.GetView<uint32_t>(),
                     m_AccumulationBuffer.GetView<float4>(),
                     m_RayQueues[nextQueue].GetView<uint32_t>()));
-            if (stopToken.stop_requested()) return {};
-            CORE_TRY_DISCARD(m_RegenQueue.SyncCounterFromDevice());
-            uint32_t regenerateCount = std::min<uint64_t>(m_RegenQueue.GetCounterHostValue(), m_TotalSamples - launchedSampleCount);
-            CORE_CUDA_TRY_KERNEL("RegeneratePaths", 
+            CUDA_TRY_KERNEL_DEBUG("RegeneratePaths", 
                 Kernels::RegeneratePaths(
-                    regenerateCount,
                     m_RegenQueue.GetView<uint32_t>(),
-                    launchedSampleCount,
+                    m_TotalSamples,
+                    m_LaunchedSampleCounter.GetView(),
                     camera,
                     m_Width,
                     m_Height,
                     m_SampleGridSize,
                     m_PathPool.GetView(),
                     m_RayQueues[nextQueue].GetView<uint32_t>()));
-            if (stopToken.stop_requested()) return {};
-            uint32_t nextRayCount = m_RayQueues[currentQueue].GetCounterHostValue() - m_RegenQueue.GetCounterHostValue() + regenerateCount;
-            m_RayQueues[nextQueue].SetCounterHostValue(nextRayCount);
-            CORE_TRY_DISCARD(m_RayQueues[nextQueue].SyncCounterFromHost());
-
             currentQueue = nextQueue;
-            launchedSampleCount += regenerateCount;
-            m_DoneSamples.fetch_add(regenerateCount, std::memory_order_relaxed);
-            // spdlog::info("Completed iteration {}, hitCount: {}, regenerateCount: {}, nextRayCount: {}, total samples completed: {}/{}", iteration, m_HitQueue.GetCounterHostValue(), regenerateCount, nextRayCount, launchedSampleCount, m_TotalSamples);
-            iteration++;
+            CORE_TRY_DISCARD(m_RayQueues[currentQueue].SyncCounterFromDevice());
+            if (stopToken.stop_requested()) return {};
         }
-        m_DoneSamples.store(m_TotalSamples, std::memory_order_relaxed);
         
-        CORE_CUDA_TRY_KERNEL("PostprocessAccumulatedRadiance", 
+        CUDA_TRY_KERNEL_DEBUG("PostprocessAccumulatedRadiance", 
             Kernels::PostprocessAccumulatedRadiance(
                 m_AccumulationBuffer.GetView<float4>(),
                 1.0f / static_cast<float>(m_SamplesPerPixel),
                 m_Framebuffer.GetDeviceView<uchar4>()));
+        
+        {
+            std::scoped_lock lock(m_FrameMutex);
+            CORE_TRY_DISCARD(m_Framebuffer.CopyDeviceToHostSync());
+        }
 
-        std::scoped_lock lock(m_FrameMutex);
-        return m_Framebuffer.CopyDeviceToHostSync();
+        m_DoneSamples.store(m_TotalSamples, std::memory_order_relaxed);
+        return {};
     }
 
     std::expected<void, Core::Utils::Error> Renderer::RenderClear(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
     {
         const uchar4 clearColor = make_uchar4(r, g, b, a);
 
-        CORE_CUDA_TRY_KERNEL("Clear", Kernels::Clear(clearColor, m_Framebuffer.GetDeviceView<uchar4>()));
+        CUDA_TRY_KERNEL_DEBUG("Clear", Kernels::Clear(clearColor, m_Framebuffer.GetDeviceView<uchar4>()));
 
         std::scoped_lock lock(m_FrameMutex);
         return m_Framebuffer.CopyDeviceToHostSync();

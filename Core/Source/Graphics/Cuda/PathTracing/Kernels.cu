@@ -2,7 +2,6 @@
 #include <helper_math.h>
 #include <cuda_runtime.h>
 #include <cstdio>
-#include <Core/Graphics/Cuda/Memory/ViewUtils.cuh>
 #include <Core/Graphics/Cuda/Memory/Stack.hpp>
 #include <Core/Graphics/Cuda/Bvh/BvhDefaults.hpp>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
@@ -24,11 +23,24 @@ namespace Core::Graphics::Cuda::Kernels
 	__global__ void ClearKernel(uchar4 color, Memory::DeviceBuffer1DView<uchar4> framebuffer)
 	{
 		uint32_t pixelIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (pixelIndex >= framebuffer.size) return;
+		if (pixelIndex >= framebuffer.GetSize()) return;
 
-		Memory::At(framebuffer, pixelIndex) = color;
+		framebuffer.At(pixelIndex) = color;
 	}
-
+	
+	__global__ void SetCountersKernel(
+		Memory::DeviceQueueView<uint32_t> nextRayQueue, 
+		Memory::DeviceQueueView<HitData> hitQueue, 
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		uint64_t totalSamples,
+		Memory::CounterView<uint64_t> launchedSampleCounter)
+	{
+		launchedSampleCounter.Set(Math::Min(totalSamples, launchedSampleCounter.Get() + regenQueue.GetSize()));
+		nextRayQueue.Clear();
+		hitQueue.Clear();
+		regenQueue.Clear();
+	}
+	
 	__global__ void InitializePathsKernel(
 		DeviceCamera camera, 
 		uint32_t width, 
@@ -64,28 +76,33 @@ namespace Core::Graphics::Cuda::Kernels
 		float3 rayDirection = normalize(camera.lowerLeftCorner + u * camera.horizontal + v * camera.vertical - camera.origin);
 		
 		// sampleIndex == pathIndex in this kernel
-		Pixel& pixel = Memory::At(pathPool.pixels, sampleIndex);
+		Pixel& pixel = pathPool.pixels.At(sampleIndex);
 		pixel.index = pixelIndex;
 
-		Ray& ray = Memory::At(pathPool.rays, sampleIndex);
+		Ray& ray = pathPool.rays.At(sampleIndex);
 		ray.direction = rayDirection;
 		ray.origin = camera.origin;
 		ray.tMin = PathTracerDefaults::MinT;
 		ray.tMax = PathTracerDefaults::MaxT;
 		ray.ior = 1.0f;
 		
-		Contribution& contribution = Memory::At(pathPool.contributions, sampleIndex);
+		Contribution& contribution = pathPool.contributions.At(sampleIndex);
 		contribution.throughput = make_float4(1.0f);
 		
-		Random& random = Memory::At(pathPool.randoms, sampleIndex);
+		Random& random = pathPool.randoms.At(sampleIndex);
 		random.state = state;
 		
-		PathFlags& pathFlags = Memory::At(pathPool.pathFlags, sampleIndex);
+		PathFlags& pathFlags = pathPool.pathFlags.At(sampleIndex);
 		pathFlags.depth = 0;
 
-		Memory::At(rayQueue, sampleIndex) = sampleIndex;
+		rayQueue.At(sampleIndex) = sampleIndex;
+		
+		if (sampleIndex == 0)
+		{
+			rayQueue.SetSize(generateCount);
+		}
 	}
-	
+
 	__device__ __forceinline__ bool AabbIntersect(const BoundingBox& bounds, const float3& origin, const float3& invDirection, float tMin, float tMax)
 	{
 		float3 t0 = (bounds.min - origin) * invDirection;
@@ -150,10 +167,10 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceQueueView<uint32_t> regenQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= *rayQueue.counter.value) return;
+		if (queueIndex >= rayQueue.GetSize()) return;
 		
-		uint32_t pathIndex = Memory::At(rayQueue, queueIndex);
-		const Ray ray = Memory::At(pathPool.rays, pathIndex);
+		uint32_t pathIndex = rayQueue.At(queueIndex);
+		const Ray ray = pathPool.rays.At(pathIndex);
 		const float3 invDirection = make_float3(1.0f) / ray.direction;
 		//TODO: use templates to accomodate stack sizes for different (shallower) BVH depths
 		Memory::Stack<uint32_t, BvhDefaults::MaxDepth + 2> stack;
@@ -165,7 +182,7 @@ namespace Core::Graphics::Cuda::Kernels
 		while (!stack.IsEmpty())
 		{
 			uint32_t nodeIndex = stack.Pop();
-			const DeviceBvhNode node = Memory::At(bvh.nodes, nodeIndex);
+			const DeviceBvhNode node = bvh.nodes.At(nodeIndex);
 
 			if (!AabbIntersect(node.bounds, ray.origin, invDirection, ray.tMin, closestT))
 				continue;
@@ -174,7 +191,7 @@ namespace Core::Graphics::Cuda::Kernels
 			{
 				for (uint32_t i = 0; i < node.count; i++)
 				{
-					const Triangle triangle = Memory::At(bvh.triangles, node.first + i);
+					const Triangle triangle = bvh.triangles.At(node.first + i);
 					float t, u, v;
 					if (IntersectTriangle(triangle, ray.origin, ray.direction, ray.tMin, closestT, t, u, v) && t < closestT)
 					{
@@ -197,12 +214,12 @@ namespace Core::Graphics::Cuda::Kernels
 		if (closestHit.triangle != PathTracerDefaults::InvalidIndex)
 		{
 			closestHit.path = pathIndex;
-			Memory::Push(hitQueue, closestHit);
-			Memory::At(pathPool.rays, pathIndex).tMax = closestT;
+			hitQueue.Push(closestHit);
+			pathPool.rays.At(pathIndex).tMax = closestT;
 		}
 		else
 		{
-			Memory::Push(regenQueue, pathIndex);
+			regenQueue.Push(pathIndex);
 		}
 	}
 
@@ -481,11 +498,11 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= *hitQueue.counter.value) return;
+		if (queueIndex >= hitQueue.GetSize()) return;
 		
-		const HitData hitData = Memory::At(hitQueue, queueIndex);
-		const Material material = Memory::At(materials, hitData.material);
-		Contribution& contribution = Memory::At(pathPool.contributions, hitData.path);
+		const HitData hitData = hitQueue.At(queueIndex);
+		const Material material = materials.At(hitData.material);
+		Contribution& contribution = pathPool.contributions.At(hitData.path);
 		bool pathTerminated = false;
 
 		switch (material.shadingModel)
@@ -493,7 +510,7 @@ namespace Core::Graphics::Cuda::Kernels
 			//TODO: unify throughput access?
 			case GlobalShadingModel::Normal:
 			{
-				Triangle triangle = Memory::At(triangles, hitData.triangle);
+				Triangle triangle = triangles.At(hitData.triangle);
 				float b0 = 1.0f - hitData.u - hitData.v;
 				float b1 = hitData.u;
 				float b2 = hitData.v;
@@ -502,23 +519,23 @@ namespace Core::Graphics::Cuda::Kernels
 					b1 * triangle.vertices[1].uv +
 					b2 * triangle.vertices[2].uv;
 				
-				Math::Frame shadingFrame = GetShadingFrame(triangle, Memory::Sample(material.normal, uv.x, uv.y), b0, b1, b2);
+				Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
 
-				const uint32_t pixelIndex = Memory::At(pathPool.pixels, hitData.path).index;
+				const uint32_t pixelIndex = pathPool.pixels.At(hitData.path).index;
 				
 				float3 normal = shadingFrame.normal;
 				const float4 radiance = contribution.throughput * make_float4(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1.0f);
 
-				atomicAdd(&Memory::At(accumulationBuffer, pixelIndex).x, radiance.x);
-				atomicAdd(&Memory::At(accumulationBuffer, pixelIndex).y, radiance.y);
-				atomicAdd(&Memory::At(accumulationBuffer, pixelIndex).z, radiance.z);
+				atomicAdd(&accumulationBuffer.At(pixelIndex).x, radiance.x);
+				atomicAdd(&accumulationBuffer.At(pixelIndex).y, radiance.y);
+				atomicAdd(&accumulationBuffer.At(pixelIndex).z, radiance.z);
 				pathTerminated = true;
 				break;
 			}
 			case GlobalShadingModel::Diffuse:
 			{
-				Triangle triangle = Memory::At(triangles, hitData.triangle);
-				
+				Triangle triangle = triangles.At(hitData.triangle);
+
 				float b0 = 1.0f - hitData.u - hitData.v;
 				float b1 = hitData.u;
 				float b2 = hitData.v;
@@ -527,11 +544,11 @@ namespace Core::Graphics::Cuda::Kernels
 					b1 * triangle.vertices[1].uv +
 					b2 * triangle.vertices[2].uv;
 
-				Ray& ray = Memory::At(pathPool.rays, hitData.path);
+				Ray& ray = pathPool.rays.At(hitData.path);
 
-				Math::Frame shadingFrame = GetShadingFrame(triangle, Memory::Sample(material.normal, uv.x, uv.y), b0, b1, b2);
-				float4 albedo = Memory::Sample(material.color, uv.x, uv.y);
-				Random& random = Memory::At(pathPool.randoms, hitData.path);
+				Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
+				float4 albedo = material.color.Sample(uv.x, uv.y);
+				Random& random = pathPool.randoms.At(hitData.path);
 				float2 u = make_float2(curand_uniform(&random.state), curand_uniform(&random.state));
 
 				float3 omegaI = shadingFrame.FromLocal(SampleCosineWeightedHemisphere(u));
@@ -549,7 +566,7 @@ namespace Core::Graphics::Cuda::Kernels
 			}
 			case GlobalShadingModel::Mirror:
 			{
-				Triangle triangle = Memory::At(triangles, hitData.triangle);
+				Triangle triangle = triangles.At(hitData.triangle);
 
 				float b0 = 1.0f - hitData.u - hitData.v;
 				float b1 = hitData.u;
@@ -559,11 +576,11 @@ namespace Core::Graphics::Cuda::Kernels
 					b1 * triangle.vertices[1].uv +
 					b2 * triangle.vertices[2].uv;
 
-				Ray& ray = Memory::At(pathPool.rays, hitData.path);
-				Math::Frame shadingFrame = GetShadingFrame(triangle, Memory::Sample(material.normal, uv.x, uv.y), b0, b1, b2);
+				Ray& ray = pathPool.rays.At(hitData.path);
+				Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
 				
 				float3 omegaI = reflect(ray.direction, shadingFrame.normal);
-				float4 reflectance = Memory::Sample(material.specular, uv.x, uv.y);
+				float4 reflectance = material.specular.Sample(uv.x, uv.y);
 
 				float3 geometricNormal = GetGeometricNormal(triangle);
 				if (dot(ray.direction, geometricNormal) > 0.0f)
@@ -578,7 +595,7 @@ namespace Core::Graphics::Cuda::Kernels
 			}
 			case GlobalShadingModel::Phong:
 			{
-				Triangle triangle = Memory::At(triangles, hitData.triangle);
+				Triangle triangle = triangles.At(hitData.triangle);
 
 				float b0 = 1.0f - hitData.u - hitData.v;
 				float b1 = hitData.u;
@@ -589,18 +606,18 @@ namespace Core::Graphics::Cuda::Kernels
 					b1 * triangle.vertices[1].uv +
 					b2 * triangle.vertices[2].uv;
 
-				Ray& ray = Memory::At(pathPool.rays, hitData.path);
+				Ray& ray = pathPool.rays.At(hitData.path);
 
 				float3 geometricNormal = GetGeometricNormal(triangle);
 				if (dot(ray.direction, geometricNormal) > 0.0f)
 					geometricNormal = -geometricNormal;
 
-				Math::Frame shadingFrame = GetShadingFrame(triangle, Memory::Sample(material.normal, uv.x, uv.y), b0, b1, b2);
+				Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
 
-				float4 albedo = Memory::Sample(material.color, uv.x, uv.y);
-				float4 specular = Memory::Sample(material.specular, uv.x, uv.y);
+				float4 albedo = material.color.Sample(uv.x, uv.y);
+				float4 specular = material.specular.Sample(uv.x, uv.y);
 
-				float shininess = Memory::Sample(material.shininess, uv.x, uv.y) * (MaterialDefaults::MaxShininess - MaterialDefaults::MinShininess) + MaterialDefaults::MinShininess;
+				float shininess = material.shininess.Sample(uv.x, uv.y) * (MaterialDefaults::MaxShininess - MaterialDefaults::MinShininess) + MaterialDefaults::MinShininess;
 				float diffuseWeight = fmaxf(albedo.x, fmaxf(albedo.y, albedo.z));
 				float specularWeight = fmaxf(specular.x, fmaxf(specular.y, specular.z));
 				float weightSum = diffuseWeight + specularWeight;
@@ -614,7 +631,7 @@ namespace Core::Graphics::Cuda::Kernels
 				float diffuseSelectionProbability = diffuseWeight / weightSum;
 				float specularSelectionProbability = 1.0f - diffuseSelectionProbability;
 
-				Random& random = Memory::At(pathPool.randoms, hitData.path);
+				Random& random = pathPool.randoms.At(hitData.path);
 				float3 reflectionDirection = normalize(reflect(ray.direction, shadingFrame.normal));
 				float randomValue = curand_uniform(&random.state);
 
@@ -668,7 +685,7 @@ namespace Core::Graphics::Cuda::Kernels
 			}
 			case GlobalShadingModel::Ggx:
 			{
-				Triangle triangle = Memory::At(triangles, hitData.triangle);
+				Triangle triangle = triangles.At(hitData.triangle);
 
 				float b0 = 1.0f - hitData.u - hitData.v;
 				float b1 = hitData.u;
@@ -679,17 +696,17 @@ namespace Core::Graphics::Cuda::Kernels
 					b1 * triangle.vertices[1].uv +
 					b2 * triangle.vertices[2].uv;
 
-				Ray& ray = Memory::At(pathPool.rays, hitData.path);
+				Ray& ray = pathPool.rays.At(hitData.path);
 
 				float3 geometricNormal = GetGeometricNormal(triangle);
 				if (dot(ray.direction, geometricNormal) > 0.0f)
 					geometricNormal = -geometricNormal;
 				
-				Random& random = Memory::At(pathPool.randoms, hitData.path);
+				Random& random = pathPool.randoms.At(hitData.path);
 
-				Math::Frame shadingFrame = GetShadingFrame(triangle, Memory::Sample(material.normal, uv.x, uv.y), b0, b1, b2);
-				float3 baseColor = make_float3(Memory::Sample(material.color, uv.x, uv.y));
-				float4 rma = Memory::Sample(material.rma, uv.x, uv.y);
+				Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
+				float3 baseColor = make_float3(material.color.Sample(uv.x, uv.y));
+				float4 rma = material.rma.Sample(uv.x, uv.y);
 
 				float alpha = rma.x * rma.x;
 				alpha = fmaxf(alpha, 0.001f); // in the future we should treat alpha=0 as a special case - effectively smooth surface
@@ -791,7 +808,7 @@ namespace Core::Graphics::Cuda::Kernels
 			}
 			case GlobalShadingModel::Emissive:
 			{
-				Triangle triangle = Memory::At(triangles, hitData.triangle);
+				Triangle triangle = triangles.At(hitData.triangle);
 				
 				float b0 = 1.0f - hitData.u - hitData.v;
 				float b1 = hitData.u;
@@ -801,20 +818,20 @@ namespace Core::Graphics::Cuda::Kernels
 					b1 * triangle.vertices[1].uv +
 					b2 * triangle.vertices[2].uv;
 				
-				const float4 emission = Memory::Sample(material.emission, uv.x, uv.y);
-				const uint32_t pixelIndex = Memory::At(pathPool.pixels, hitData.path).index;
+				const float4 emission = material.emission.Sample(uv.x, uv.y);
+				const uint32_t pixelIndex = pathPool.pixels.At(hitData.path).index;
 				const float4 radiance = contribution.throughput * emission;
 
-				atomicAdd(&Memory::At(accumulationBuffer, pixelIndex).x, radiance.x);
-				atomicAdd(&Memory::At(accumulationBuffer, pixelIndex).y, radiance.y);
-				atomicAdd(&Memory::At(accumulationBuffer, pixelIndex).z, radiance.z);
+				atomicAdd(&accumulationBuffer.At(pixelIndex).x, radiance.x);
+				atomicAdd(&accumulationBuffer.At(pixelIndex).y, radiance.y);
+				atomicAdd(&accumulationBuffer.At(pixelIndex).z, radiance.z);
 				
 				pathTerminated = true;
 				break;
 			}
 		}
 		
-		PathFlags& pathFlags = Memory::At(pathPool.pathFlags, hitData.path);
+		PathFlags& pathFlags = pathPool.pathFlags.At(hitData.path);
 		pathTerminated |= pathFlags.depth >= pathDepthLimit;
 		pathFlags.depth++;
 
@@ -822,28 +839,28 @@ namespace Core::Graphics::Cuda::Kernels
 		{
 			float alpha = fmaxf(contribution.throughput.x, fmaxf(contribution.throughput.y, contribution.throughput.z));
 			alpha = clamp(alpha, 0.0f, 1.0f);
-			float u = curand_uniform(&Memory::At(pathPool.randoms, hitData.path).state);
+			float u = curand_uniform(&pathPool.randoms.At(hitData.path).state);
 
 			pathTerminated = alpha < u;
 
 			if (!pathTerminated)
-				Memory::At(pathPool.contributions, hitData.path).throughput = contribution.throughput / alpha;
+				pathPool.contributions.At(hitData.path).throughput = contribution.throughput / alpha;
 		}
 
 		if (pathTerminated)
 		{
-			Memory::Push(regenQueue, hitData.path);
+			regenQueue.Push(hitData.path);
 		}
 		else
 		{
-			Memory::Push(nextRayQueue, hitData.path);
+			nextRayQueue.Push(hitData.path);
 		}
 	}
 
 	__global__ void RegeneratePathsKernel(
-		uint32_t regenerateCount,
 		Memory::DeviceQueueView<uint32_t> regenQueue, 
-		uint64_t launchedSampleCount,
+		uint64_t totalSamples,
+		Memory::CounterView<uint64_t> launchedSampleCounter,
 		DeviceCamera camera, 
 		uint32_t width, 
 		uint32_t height, 
@@ -853,10 +870,11 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		uint32_t regenerateCount = Math::Min<uint64_t>(regenQueue.GetSize(), totalSamples - launchedSampleCounter.Get());
 		if (queueIndex >= regenerateCount) return;
 		
-		const uint32_t pathIndex = Memory::At(regenQueue, queueIndex);
-		const uint64_t sampleIndex = launchedSampleCount + queueIndex;
+		const uint32_t pathIndex = regenQueue.At(queueIndex);
+		const uint64_t sampleIndex = launchedSampleCounter.Get() + queueIndex;
 
 		const uint32_t pixelIndex = static_cast<uint32_t>(sampleIndex / spp);
 		const uint32_t sampleGridIndex = static_cast<uint32_t>(sampleIndex % spp);
@@ -879,26 +897,26 @@ namespace Core::Graphics::Cuda::Kernels
 
 		float3 rayDirection = normalize(camera.lowerLeftCorner + u * camera.horizontal + v * camera.vertical - camera.origin);
 
-		Pixel& pixel = Memory::At(pathPool.pixels, pathIndex);
+		Pixel& pixel = pathPool.pixels.At(pathIndex);
 		pixel.index = pixelIndex;
 
-		Ray& ray = Memory::At(pathPool.rays, pathIndex);
+		Ray& ray = pathPool.rays.At(pathIndex);
 		ray.direction = rayDirection;
 		ray.origin = camera.origin;
 		ray.tMin = PathTracerDefaults::MinT;
 		ray.tMax = PathTracerDefaults::MaxT;
 		ray.ior = 1.0f;
 		
-		Contribution& contribution = Memory::At(pathPool.contributions, pathIndex);
+		Contribution& contribution = pathPool.contributions.At(pathIndex);
 		contribution.throughput = make_float4(1.0f);
 		
-		Random& random = Memory::At(pathPool.randoms, pathIndex);
+		Random& random = pathPool.randoms.At(pathIndex);
 		random.state = state;
 		
-		PathFlags& pathFlags = Memory::At(pathPool.pathFlags, pathIndex);
+		PathFlags& pathFlags = pathPool.pathFlags.At(pathIndex);
 		pathFlags.depth = 0;
 
-		Memory::At(nextRayQueue, *nextRayQueue.counter.value + queueIndex) = pathIndex;
+		nextRayQueue.Push(pathIndex); // after no syncing is required try to get rid of this push and write the size in set counters kernel
 	}
 
 	__device__ __forceinline__ float4 TonemapReinhard(const float4& color)
@@ -918,11 +936,11 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<uchar4> framebuffer)
 	{
 		uint32_t pixelIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (pixelIndex >= framebuffer.size) return;
+		if (pixelIndex >= framebuffer.GetSize()) return;
 
-		const float4 hdrColor = Memory::At(accumulationBuffer, pixelIndex) * invSpp;
+		const float4 hdrColor = accumulationBuffer.At(pixelIndex) * invSpp;
 		const float4 ldrColor = LinearToSrgb(TonemapReinhard(hdrColor), 2.2f);
-		Memory::At(framebuffer, pixelIndex) = make_uchar4(
+		framebuffer.At(pixelIndex) = make_uchar4(
 			static_cast<unsigned char>(clamp(ldrColor.x * 255.0f, 0.0f, 255.0f)),
 			static_cast<unsigned char>(clamp(ldrColor.y * 255.0f, 0.0f, 255.0f)),
 			static_cast<unsigned char>(clamp(ldrColor.z * 255.0f, 0.0f, 255.0f)),
@@ -933,9 +951,19 @@ namespace Core::Graphics::Cuda::Kernels
 	{
 
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(framebuffer.size, block.x));
+		dim3 grid(GetBlockCount(framebuffer.GetSize(), block.x));
 
 		ClearKernel<<<grid, block>>>(color, framebuffer);
+	}
+
+	void SetCounters(
+		Memory::DeviceQueueView<uint32_t> nextRayQueue, 
+		Memory::DeviceQueueView<HitData> hitQueue, 
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		uint64_t totalSamples, 
+		Memory::CounterView<uint64_t> launchedSampleCounter)
+	{
+		SetCountersKernel<<<1, 1>>>(nextRayQueue, hitQueue, regenQueue, totalSamples, launchedSampleCounter);
 	}
 
 	void InitializePaths(
@@ -961,9 +989,8 @@ namespace Core::Graphics::Cuda::Kernels
 			pathPool,
 			rayQueue);
 	}
-
+	
 	void IntersectRaysWithScene(
-		uint32_t activePaths, 
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<uint32_t> rayQueue, 
 		DeviceBvhView bvh, 
@@ -971,12 +998,11 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceQueueView<uint32_t> regenQueue)
 	{
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(activePaths, block.x));
+		dim3 grid(GetBlockCount(rayQueue.GetCapacity(), block.x));
 		IntersectRaysWithSceneKernel<<<grid, block>>>(pathPool, rayQueue, bvh, hitQueue, regenQueue);
 	}
 
 	void ResolveHits(
-		uint32_t hitCount,
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<HitData> hitQueue, 
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -986,16 +1012,15 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
-		if (hitCount <= 0) return;
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitCount, block.x));
+		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
 		ResolveHitsKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, accumulationBuffer, nextRayQueue);
 	}
 
 	void RegeneratePaths(
-		uint32_t regenerateCount,
 		Memory::DeviceQueueView<uint32_t> regenQueue,
-		uint64_t launchedSampleCount,
+		uint64_t totalSamples,
+		Memory::CounterView<uint64_t> launchedSampleCounter,
 		DeviceCamera camera, 
 		uint32_t width, 
 		uint32_t height, 
@@ -1003,11 +1028,10 @@ namespace Core::Graphics::Cuda::Kernels
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
-		if (regenerateCount <= 0) return;
 		uint32_t spp = sampleGridSize * sampleGridSize;
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(regenerateCount, block.x));
-		RegeneratePathsKernel<<<grid, block>>>(regenerateCount, regenQueue, launchedSampleCount, camera, width, height, sampleGridSize, spp, pathPool, nextRayQueue);
+		dim3 grid(GetBlockCount(regenQueue.GetCapacity(), block.x));
+		RegeneratePathsKernel<<<grid, block>>>(regenQueue, totalSamples, launchedSampleCounter, camera, width, height, sampleGridSize, spp, pathPool, nextRayQueue);
 	}
 
 	void PostprocessAccumulatedRadiance(
@@ -1016,7 +1040,7 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<uchar4> framebuffer)
 	{
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(accumulationBuffer.size, block.x));
+		dim3 grid(GetBlockCount(accumulationBuffer.GetSize(), block.x));
 
 		PostprocessKernel<<<grid, block>>>(accumulationBuffer, invSpp, framebuffer);
 	}

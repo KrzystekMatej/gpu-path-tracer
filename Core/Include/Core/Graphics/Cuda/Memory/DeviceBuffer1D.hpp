@@ -38,11 +38,7 @@ namespace Core::Graphics::Cuda::Memory
             static_assert(!std::is_void_v<T>);
             assert(m_ElementSize == sizeof(T));
 
-            return
-            {
-                reinterpret_cast<T*>(m_Data),
-                m_Size
-            };
+            return DeviceBuffer1DView<T>(reinterpret_cast<T*>(m_Data), m_Size);
         }
 
     private:

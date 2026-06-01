@@ -138,7 +138,7 @@ namespace Core::Graphics::Cuda
 
         Texture texture;
 
-        CORE_CUDA_TRY("cudaMallocArray", cudaMallocArray(
+        CUDA_TRY("cudaMallocArray", cudaMallocArray(
             reinterpret_cast<cudaArray_t*>(&texture.m_CudaArray),
             &channelDesc,
             sourceImage->width,

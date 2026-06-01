@@ -2,10 +2,15 @@
   "version": 3,
   "buildPresets": [
     { "name": "linux-x64-debug", "configurePreset": "linux-x64-debug" },
+    { "name": "linux-x64-profile", "configurePreset": "linux-x64-profile" },
     { "name": "linux-x64-release", "configurePreset": "linux-x64-release" },
+
     { "name": "windows-x64-debug-vcpkg", "configurePreset": "windows-x64-debug-vcpkg" },
+    { "name": "windows-x64-profile-vcpkg", "configurePreset": "windows-x64-profile-vcpkg" },
     { "name": "windows-x64-release-vcpkg", "configurePreset": "windows-x64-release-vcpkg" },
+
     { "name": "linux-x64-debug-vcpkg", "configurePreset": "linux-x64-debug-vcpkg" },
+    { "name": "linux-x64-profile-vcpkg", "configurePreset": "linux-x64-profile-vcpkg" },
     { "name": "linux-x64-release-vcpkg", "configurePreset": "linux-x64-release-vcpkg" }
   ],
   "configurePresets": [
@@ -48,6 +53,14 @@
       }
     },
     {
+      "name": "linux-x64-profile",
+      "displayName": "Linux x64 Profile",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Profile"
+      }
+    },
+    {
       "name": "linux-x64-release",
       "displayName": "Linux x64 Release",
       "inherits": "linux-base",
@@ -55,7 +68,6 @@
         "CMAKE_BUILD_TYPE": "Release"
       }
     },
-
     {
       "name": "windows-base-vcpkg",
       "hidden": true,
@@ -82,6 +94,14 @@
       }
     },
     {
+      "name": "windows-x64-profile-vcpkg",
+      "displayName": "Windows x64 Profile (vcpkg)",
+      "inherits": "windows-base-vcpkg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Profile"
+      }
+    },
+    {
       "name": "windows-x64-release-vcpkg",
       "displayName": "Windows x64 Release (vcpkg)",
       "inherits": "windows-base-vcpkg",
@@ -95,6 +115,14 @@
       "inherits": "linux-base-vcpkg",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "linux-x64-profile-vcpkg",
+      "displayName": "Linux x64 Profile (vcpkg)",
+      "inherits": "linux-base-vcpkg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Profile"
       }
     },
     {

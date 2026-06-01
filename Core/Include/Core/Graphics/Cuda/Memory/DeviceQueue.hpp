@@ -33,8 +33,8 @@ namespace Core::Graphics::Cuda::Memory
         const DeviceBuffer1D& GetBuffer() const { return m_Buffer; }
         DeviceBuffer1D& GetBuffer() { return m_Buffer; }
 
-        const SharedCounter& GetCounter() const { return m_Counter; }
-        SharedCounter& GetCounter() { return m_Counter; }
+        const SharedCounter<uint32_t>& GetCounter() const { return m_Counter; }
+        SharedCounter<uint32_t>& GetCounter() { return m_Counter; }
         uint32_t GetCounterHostValue() const { return m_Counter.GetHostValue(); }
         void SetCounterHostValue(uint32_t value) { m_Counter.SetHostValue(value); }
 
@@ -48,15 +48,11 @@ namespace Core::Graphics::Cuda::Memory
             assert(m_Buffer.GetElementSize() == sizeof(T));
 
             return
-            {
-                reinterpret_cast<T*>(m_Buffer.GetData()),
-				GetCapacity(),
-                m_Counter.GetView()
-            };
+            DeviceQueueView<T>(reinterpret_cast<T*>(m_Buffer.GetData()), GetCapacity(), m_Counter.GetView());
         }
 
     private:
         DeviceBuffer1D m_Buffer;
-        SharedCounter m_Counter;
+        SharedCounter<uint32_t> m_Counter;
     };
 }

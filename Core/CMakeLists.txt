@@ -39,7 +39,6 @@ target_sources(core PRIVATE
     "Source/Graphics/Cuda/Memory/DeviceQueue.cpp"
     "Source/Graphics/Cuda/Memory/SharedBuffer1D.cpp"
     "Source/Graphics/Cuda/Memory/SharedBuffer2D.cpp"
-    "Source/Graphics/Cuda/Memory/SharedCounter.cpp"
 	"Source/Graphics/Cuda/PathTracing/PathPool.cpp"
     "Source/Graphics/Cuda/PathTracing/Renderer.cpp"
     "Source/Graphics/Cuda/Resources/Texture.cpp"

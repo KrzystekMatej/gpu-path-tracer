@@ -28,7 +28,7 @@ namespace Core::Ecs
 			return id;
 		}
 
-		void RegisterCoreBuilders();
+		std::expected<void, Utils::Error> RegisterCoreBuilders();
 	private:
 		std::unordered_map<Utils::Guid, std::unique_ptr<Builder>> m_Builders;
 	};

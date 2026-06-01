@@ -41,7 +41,7 @@ namespace Core::Graphics::Cuda::Memory
         void* data = nullptr;
         size_t pitch = 0;
 
-        CORE_CUDA_TRY("cudaMallocPitch", cudaMallocPitch(&data, &pitch, width * elementSize, height));
+        CUDA_TRY("cudaMallocPitch", cudaMallocPitch(&data, &pitch, width * elementSize, height));
 
         m_Data = data;
         m_Width = width;
@@ -56,7 +56,7 @@ namespace Core::Graphics::Cuda::Memory
         assert(m_Data != nullptr);
         assert(hostData != nullptr);
 
-        CORE_CUDA_TRY("cudaMemcpy2D", cudaMemcpy2D(
+        CUDA_TRY("cudaMemcpy2D", cudaMemcpy2D(
             m_Data,
             m_PitchBytes,
             hostData,
@@ -74,7 +74,7 @@ namespace Core::Graphics::Cuda::Memory
         assert(hostData != nullptr);
         assert(stream != nullptr);
 
-        CORE_CUDA_TRY("cudaMemcpy2DAsync", cudaMemcpy2DAsync(
+        CUDA_TRY("cudaMemcpy2DAsync", cudaMemcpy2DAsync(
             m_Data,
             m_PitchBytes,
             hostData,
@@ -91,7 +91,7 @@ namespace Core::Graphics::Cuda::Memory
 	{
 		assert(m_Data != nullptr);
 
-		CORE_CUDA_TRY("cudaMemset2D", cudaMemset2D(
+		CUDA_TRY("cudaMemset2D", cudaMemset2D(
 			m_Data,
 			m_PitchBytes,
 			value,
@@ -106,7 +106,7 @@ namespace Core::Graphics::Cuda::Memory
 		assert(m_Data != nullptr);
 		assert(stream != nullptr);
 
-		CORE_CUDA_TRY("cudaMemset2DAsync", cudaMemset2DAsync(
+		CUDA_TRY("cudaMemset2DAsync", cudaMemset2DAsync(
 			m_Data,
 			m_PitchBytes,
 			value,
@@ -122,7 +122,7 @@ namespace Core::Graphics::Cuda::Memory
         if (m_Data == nullptr)
             return {};
 
-        CORE_CUDA_TRY("cudaFree", cudaFree(m_Data));
+        CUDA_TRY("cudaFree", cudaFree(m_Data));
 
 		m_Data = nullptr;
 		m_Width = 0;

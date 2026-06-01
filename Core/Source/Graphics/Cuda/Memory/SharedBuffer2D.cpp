@@ -35,7 +35,7 @@ namespace Core::Graphics::Cuda::Memory
         const size_t rowSize = width * elementSize;
 
         void* hostData = nullptr;
-        CORE_CUDA_TRY("cudaMallocHost", cudaMallocHost(&hostData, rowSize * height));
+        CUDA_TRY("cudaMallocHost", cudaMallocHost(&hostData, rowSize * height));
 
         auto deviceAllocateResult = m_DeviceBuffer.Allocate(width, height, elementSize);
         if (!deviceAllocateResult)
@@ -66,7 +66,7 @@ namespace Core::Graphics::Cuda::Memory
 
         const size_t rowSize = m_DeviceBuffer.GetWidth() * m_DeviceBuffer.GetElementSize();
 
-        CORE_CUDA_TRY("cudaMemcpy2D", cudaMemcpy2D(
+        CUDA_TRY("cudaMemcpy2D", cudaMemcpy2D(
             m_HostData,
             rowSize,
             m_DeviceBuffer.GetData(),
@@ -85,7 +85,7 @@ namespace Core::Graphics::Cuda::Memory
 
         const size_t rowSize = m_DeviceBuffer.GetWidth() * m_DeviceBuffer.GetElementSize();
 
-        CORE_CUDA_TRY("cudaMemcpy2DAsync", cudaMemcpy2DAsync(
+        CUDA_TRY("cudaMemcpy2DAsync", cudaMemcpy2DAsync(
             m_HostData,
             rowSize,
             m_DeviceBuffer.GetData(),
