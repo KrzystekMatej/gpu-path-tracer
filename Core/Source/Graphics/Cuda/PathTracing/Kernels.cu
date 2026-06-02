@@ -832,8 +832,8 @@ namespace Core::Graphics::Cuda::Kernels
 		}
 		
 		PathFlags& pathFlags = pathPool.pathFlags.At(hitData.path);
-		pathTerminated |= pathFlags.depth >= pathDepthLimit;
 		pathFlags.depth++;
+		pathTerminated |= pathFlags.depth >= pathDepthLimit;
 
 		if (!pathTerminated && pathFlags.depth >= PathTracerDefaults::RussianRouletteStartDepth)
 		{

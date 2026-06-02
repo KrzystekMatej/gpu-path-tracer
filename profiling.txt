@@ -1,7 +1,9 @@
-test-spheres, 1024spp, 30 depth, partial soa, with full sync, tailored kernel grid
+test-spheres, 1024spp, 30 depth, partial soa, with full sync, tailored kernel grid, only needed kernels scheduled
 [2026-06-01 16:25:05.639] [info] Rendered frame 0 in 118.63 seconds
 [2026-06-01 16:27:05.272] [info] Rendered frame 1 in 119.63 seconds
-test-spheres, 1024spp, 30 depth, partial soa, with partial sync after each iteration, full capacity kernel grid
+test-spheres, 1024spp, 30 depth, partial soa, with partial sync after each iteration, full capacity kernel grid, only needed kernels scheduled
 [2026-06-01 21:54:26.317] [info] Rendered frame 0 in 119.73 seconds
 [2026-06-01 21:56:26.523] [info] Rendered frame 1 in 120.21 seconds
-test-spheres, 1024spp, 30 depth, partial soa, with no sync (sync after the entire frame), full capacity kernel grid
+test-spheres, 1024spp, 30 depth, partial soa, with no sync (sync after the entire frame), full capacity kernel grid, upper limit kernels scheduled
+[2026-06-02 02:20:23.292] [info] Rendered frame 0 in 122.42 seconds
+[2026-06-02 02:22:25.130] [info] Rendered frame 1 in 121.84 seconds

@@ -31,7 +31,7 @@ namespace Core::Graphics::Cuda
 			};
 		}
 
-		size_t GetPathCount() const { return m_Samples.GetSize(); }
+		uint32_t GetPathCount() const { return m_Samples.GetSize(); }
 	private:
 		Memory::DeviceBuffer1D m_Samples;
 		Memory::DeviceBuffer1D m_Rays;
