@@ -14,6 +14,7 @@ namespace Core::Graphics::Cuda
 		Ggx,
 		Mirror,
 		Emissive,
+		Count
 	};
 
 

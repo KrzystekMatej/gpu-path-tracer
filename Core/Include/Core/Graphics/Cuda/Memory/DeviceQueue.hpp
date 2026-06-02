@@ -27,8 +27,8 @@ namespace Core::Graphics::Cuda::Memory
         std::expected<void, Core::Utils::Error> Free();
 
         std::expected<void, Core::Utils::Error> ResetCounter() { return m_Counter.Reset(); }
-        std::expected<void, Core::Utils::Error> SyncCounterFromDevice() { return m_Counter.SyncFromDevice(); }
-        std::expected<void, Core::Utils::Error> SyncCounterFromHost() { return m_Counter.SyncFromHost(); }
+        std::expected<uint32_t, Core::Utils::Error> SyncCounterFromDevice() { return m_Counter.SyncFromDevice(); }
+        std::expected<uint32_t, Core::Utils::Error> SyncCounterFromHost() { return m_Counter.SyncFromHost(); }
 
         const DeviceBuffer1D& GetBuffer() const { return m_Buffer; }
         DeviceBuffer1D& GetBuffer() { return m_Buffer; }

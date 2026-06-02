@@ -8,6 +8,7 @@
 #include <math_constants.h>
 #include <Core/Graphics/Cuda/Utils/Math.hpp>
 #include <Core/Graphics/Common/Material.hpp>
+#include <cassert>
 
 namespace Core::Graphics::Cuda::Kernels
 {
@@ -28,26 +29,13 @@ namespace Core::Graphics::Cuda::Kernels
 		framebuffer.At(pixelIndex) = color;
 	}
 	
-	__global__ void SetCountersKernel(
-		Memory::DeviceQueueView<uint32_t> nextRayQueue, 
-		Memory::DeviceQueueView<HitData> hitQueue, 
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		uint64_t totalSamples,
-		Memory::CounterView<uint64_t> launchedSampleCounter)
-	{
-		launchedSampleCounter.Set(Math::Min(totalSamples, launchedSampleCounter.Get() + regenQueue.GetSize()));
-		nextRayQueue.Clear();
-		hitQueue.Clear();
-		regenQueue.Clear();
-	}
-	
 	__global__ void InitializePathsKernel(
+		uint32_t generateCount,
 		DeviceCamera camera, 
 		uint32_t width, 
 		uint32_t height, 
 		uint32_t sampleGridSize, 
 		uint32_t spp, 
-		uint32_t generateCount,
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<uint32_t> rayQueue)
 	{
@@ -97,10 +85,10 @@ namespace Core::Graphics::Cuda::Kernels
 
 		rayQueue.At(sampleIndex) = sampleIndex;
 		
-		if (sampleIndex == 0)
-		{
-			rayQueue.SetSize(generateCount);
-		}
+		// if (sampleIndex == 0)
+		// {
+		// 	rayQueue.SetSize(generateCount);
+		// }
 	}
 
 	__device__ __forceinline__ bool AabbIntersect(const BoundingBox& bounds, const float3& origin, const float3& invDirection, float tMin, float tMax)
@@ -385,101 +373,6 @@ namespace Core::Graphics::Cuda::Kernels
 	__device__ __forceinline__ float3 FresnelSchlick(float3 f0, float cosThetaH)
 	{
 		return f0 + (1.0f - f0) * powf(1.0f - cosThetaH, 5.0f);
-	}
-
-	__device__ __forceinline__ void SampleConductorBsdf(float3 wo, float3 normal, float alpha, float eta, float k, curandStatePhilox4_32_10_t& state)
-	{
-		if (alpha < 1e-3f)
-		{
-			float3 wi(-wo.x, -wo.y, wo.z);
-			float cosThetaI = Math::AbsCosTheta(wi);
-			float brdf = FresnelComplex(cosThetaI, Math::Complex(eta, k)) / cosThetaI;
-			float pdf = 1.0f;
-			return;
-		}
-
-		if (wo.z == 0.0f) return;
-		float3 wm = TrowbridgeSampleWm(wo, make_float2(alpha, alpha), make_float2(curand_uniform(&state), curand_uniform(&state)));
-		float3 wi = reflect(-wo, wm);
-		
-		if (!Math::SameHemisphere(wi, normal)) return;
-		
-		float pdf = D(wo, wm, alpha) / (4.0f * fabsf(dot(wo, wm)));
-		float cosThetaO = Math::AbsCosTheta(wo);
-		float cosThetaI = Math::AbsCosTheta(wi);
-		if (cosThetaI == 0.0f || cosThetaO == 0.0f) return;
-		float F = FresnelComplex(fabsf(dot(wi, wm)), Math::Complex(eta, k));
-		float f = F * D(wm, alpha) * G(wo, wi, alpha) / (4.0f * cosThetaI * cosThetaO);
-	}
-	
-	__device__ __forceinline__ bool Refract(float3 wi, float3 normal, float eta, float& etap, float3& wt)
-	{
-		float cosThetaI = dot(normal, wi);
-		if (cosThetaI < 0) {
-			eta = 1 / eta;
-			cosThetaI = -cosThetaI;
-			normal = -normal;
-		}
-
-		float sin2ThetaI = fmaxf(0.0f, 1 - Math::Sqr(cosThetaI));
-		float sin2ThetaT = sin2ThetaI / Math::Sqr(eta);
-		if (sin2ThetaT >= 1)
-			return false;
-		float cosThetaT = Math::SafeSqrt(1 - sin2ThetaT);
-		
-		wt = -wi / eta + (cosThetaI / eta - cosThetaT) * normal;
-		etap = eta;
-		return true;
-	}
-	
-	__device__ __forceinline__ void SampleDielectricBsdf(float3 wo, float3 normal, float alpha, float eta, float k, curandStatePhilox4_32_10_t& state)
-	{
-		if (eta == 1 || alpha < 1e-3f)
-		{
-			float r = FresnelDielectric(Math::CosTheta(wo), eta);
-			float t = 1 - r;
-			
-			float pr = r / (r + t);
-			if (curand_uniform(&state) < pr)
-			{
-				float3 wi(-wo.x, -wo.y, wo.z);
-				float pdf = pr;
-				float brdf = r / Math::AbsCosTheta(wi);
-				return;
-			}
-			float3 wi;
-			float etap;
-			if (!Refract(wo, float3(0, 0, 1), eta, etap, wi)) return;
-			float brdf = t / Math::AbsCosTheta(wi);
-			float pdf = 1.0f - pr;
-			return;
-		}
-		
-		
-		float3 wm = TrowbridgeSampleWm(wo, make_float2(alpha, alpha), make_float2(curand_uniform(&state), curand_uniform(&state)));
-		float r = FresnelDielectric(dot(wo, wm), eta);
-		float t = 1 - r;
-
-		float pr = r / (r + t);
-		if (curand_uniform(&state) < pr)
-		{
-			float3 wi = reflect(-wo, wm);
-			if (!Math::SameHemisphere(wo, wi)) return;
-			float pdf = D(wo, wm, alpha) / (4.0f * fabsf(dot(wo, wm))) * pr;
-			float brdf = r * D(wm, alpha) * G(wo, wi, alpha) / (4.0f * Math::AbsCosTheta(wi) * Math::AbsCosTheta(wo));
-			return;
-		}
-		
-		float3 wi;
-		float etap;
-		if (!Refract(wo, wm, eta, etap, wi)) return;
-		if (Math::SameHemisphere(wo, wi) || wi.z == 0.0f) return;
-
-		float denom = Math::Sqr(dot(wi, wm) + dot(wo, wm) / etap);
-		float dwm_dwi = fabsf(dot(wi, wm)) / denom;
-		float pdf = D(wo, wm, alpha) * dwm_dwi * (1 - pr);
-		float brdf = t * D(wm, alpha) * G(wo, wi, alpha) * fabsf(dot(wi, wm) * dot(wo, wm) / (Math::AbsCosTheta(wi) * Math::AbsCosTheta(wo) * denom));
-		return;
 	}
 
 	__device__ __forceinline__ float luminance(float3 color)
@@ -858,9 +751,9 @@ namespace Core::Graphics::Cuda::Kernels
 	}
 
 	__global__ void RegeneratePathsKernel(
+		uint32_t regenerateCount,
 		Memory::DeviceQueueView<uint32_t> regenQueue, 
-		uint64_t totalSamples,
-		Memory::CounterView<uint64_t> launchedSampleCounter,
+		uint64_t launchedSampleCount,
 		DeviceCamera camera, 
 		uint32_t width, 
 		uint32_t height, 
@@ -870,11 +763,10 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		uint32_t regenerateCount = Math::Min<uint64_t>(regenQueue.GetSize(), totalSamples - launchedSampleCounter.Get());
 		if (queueIndex >= regenerateCount) return;
 		
 		const uint32_t pathIndex = regenQueue.At(queueIndex);
-		const uint64_t sampleIndex = launchedSampleCounter.Get() + queueIndex;
+		const uint64_t sampleIndex = launchedSampleCount + queueIndex;
 
 		const uint32_t pixelIndex = static_cast<uint32_t>(sampleIndex / spp);
 		const uint32_t sampleGridIndex = static_cast<uint32_t>(sampleIndex % spp);
@@ -916,7 +808,7 @@ namespace Core::Graphics::Cuda::Kernels
 		PathFlags& pathFlags = pathPool.pathFlags.At(pathIndex);
 		pathFlags.depth = 0;
 
-		nextRayQueue.Push(pathIndex); // after no syncing is required try to get rid of this push and write the size in set counters kernel
+		nextRayQueue.At(nextRayQueue.GetSize() + queueIndex) = pathIndex;
 	}
 
 	__device__ __forceinline__ float4 TonemapReinhard(const float4& color)
@@ -956,53 +848,47 @@ namespace Core::Graphics::Cuda::Kernels
 		ClearKernel<<<grid, block>>>(color, framebuffer);
 	}
 
-	void SetCounters(
-		Memory::DeviceQueueView<uint32_t> nextRayQueue, 
-		Memory::DeviceQueueView<HitData> hitQueue, 
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		uint64_t totalSamples, 
-		Memory::CounterView<uint64_t> launchedSampleCounter)
-	{
-		SetCountersKernel<<<1, 1>>>(nextRayQueue, hitQueue, regenQueue, totalSamples, launchedSampleCounter);
-	}
-
 	void InitializePaths(
+		uint32_t generateCount,
 		DeviceCamera camera, 
 		uint32_t width, 
 		uint32_t height, 
 		uint32_t sampleGridSize, 
-		uint32_t generateCount, 
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<uint32_t> rayQueue)
 	{
+		assert(generateCount > 0);
 		uint32_t spp = sampleGridSize * sampleGridSize;
 		dim3 block(TPB_DIM_1D);
 		dim3 grid(GetBlockCount(generateCount, block.x));
 
 		InitializePathsKernel<<<grid, block>>>(
+			generateCount,
 			camera,
 			width,
 			height,
 			sampleGridSize,
 			spp,
-			generateCount,
 			pathPool,
 			rayQueue);
 	}
 	
 	void IntersectRaysWithScene(
+		uint32_t queueSize,
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<uint32_t> rayQueue, 
 		DeviceBvhView bvh, 
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceQueueView<uint32_t> regenQueue)
 	{
+		assert(queueSize > 0);
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(rayQueue.GetCapacity(), block.x));
+		dim3 grid(GetBlockCount(queueSize, block.x));
 		IntersectRaysWithSceneKernel<<<grid, block>>>(pathPool, rayQueue, bvh, hitQueue, regenQueue);
 	}
 
 	void ResolveHits(
+		uint32_t queueSize,
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<HitData> hitQueue, 
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -1012,15 +898,16 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
+		if (queueSize == 0) return;
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
+		dim3 grid(GetBlockCount(queueSize, block.x));
 		ResolveHitsKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, accumulationBuffer, nextRayQueue);
 	}
 
 	void RegeneratePaths(
+		uint32_t queueSize,
 		Memory::DeviceQueueView<uint32_t> regenQueue,
-		uint64_t totalSamples,
-		Memory::CounterView<uint64_t> launchedSampleCounter,
+		uint64_t launchedSampleCount,
 		DeviceCamera camera, 
 		uint32_t width, 
 		uint32_t height, 
@@ -1028,10 +915,11 @@ namespace Core::Graphics::Cuda::Kernels
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
+		if (queueSize == 0) return;
 		uint32_t spp = sampleGridSize * sampleGridSize;
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(regenQueue.GetCapacity(), block.x));
-		RegeneratePathsKernel<<<grid, block>>>(regenQueue, totalSamples, launchedSampleCounter, camera, width, height, sampleGridSize, spp, pathPool, nextRayQueue);
+		dim3 grid(GetBlockCount(queueSize, block.x));
+		RegeneratePathsKernel<<<grid, block>>>(queueSize, regenQueue, launchedSampleCount, camera, width, height, sampleGridSize, spp, pathPool, nextRayQueue);
 	}
 
 	void PostprocessAccumulatedRadiance(

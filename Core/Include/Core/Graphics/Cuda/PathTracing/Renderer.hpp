@@ -154,8 +154,6 @@ namespace Core::Graphics::Cuda
 		uint32_t m_TotalFrames = 0;
 		std::atomic<uint64_t> m_DoneSamples = 0;
 		uint64_t m_TotalSamples = 0;
-        
-        Memory::SharedCounter<uint64_t> m_LaunchedSampleCounter;
 
         Graphics::Ecs::Camera m_Camera;
 		std::vector<Capture::MotionState> m_CameraMotionStates;

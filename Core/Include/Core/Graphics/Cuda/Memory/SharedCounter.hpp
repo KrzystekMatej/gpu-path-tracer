@@ -62,7 +62,7 @@ namespace Core::Graphics::Cuda::Memory
             return m_DeviceBuffer.MemsetBytesSync(0);
         }
 
-        std::expected<void, Core::Utils::Error> SyncFromDevice()
+        std::expected<T, Core::Utils::Error> SyncFromDevice()
         {
             assert(m_DeviceBuffer.GetData() != nullptr);
 
@@ -74,13 +74,14 @@ namespace Core::Graphics::Cuda::Memory
                 cudaMemcpyKind::cudaMemcpyDeviceToHost));
 
 
-            return {};
+            return m_HostValue;
         }
 
-        std::expected<void, Core::Utils::Error> SyncFromHost()
+        std::expected<T, Core::Utils::Error> SyncFromHost()
         {
             assert(m_DeviceBuffer.GetData() != nullptr);
-            return m_DeviceBuffer.UploadSync(&m_HostValue, 1);
+            CORE_TRY_DISCARD(m_DeviceBuffer.UploadSync(&m_HostValue, 1));
+            return m_HostValue;
         }
 
         T* GetDevicePointer() const { return reinterpret_cast<T*>(m_DeviceBuffer.GetData()); }

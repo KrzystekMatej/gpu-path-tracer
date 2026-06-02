@@ -1,0 +1,26 @@
+scripts:
+    - phase: Awake
+      name: AwakeCameraController
+    - phase: Update
+      name: UpdateCameraController
+scene:
+    - components:
+        - type: Transform
+          translation: [0.0, 0.0, 0.0]
+          euler-degrees: [-90.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]
+        - type: Model
+          path: Models/CornellBoxRotated/mesh.obj
+    - components:
+        - type: Transform
+          translation: [0.0, 250.0, 940.0]
+          euler-degrees: [0.0, 0.0, 0.0]
+          scale: [1.0, 1.0, 1.0]  
+        - type: Camera
+          fov-y: 40.0
+          near-plane: 0.1
+          far-plane: 10000.0
+        - type: CameraController
+          speed: 1000.0
+          sensitivity: 0.005
+  

@@ -337,9 +337,17 @@ namespace Core::Assets
 		auto fileOrPixelTexture = [&](const std::optional<std::filesystem::path>& texturePath, const Graphics::PixelFormat& defaultFormat, std::span<const uint8_t> defaultValue)
 		{
 			if (texturePath)
-				return ImportTexture(*texturePath, defaultFormat.colorSpace, root);
+			{
+				
+				return ImportTexture(texturePath.value(), defaultFormat.colorSpace, root).or_else([&](const Utils::Error&)
+				{
+				 	return ImportTexture(texturePath.value(), defaultFormat.colorSpace);
+				});
+			}
 			else
+			{
 				return ImportPixelTexture(defaultFormat, defaultValue);
+			}
 		};
 
 		CORE_TRY_CONTEXT(

@@ -11,27 +11,23 @@
 namespace Core::Graphics::Cuda::Kernels
 {
 	void Clear(uchar4 color, Memory::DeviceBuffer1DView<uchar4> framebuffer);
-	void SetCounters(
-		Memory::DeviceQueueView<uint32_t> nextRayQueue,
-		Memory::DeviceQueueView<HitData> hitQueue, 
-		Memory::DeviceQueueView<uint32_t> regenQueue, 
-		uint64_t totalSamples,
-		Memory::CounterView<uint64_t> launchedSampleCounter);
 	void InitializePaths(
+		uint32_t generateCount,
 		DeviceCamera camera, 
 		uint32_t width, 
 		uint32_t height, 
 		uint32_t sampleGridSize, 
-		uint32_t generateCount, 
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<uint32_t> rayQueue);
 	void IntersectRaysWithScene(
+		uint32_t queueSize,
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<uint32_t> rayQueue, 
 		DeviceBvhView bvh,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceQueueView<uint32_t> regenQueue);
 	void ResolveHits(
+		uint32_t queueSize,
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<HitData> hitQueue, 
 		Memory::DeviceBuffer1DView<Triangle> triangles, 
@@ -41,9 +37,9 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue);
 	void RegeneratePaths(
+		uint32_t queueSize,
 		Memory::DeviceQueueView<uint32_t> regenQueue,
-		uint64_t totalSamples,
-		Memory::CounterView<uint64_t> launchedSampleCounter,
+		uint64_t launchedSampleCount,
 		DeviceCamera camera, 
 		uint32_t width, 
 		uint32_t height, 
