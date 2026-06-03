@@ -84,10 +84,21 @@ namespace Core::Graphics::Cuda::Kernels
 		pathFlags.depth = 0;
 
 		rayQueue.At(sampleIndex) = sampleIndex;
-		
-		if (sampleIndex == 0)
+	}
+
+	__global__ void PrepareIterationKernel(
+		Memory::DeviceQueueView<uint32_t> currentRayQueue,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		MaterialQueueViews materialQueues,
+		uint32_t nextRayCount)
+	{
+		currentRayQueue.Clear();
+		nextRayQueue.SetSize(nextRayCount);
+		regenQueue.Clear();
+		for (uint32_t i = 0; i < static_cast<uint32_t>(GlobalShadingModel::Count); i++)
 		{
-			rayQueue.SetSize(generateCount);
+			materialQueues.At(i).Clear();
 		}
 	}
 
@@ -855,7 +866,7 @@ namespace Core::Graphics::Cuda::Kernels
 	}
 
 	__global__ void RegeneratePathsKernel(
-		uint32_t regenerateCount,
+		uint32_t remainingCount,
 		Memory::DeviceQueueView<uint32_t> regenQueue, 
 		uint64_t launchedSampleCount,
 		DeviceCamera camera, 
@@ -867,6 +878,7 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		uint32_t regenerateCount = Math::Min(remainingCount, regenQueue.GetSize());
 		if (queueIndex >= regenerateCount) return;
 		
 		const uint32_t pathIndex = regenQueue.At(queueIndex);
@@ -925,7 +937,7 @@ namespace Core::Graphics::Cuda::Kernels
 		float invGamma = 1.0f / gamma;
 		return make_float4(powf(color.x, invGamma), powf(color.y, invGamma), powf(color.z, invGamma), color.w);
 	}
-	
+
 	__global__ void PostprocessKernel(
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		float invSpp,
@@ -977,6 +989,16 @@ namespace Core::Graphics::Cuda::Kernels
 			rayQueue);
 	}
 	
+	void PrepareIteration(
+		Memory::DeviceQueueView<uint32_t> currentRayQueue,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		MaterialQueueViews materialQueues,
+		uint32_t nextRayCount)
+	{
+		PrepareIterationKernel<<<1, 1>>>(currentRayQueue, nextRayQueue, regenQueue, materialQueues, nextRayCount);
+	}
+
 	void IntersectRaysWithScene(
 		uint32_t queueSize,
 		PathPoolView pathPool, 
@@ -992,7 +1014,6 @@ namespace Core::Graphics::Cuda::Kernels
 	}
 
 	void EvaluateNormalMaterial(
-		uint32_t hitCount,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -1002,14 +1023,12 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
-		if (hitCount == 0) return;
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitCount, block.x));
+		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
 		EvaluateNormalKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, regenQueue, accumulationBuffer);
 	}
 
 	void EvaluateDiffuseMaterial(
-		uint32_t hitCount,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -1019,14 +1038,12 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
-		if (hitCount == 0) return;
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitCount, block.x));
+		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
 		EvaluateDiffuseKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
 	}
 
 	void EvaluatePhongMaterial(
-		uint32_t hitCount,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -1036,14 +1053,12 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
-		if (hitCount == 0) return;
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitCount, block.x));
+		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
 		EvaluatePhongKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
 	}
 	
 	void EvaluateMirrorMaterial(
-		uint32_t hitCount,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -1053,15 +1068,13 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
-		if (hitCount == 0) return;
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitCount, block.x));
+		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
 		EvaluateMirrorKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
 	}
 	
 
 	void EvaluateGgxMaterial(
-		uint32_t hitCount,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -1071,14 +1084,12 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
-		if (hitCount == 0) return;
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitCount, block.x));
+		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
 		EvaluateGgxKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
 	}
 	
 	void EvaluateEmissiveMaterial(
-		uint32_t hitCount,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -1088,14 +1099,13 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
-		if (hitCount == 0) return;
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitCount, block.x));
+		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
 		EvaluateEmissiveKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, regenQueue, accumulationBuffer);
 	}
 
 	void RegeneratePaths(
-		uint32_t queueSize,
+		uint32_t remainingCount,
 		Memory::DeviceQueueView<uint32_t> regenQueue,
 		uint64_t launchedSampleCount,
 		DeviceCamera camera, 
@@ -1105,11 +1115,11 @@ namespace Core::Graphics::Cuda::Kernels
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
-		if (queueSize == 0) return;
+		if (remainingCount == 0) return;
 		uint32_t spp = sampleGridSize * sampleGridSize;
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(queueSize, block.x));
-		RegeneratePathsKernel<<<grid, block>>>(queueSize, regenQueue, launchedSampleCount, camera, width, height, sampleGridSize, spp, pathPool, nextRayQueue);
+		dim3 grid(GetBlockCount(std::min(remainingCount, regenQueue.GetCapacity()), block.x));
+		RegeneratePathsKernel<<<grid, block>>>(remainingCount, regenQueue, launchedSampleCount, camera, width, height, sampleGridSize, spp, pathPool, nextRayQueue);
 	}
 
 	void PostprocessAccumulatedRadiance(

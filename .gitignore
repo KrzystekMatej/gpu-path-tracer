@@ -9,6 +9,8 @@ Build/
 !/External/imgui/**
 !/External/mikktspace/
 !/External/mikktspace/**
+!/External/cuda-samples/
+!/External/cuda-samples/**
 
 imgui.ini
 imgui.ini.bak

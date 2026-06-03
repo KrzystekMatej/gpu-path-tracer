@@ -20,6 +20,12 @@ namespace Core::Graphics::Cuda::Kernels
 		uint32_t sampleGridSize, 
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<uint32_t> rayQueue);
+	void PrepareIteration(
+		Memory::DeviceQueueView<uint32_t> currentRayQueue,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		MaterialQueueViews materialQueues,
+		uint32_t nextRayCount);
 	void IntersectRaysWithScene(
 		uint32_t queueSize,
 		PathPoolView pathPool, 
@@ -27,9 +33,7 @@ namespace Core::Graphics::Cuda::Kernels
 		DeviceBvhView bvh,
 		MaterialQueueViews materialQueues,
 		Memory::DeviceQueueView<uint32_t> regenQueue);
-
 	void EvaluateNormalMaterial(
-		uint32_t hitCount,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -39,7 +43,6 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue);
 	void EvaluateDiffuseMaterial(
-		uint32_t hitCount,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -49,7 +52,6 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue);
 	void EvaluatePhongMaterial(
-		uint32_t hitCount,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -59,7 +61,6 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue);
 	void EvaluateMirrorMaterial(
-		uint32_t hitCount,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -69,7 +70,6 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue);
 	void EvaluateGgxMaterial(
-		uint32_t hitCount,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -79,7 +79,6 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue);
 	void EvaluateEmissiveMaterial(
-		uint32_t hitCount,
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
@@ -89,7 +88,7 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue);
 	void RegeneratePaths(
-		uint32_t queueSize,
+		uint32_t remainingCount,
 		Memory::DeviceQueueView<uint32_t> regenQueue,
 		uint64_t launchedSampleCount,
 		DeviceCamera camera, 
@@ -98,7 +97,6 @@ namespace Core::Graphics::Cuda::Kernels
 		uint32_t sampleGridSize, 
 		PathPoolView pathPool,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue);
-
 	void PostprocessAccumulatedRadiance(
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		float invSpp,
