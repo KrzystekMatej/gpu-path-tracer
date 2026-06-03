@@ -10,9 +10,9 @@ namespace Core::Graphics::Cuda
 		// Unlit,
 		Normal,
 		Diffuse,
+		Mirror,
 		Phong,
 		Ggx,
-		Mirror,
 		Emissive,
 		Count
 	};
@@ -28,14 +28,14 @@ namespace Core::Graphics::Cuda
 			case SurfaceModel::Diffuse:
 				return { GlobalShadingModel::Diffuse, true };
 
+			case SurfaceModel::Mirror:
+				return { GlobalShadingModel::Mirror, true };
+
 			case SurfaceModel::Phong:
 				return { GlobalShadingModel::Phong, true };
 
 			case SurfaceModel::Microfacet:
 				return { GlobalShadingModel::Ggx, true };
-
-			case SurfaceModel::Mirror:
-				return { GlobalShadingModel::Mirror, true };
 
 			case SurfaceModel::Emissive:
 				return { GlobalShadingModel::Emissive, true };
@@ -54,14 +54,14 @@ namespace Core::Graphics::Cuda
 			case SurfaceModel::Diffuse:
 				return GlobalShadingModel::Diffuse;
 
+			case SurfaceModel::Mirror:
+				return GlobalShadingModel::Mirror;
+
 			case SurfaceModel::Phong:
 				return GlobalShadingModel::Phong;
 
 			case SurfaceModel::Microfacet:
 				return GlobalShadingModel::Ggx;
-
-			case SurfaceModel::Mirror:
-				return GlobalShadingModel::Mirror;
 
 			case SurfaceModel::Emissive:
 				return GlobalShadingModel::Emissive;
@@ -72,7 +72,6 @@ namespace Core::Graphics::Cuda
 
 	struct Material
 	{
-		GlobalShadingModel shadingModel;
 		TextureView<float4> color;
 		TextureView<float4> specular;
 		TextureView<float> shininess;

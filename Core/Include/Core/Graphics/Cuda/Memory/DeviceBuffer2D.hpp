@@ -21,18 +21,18 @@ namespace Core::Graphics::Cuda::Memory
         DeviceBuffer2D(const DeviceBuffer2D&) = delete;
         DeviceBuffer2D& operator=(const DeviceBuffer2D&) = delete;
 
-        std::expected<void, Core::Utils::Error> Allocate(size_t width, size_t height, size_t elementSize);
-        std::expected<void, Core::Utils::Error> UploadSync(const void* hostData, size_t hostPitchElement) const;
-        std::expected<void, Core::Utils::Error> UploadAsync(const void* hostData, size_t hostPitchElement, void* stream) const;
+        std::expected<void, Core::Utils::Error> Allocate(uint32_t width, uint32_t height, uint32_t elementSize);
+        std::expected<void, Core::Utils::Error> UploadSync(const void* hostData, uint32_t hostPitchElement) const;
+        std::expected<void, Core::Utils::Error> UploadAsync(const void* hostData, uint32_t hostPitchElement, void* stream) const;
         std::expected<void, Core::Utils::Error> MemsetBytesSync(uint8_t value = 0) const;
         std::expected<void, Core::Utils::Error> MemsetBytesAsync(uint8_t value, void* stream) const;
         std::expected<void, Core::Utils::Error> Free();
 
         void* GetData() const { return m_Data; }
-        size_t GetWidth() const { return m_Width; }
-        size_t GetHeight() const { return m_Height; }
-        size_t GetPitchBytes() const { return m_PitchBytes; }
-        size_t GetElementSize() const { return m_ElementSize; }
+        uint32_t GetWidth() const { return m_Width; }
+        uint32_t GetHeight() const { return m_Height; }
+        uint32_t GetPitchBytes() const { return m_PitchBytes; }
+        uint32_t GetElementSize() const { return m_ElementSize; }
 
         template<typename T>
         DeviceBuffer2DView<T> GetView() const
@@ -45,9 +45,9 @@ namespace Core::Graphics::Cuda::Memory
 
     private:
         void* m_Data = nullptr;
-        size_t m_Width = 0;
-        size_t m_Height = 0;
-        size_t m_PitchBytes = 0;
-        size_t m_ElementSize = 0;
+        uint32_t m_Width = 0;
+        uint32_t m_Height = 0;
+        uint32_t m_PitchBytes = 0;
+        uint32_t m_ElementSize = 0;
     };
 }

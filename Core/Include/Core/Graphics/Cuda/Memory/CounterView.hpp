@@ -6,9 +6,10 @@ namespace Core::Graphics::Cuda::Memory
 {
     
     template<typename T>
-    struct CounterView
+    class CounterView
     {
     public:
+        CounterView() = default;
         CounterView(T* value)
             : m_Value(value) {}
         

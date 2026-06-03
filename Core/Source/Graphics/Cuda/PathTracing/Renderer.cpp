@@ -14,13 +14,39 @@
 #include <cmath>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
 #include <Core/Utils/Time.hpp>
+#include <Core/Graphics/Cuda/PathTracing/MaterialQueueViews.hpp>
+#include <Core/Graphics/Cuda/Utils/Device.hpp>
 
 namespace Core::Graphics::Cuda
 {
-	constexpr size_t PathPoolSize = 2 << 19;
-
     namespace
     {
+        using MaterialEvaluator =
+            void (*)(
+                uint32_t,
+                PathPoolView,
+                Memory::DeviceQueueView<HitData>,
+                Memory::DeviceBuffer1DView<Triangle>,
+                Memory::DeviceBuffer1DView<Material>,
+                uint32_t,
+                Memory::DeviceQueueView<uint32_t>,
+                Memory::DeviceBuffer1DView<float4>,
+                Memory::DeviceQueueView<uint32_t>);
+
+        constexpr std::array<MaterialEvaluator, static_cast<size_t>(GlobalShadingModel::Count)> CreateMaterialEvaluatorTable()
+        {
+            std::array<MaterialEvaluator, static_cast<size_t>(GlobalShadingModel::Count)> table{};
+            table[static_cast<size_t>(GlobalShadingModel::Normal)] = &Kernels::EvaluateNormalMaterial;
+            table[static_cast<size_t>(GlobalShadingModel::Diffuse)] = &Kernels::EvaluateDiffuseMaterial;
+            table[static_cast<size_t>(GlobalShadingModel::Mirror)] = &Kernels::EvaluateMirrorMaterial;
+            table[static_cast<size_t>(GlobalShadingModel::Phong)] = &Kernels::EvaluatePhongMaterial;
+            table[static_cast<size_t>(GlobalShadingModel::Ggx)] = &Kernels::EvaluateGgxMaterial;
+            table[static_cast<size_t>(GlobalShadingModel::Emissive)] = &Kernels::EvaluateEmissiveMaterial;
+            return table;
+        }
+
+        constexpr std::array<MaterialEvaluator, static_cast<size_t>(GlobalShadingModel::Count)> MaterialEvaluators = CreateMaterialEvaluatorTable();
+
         uchar4 MakeSimulationColor(uint32_t frameIndex)
         {
             const uint8_t r = static_cast<uint8_t>((frameIndex * 37u) % 256u);
@@ -37,7 +63,8 @@ namespace Core::Graphics::Cuda
 
         MaterialTable BuildMaterialTable(
             const entt::registry& sceneRegistry,
-            const Assets::Storage& storage)
+            const Assets::Storage& storage,
+            std::array<uint32_t, static_cast<size_t>(GlobalShadingModel::Count)>& materialCounts)
         {
             MaterialTable table;
 
@@ -52,10 +79,11 @@ namespace Core::Graphics::Cuda
 
                     const auto& materialAsset = storage.Get(material.handle).value().get();
                     const uint32_t materialIndex = static_cast<uint32_t>(table.materials.size());
-                    
+
+                    materialCounts[static_cast<size_t>(ToGlobalShadingUnchecked(materialAsset.surface))]++;
+
                     table.indices.emplace(materialId, materialIndex);
                     table.materials.emplace_back(Material{
-                        .shadingModel = ToGlobalShadingUnchecked(materialAsset.surface),
                         .color = storage.Get(materialAsset.color).value().get().cuda.GetView<float4>(),
                         .specular = storage.Get(materialAsset.specular).value().get().cuda.GetView<float4>(),
                         .shininess = storage.Get(materialAsset.shininess).value().get().cuda.GetView<float>(),
@@ -94,6 +122,7 @@ namespace Core::Graphics::Cuda
 						const glm::mat4& model = transform.GetMatrix();
 						const glm::mat3 normal = glm::mat3(glm::transpose(glm::inverse(model)));
                         const uint32_t materialIndex = materialIndices.at(material.handle.GetId());
+                        const GlobalShadingModel shadingModel = ToGlobalShadingUnchecked(storage.Get(material.handle).value().get().surface);
 
 						triangles.reserve(triangles.size() + indices.size() / 3);
 
@@ -118,6 +147,7 @@ namespace Core::Graphics::Cuda
                                 triangle.vertices[j].uv = Utils::Glm::ToFloat2(vertex.uv);
 							}
 							triangle.materialIndex = materialIndex;
+                            triangle.shadingModel = shadingModel;
                             triangles.push_back(triangle);
                         }
                     });
@@ -168,7 +198,11 @@ namespace Core::Graphics::Cuda
             CORE_TRY_DISCARD(rayQueue.Allocate(PathPoolSize, sizeof(uint32_t)));
         }
 
-		CORE_TRY_DISCARD(m_HitQueue.Allocate(PathPoolSize, sizeof(HitData)));
+        for (auto& materialQueue : m_MaterialQueues)
+        {
+            CORE_TRY_DISCARD(materialQueue.Allocate(PathPoolSize, sizeof(HitData)));
+        }
+
 		CORE_TRY_DISCARD(m_RegenQueue.Allocate(PathPoolSize, sizeof(uint32_t)));
 		CORE_TRY_DISCARD(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)));
         CORE_TRY_DISCARD(m_Framebuffer.Allocate(width * height, sizeof(uchar4)));
@@ -181,7 +215,8 @@ namespace Core::Graphics::Cuda
 
     std::expected<void, Core::Utils::Error> Renderer::InitializeSceneBuffers(const entt::registry& sceneRegistry, const Assets::Storage& storage)
     {
-        MaterialTable materialTable = BuildMaterialTable(sceneRegistry, storage);
+        std::fill(m_MaterialCounts.begin(), m_MaterialCounts.end(), 0);
+        MaterialTable materialTable = BuildMaterialTable(sceneRegistry, storage, m_MaterialCounts);
 		CORE_TRY(materialBuffer, BuildMaterialBuffer(materialTable.materials));
 		m_MaterialBuffer = std::move(materialBuffer);
 
@@ -259,6 +294,9 @@ namespace Core::Graphics::Cuda
         
         m_IsRendering.store(true, std::memory_order_relaxed);
         // SimulationLoop(std::stop_token{}, startFrame);
+        
+        CORE_TRY(memoryInfo, Utils::Device::GetMemoryInfo());
+        spdlog::info("Device memory - Free: {:.2f} GB, Total: {:.2f} GB", memoryInfo.freeBytes / 1e9, memoryInfo.totalBytes / 1e9);
 
         try
         {
@@ -355,9 +393,19 @@ namespace Core::Graphics::Cuda
         uint32_t nextQueue = 1;
         CORE_TRY_DISCARD(m_RayQueues[currentQueue].ResetCounter());
         CORE_TRY_DISCARD(m_RayQueues[nextQueue].ResetCounter());
-        CORE_TRY_DISCARD(m_HitQueue.ResetCounter());
+        for (uint32_t i = 0; i < static_cast<uint32_t>(GlobalShadingModel::Count); i++)
+        {
+            if (m_MaterialCounts[i] == 0) continue;
+            CORE_TRY_DISCARD(m_MaterialQueues[i].ResetCounter());
+        }
         CORE_TRY_DISCARD(m_RegenQueue.ResetCounter());
         CORE_TRY_DISCARD(m_AccumulationBuffer.MemsetBytesSync(0));
+
+        MaterialQueueViews materialQueueViews;
+        for (uint32_t i = 0; i < static_cast<uint32_t>(GlobalShadingModel::Count); i++)
+        {
+            materialQueueViews.At(i) = m_MaterialQueues[i].GetView<HitData>();
+        }
         
         CUDA_TRY_KERNEL_DEBUG("InitializePaths", 
             Kernels::InitializePaths(
@@ -368,8 +416,6 @@ namespace Core::Graphics::Cuda
                 m_SampleGridSize,
                 m_PathPool.GetView(),
                 m_RayQueues[currentQueue].GetView<uint32_t>()));
-        m_RayQueues[currentQueue].SetCounterHostValue(generateCount);
-        CORE_TRY_DISCARD(m_RayQueues[currentQueue].SyncCounterFromHost());
         
         uint32_t rayCount = generateCount;
         uint64_t launchedSampleCount = generateCount;
@@ -382,22 +428,30 @@ namespace Core::Graphics::Cuda
                     m_PathPool.GetView(),
                     m_RayQueues[currentQueue].GetView<uint32_t>(),
                     m_Bvh.GetView(),
-                    m_HitQueue.GetView<HitData>(),
+                    materialQueueViews,
                     m_RegenQueue.GetView<uint32_t>()));
-            CORE_TRY(hitCount, m_HitQueue.SyncCounterFromDevice());
-            if (stopToken.stop_requested()) return {};
+            
+            for (size_t i = 0; i < static_cast<size_t>(GlobalShadingModel::Count); i++)
+            {
+                if (m_MaterialCounts[i] == 0) continue;
+                MaterialEvaluator evaluator = MaterialEvaluators[i];
 
-            CUDA_TRY_KERNEL_DEBUG("ResolveHits", 
-                Kernels::ResolveHits(
-                    hitCount,
-                    m_PathPool.GetView(),
-                    m_HitQueue.GetView<HitData>(),
-                    m_Bvh.GetView().triangles,
-                    m_MaterialBuffer.GetView<Material>(),
-                    m_PathDepthLimit,
-                    m_RegenQueue.GetView<uint32_t>(),
-                    m_AccumulationBuffer.GetView<float4>(),
-                    m_RayQueues[nextQueue].GetView<uint32_t>()));
+                CORE_TRY(hitCount, m_MaterialQueues[i].SyncCounterFromDevice());
+
+                CUDA_TRY_KERNEL_DEBUG("EvaluateMaterial", 
+                    evaluator(
+                        hitCount,
+                        m_PathPool.GetView(),
+                        materialQueueViews.At(i),
+                        m_Bvh.GetView().triangles,
+                        m_MaterialBuffer.GetView<Material>(),
+                        m_PathDepthLimit,
+                        m_RegenQueue.GetView<uint32_t>(),
+                        m_AccumulationBuffer.GetView<float4>(),
+                        m_RayQueues[nextQueue].GetView<uint32_t>()));   
+                if (stopToken.stop_requested()) return {};
+            }
+
             CORE_TRY(regenQueueSize, m_RegenQueue.SyncCounterFromDevice());
             uint32_t regenerateCount = static_cast<uint32_t>(std::min<uint64_t>(regenQueueSize, m_TotalSamples - launchedSampleCount));
             if (stopToken.stop_requested()) return {};
@@ -421,7 +475,11 @@ namespace Core::Graphics::Cuda
             m_RayQueues[currentQueue].SetCounterHostValue(rayCount);
             CORE_TRY_DISCARD(m_RayQueues[currentQueue].SyncCounterFromHost());
             CORE_TRY_DISCARD(m_RayQueues[nextQueue].ResetCounter());
-            CORE_TRY_DISCARD(m_HitQueue.ResetCounter());
+            for (uint32_t i = 0; i < static_cast<uint32_t>(GlobalShadingModel::Count); i++)
+            {
+                if (m_MaterialCounts[i] == 0) continue;
+                CORE_TRY_DISCARD(m_MaterialQueues[i].ResetCounter());
+            }
             CORE_TRY_DISCARD(m_RegenQueue.ResetCounter());
             
             m_DoneSamples.fetch_add(regenerateCount, std::memory_order_relaxed);

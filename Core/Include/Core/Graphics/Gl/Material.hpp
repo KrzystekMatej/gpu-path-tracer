@@ -27,14 +27,14 @@ namespace Core::Graphics::Gl
 			case SurfaceModel::Diffuse:
 				return { LocalShadingModel::Lambert, true };
 
+			case SurfaceModel::Mirror:
+				return { LocalShadingModel::Unlit, false };
+
 			case SurfaceModel::Microfacet:
 				return { LocalShadingModel::Pbr, true };
 
 			case SurfaceModel::Phong:
 				return { LocalShadingModel::Phong, true };
-
-			case SurfaceModel::Mirror:
-				return { LocalShadingModel::Unlit, false };
 
 			case SurfaceModel::Emissive:
 				return { LocalShadingModel::Emissive, true };
@@ -56,14 +56,14 @@ namespace Core::Graphics::Gl
 			case SurfaceModel::Diffuse:
 				return LocalShadingModel::Lambert;
 			
+			case SurfaceModel::Mirror:
+				return LocalShadingModel::Unlit;
+
 			case SurfaceModel::Phong:
 				return LocalShadingModel::Phong;
 
 			case SurfaceModel::Microfacet:
 				return LocalShadingModel::Pbr;
-
-			case SurfaceModel::Mirror:
-				return LocalShadingModel::Unlit;
 
 			case SurfaceModel::Emissive:
 				return LocalShadingModel::Emissive;

@@ -25,6 +25,7 @@
 #include <Core/Graphics/Ecs/Camera.hpp>
 #include <Core/Graphics/Cuda/PathTracing/DeviceCamera.hpp>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Material.hpp>
 
 namespace Core::Graphics::Cuda
 {
@@ -129,6 +130,8 @@ namespace Core::Graphics::Cuda
         uint32_t GetSampleGridSize() const { return m_SampleGridSize; }
         uint32_t GetSamplesPerPixel() const { return m_SamplesPerPixel; }
         uint32_t GetPathDepth() const { return m_PathDepthLimit; }
+
+        static constexpr size_t PathPoolSize = 2 << 19;
     private:
         void SimulationLoop(std::stop_token stopToken, uint32_t startFrame);
         std::expected<void, Core::Utils::Error> RenderFrame(std::stop_token stopToken, DeviceCamera camera, uint32_t generateCount);
@@ -163,11 +166,13 @@ namespace Core::Graphics::Cuda
         uint32_t m_PathDepthLimit = PathTracerDefaults::PathDepthLimit;
 
         Memory::DeviceBuffer1D m_MaterialBuffer;
+        std::array<Memory::DeviceQueue, static_cast<size_t>(GlobalShadingModel::Count)> m_MaterialQueues;
+        std::array<uint32_t, static_cast<size_t>(GlobalShadingModel::Count)> m_MaterialCounts;
 		DeviceBvh m_Bvh;
 
         PathPool m_PathPool;
         std::array<Memory::DeviceQueue, 2> m_RayQueues;
-		Memory::DeviceQueue m_HitQueue;
+        
         Memory::DeviceQueue m_RegenQueue;
     };
 }

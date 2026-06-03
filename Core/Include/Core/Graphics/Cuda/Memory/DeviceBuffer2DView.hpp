@@ -5,7 +5,7 @@
 namespace Core::Graphics::Cuda::Memory
 {
     template<typename T>
-    struct DeviceBuffer2DView
+    class DeviceBuffer2DView
     {
     public:
         DeviceBuffer2DView(T* data, uint32_t width, uint32_t height, uint32_t pitchBytes)

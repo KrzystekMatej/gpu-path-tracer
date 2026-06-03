@@ -15,7 +15,7 @@ namespace Core::Graphics::Cuda
 		PathPool(const PathPool&) = delete;
 		PathPool& operator=(const PathPool&) = delete;
 		
-		std::expected<void, Core::Utils::Error> Allocate(size_t pathCount);
+		std::expected<void, Core::Utils::Error> Allocate(uint32_t pathCount);
 		std::expected<void, Core::Utils::Error> Free();
 
 

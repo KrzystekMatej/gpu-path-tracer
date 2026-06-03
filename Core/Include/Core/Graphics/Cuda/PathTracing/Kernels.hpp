@@ -7,6 +7,7 @@
 #include <Core/Graphics/Cuda/Memory/DeviceQueueView.hpp>
 #include <Core/Graphics/Cuda/Bvh/DeviceBvhView.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Material.hpp>
+#include <Core/Graphics/Cuda/PathTracing/MaterialQueueViews.hpp>
 
 namespace Core::Graphics::Cuda::Kernels
 {
@@ -24,13 +25,64 @@ namespace Core::Graphics::Cuda::Kernels
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<uint32_t> rayQueue, 
 		DeviceBvhView bvh,
-		Memory::DeviceQueueView<HitData> hitQueue,
+		MaterialQueueViews materialQueues,
 		Memory::DeviceQueueView<uint32_t> regenQueue);
-	void ResolveHits(
-		uint32_t queueSize,
-		PathPoolView pathPool, 
-		Memory::DeviceQueueView<HitData> hitQueue, 
-		Memory::DeviceBuffer1DView<Triangle> triangles, 
+
+	void EvaluateNormalMaterial(
+		uint32_t hitCount,
+		PathPoolView pathPool,
+		Memory::DeviceQueueView<HitData> hitQueue,
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue);
+	void EvaluateDiffuseMaterial(
+		uint32_t hitCount,
+		PathPoolView pathPool,
+		Memory::DeviceQueueView<HitData> hitQueue,
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue);
+	void EvaluatePhongMaterial(
+		uint32_t hitCount,
+		PathPoolView pathPool,
+		Memory::DeviceQueueView<HitData> hitQueue,
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue);
+	void EvaluateMirrorMaterial(
+		uint32_t hitCount,
+		PathPoolView pathPool,
+		Memory::DeviceQueueView<HitData> hitQueue,
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue);
+	void EvaluateGgxMaterial(
+		uint32_t hitCount,
+		PathPoolView pathPool,
+		Memory::DeviceQueueView<HitData> hitQueue,
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue);
+	void EvaluateEmissiveMaterial(
+		uint32_t hitCount,
+		PathPoolView pathPool,
+		Memory::DeviceQueueView<HitData> hitQueue,
+		Memory::DeviceBuffer1DView<Triangle> triangles,
 		Memory::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		Memory::DeviceQueueView<uint32_t> regenQueue,

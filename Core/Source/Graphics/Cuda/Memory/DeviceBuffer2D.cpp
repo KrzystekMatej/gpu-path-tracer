@@ -34,7 +34,7 @@ namespace Core::Graphics::Cuda::Memory
         return *this;
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer2D::Allocate(size_t width, size_t height, size_t elementSize)
+    std::expected<void, Core::Utils::Error> DeviceBuffer2D::Allocate(uint32_t width, uint32_t height, uint32_t elementSize)
     {
         CORE_TRY_DISCARD(Free());
 
@@ -46,12 +46,13 @@ namespace Core::Graphics::Cuda::Memory
         m_Data = data;
         m_Width = width;
         m_Height = height;
-        m_PitchBytes = pitch;
+        assert(pitch <= UINT32_MAX);
+        m_PitchBytes = static_cast<uint32_t>(pitch);
         m_ElementSize = elementSize;
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer2D::UploadSync(const void* hostData, size_t hostPitchElement) const
+    std::expected<void, Core::Utils::Error> DeviceBuffer2D::UploadSync(const void* hostData, uint32_t hostPitchElement) const
     {
         assert(m_Data != nullptr);
         assert(hostData != nullptr);
@@ -68,7 +69,7 @@ namespace Core::Graphics::Cuda::Memory
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer2D::UploadAsync(const void* hostData, size_t hostPitchElement, void* stream) const
+    std::expected<void, Core::Utils::Error> DeviceBuffer2D::UploadAsync(const void* hostData, uint32_t hostPitchElement, void* stream) const
     {
         assert(m_Data != nullptr);
         assert(hostData != nullptr);

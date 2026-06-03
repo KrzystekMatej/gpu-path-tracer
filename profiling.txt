@@ -1,9 +1,10 @@
 test-spheres, 1024spp, 30 depth, partial soa, with full sync, tailored kernel grid, only needed kernels scheduled
 [2026-06-01 16:25:05.639] [info] Rendered frame 0 in 118.63 seconds
 [2026-06-01 16:27:05.272] [info] Rendered frame 1 in 119.63 seconds
-cornell-box more spheres
+cornell-box-extended
+1024
 [2026-06-02 19:08:40.810] [info] Rendered frame 0 in 88.54 seconds
-19881
+19881 spp
 [2026-06-02 19:37:01.024] [info] Rendered frame 0 in 1672.82 seconds
 
 

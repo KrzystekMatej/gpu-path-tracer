@@ -10,7 +10,7 @@ scene:
           euler-degrees: [-90.0, 0.0, 0.0]
           scale: [1.0, 1.0, 1.0]
         - type: Model
-          path: Models/CornellBoxRotated/mesh.obj
+          path: Models/CornellBoxExtended/mesh.obj
     - components:
         - type: Transform
           translation: [0.0, 250.0, 940.0]

@@ -78,7 +78,7 @@ namespace App::CameraRecorder
 		if (!result) result.error().Log();
 	}
 
-	void Layer::OnRecordingStop(const Events::Stop& event)
+	void Layer::OnRecordingStop(const Events::Stop&)
 	{
 		Core::Ecs::Scene& scene = Core::Runtime::Application::Scene();
 		auto result = Core::Capture::StopMotionRecording(scene, scene.GetActiveCamera());

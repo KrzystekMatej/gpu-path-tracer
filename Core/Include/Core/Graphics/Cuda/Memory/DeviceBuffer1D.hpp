@@ -21,16 +21,16 @@ namespace Core::Graphics::Cuda::Memory
         DeviceBuffer1D(const DeviceBuffer1D&) = delete;
         DeviceBuffer1D& operator=(const DeviceBuffer1D&) = delete;
 
-        std::expected<void, Core::Utils::Error> Allocate(size_t size, size_t elementSize);
-        std::expected<void, Core::Utils::Error> UploadSync(const void* hostData, size_t size) const;
-        std::expected<void, Core::Utils::Error> UploadAsync(const void* hostData, size_t size, void* stream) const;
+        std::expected<void, Core::Utils::Error> Allocate(uint32_t size, uint32_t elementSize);
+        std::expected<void, Core::Utils::Error> UploadSync(const void* hostData, uint32_t size) const;
+        std::expected<void, Core::Utils::Error> UploadAsync(const void* hostData, uint32_t size, void* stream) const;
         std::expected<void, Core::Utils::Error> MemsetBytesSync(uint8_t value = 0) const;
         std::expected<void, Core::Utils::Error> MemsetBytesAsync(uint8_t value, void* stream) const;
         std::expected<void, Core::Utils::Error> Free();
 
         void* GetData() const { return m_Data; }
-        size_t GetSize() const { return m_Size; }
-        size_t GetElementSize() const { return m_ElementSize; }
+        uint32_t GetSize() const { return m_Size; }
+        uint32_t GetElementSize() const { return m_ElementSize; }
 
         template<typename T>
         DeviceBuffer1DView<T> GetView() const
@@ -43,7 +43,7 @@ namespace Core::Graphics::Cuda::Memory
 
     private:
         void* m_Data = nullptr;
-        size_t m_Size = 0;
-        size_t m_ElementSize = 0;
+        uint32_t m_Size = 0;
+        uint32_t m_ElementSize = 0;
     };
 }

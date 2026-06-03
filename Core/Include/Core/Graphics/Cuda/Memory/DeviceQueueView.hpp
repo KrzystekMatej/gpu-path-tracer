@@ -9,6 +9,7 @@ namespace Core::Graphics::Cuda::Memory
     class DeviceQueueView
     {
     public:
+        DeviceQueueView() = default;
         DeviceQueueView(T* data, uint32_t capacity, CounterView<uint32_t> counter)
             : m_Data(data), m_Capacity(capacity), m_Counter(counter) {}
         

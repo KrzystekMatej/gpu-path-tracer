@@ -2,7 +2,7 @@
 
 namespace Core::Graphics::Cuda
 {
-	std::expected<void, Utils::Error> PathPool::Allocate(size_t pathCount)
+	std::expected<void, Utils::Error> PathPool::Allocate(uint32_t pathCount)
 	{
     	CORE_TRY_DISCARD(Free());
 		CORE_TRY_DISCARD(m_Samples.Allocate(pathCount, sizeof(Pixel)));

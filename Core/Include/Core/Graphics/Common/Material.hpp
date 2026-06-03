@@ -7,10 +7,10 @@ namespace Core::Graphics
 	{
 		Unlit,
 		Normal,
+		Mirror,
 		Diffuse,
 		Phong,
 		Microfacet,
-		Mirror,
 		Emissive,
 	};
 

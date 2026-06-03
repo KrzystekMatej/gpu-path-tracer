@@ -5,7 +5,7 @@
 namespace Core::Graphics::Cuda
 {
 	template<typename T>
-	struct TextureView
+	class TextureView
 	{
 	public:
 		TextureView(uint64_t texture) : m_Texture(texture) {}

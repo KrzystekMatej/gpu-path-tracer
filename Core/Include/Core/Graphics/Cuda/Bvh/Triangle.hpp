@@ -1,6 +1,7 @@
 #pragma once
 #include <cuda_runtime.h>
 #include <array>
+#include <Core/Graphics/Cuda/PathTracing/Material.hpp>
 
 namespace Core::Graphics::Cuda
 {
@@ -16,5 +17,6 @@ namespace Core::Graphics::Cuda
 	{
 		Vertex vertices[3];
 		uint32_t materialIndex;
+		GlobalShadingModel shadingModel;
 	};
 }

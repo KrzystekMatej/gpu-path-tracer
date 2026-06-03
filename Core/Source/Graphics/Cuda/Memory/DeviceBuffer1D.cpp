@@ -30,7 +30,7 @@ namespace Core::Graphics::Cuda::Memory
         return *this;
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer1D::Allocate(size_t size, size_t elementSize)
+    std::expected<void, Core::Utils::Error> DeviceBuffer1D::Allocate(uint32_t size, uint32_t elementSize)
     {
         CORE_TRY_DISCARD(Free());
         
@@ -43,7 +43,7 @@ namespace Core::Graphics::Cuda::Memory
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer1D::UploadSync(const void* hostData, size_t size) const
+    std::expected<void, Core::Utils::Error> DeviceBuffer1D::UploadSync(const void* hostData, uint32_t size) const
     {
         assert(m_Data != nullptr);
         assert(hostData != nullptr);
@@ -53,7 +53,7 @@ namespace Core::Graphics::Cuda::Memory
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer1D::UploadAsync(const void* hostData, size_t size, void* stream) const
+    std::expected<void, Core::Utils::Error> DeviceBuffer1D::UploadAsync(const void* hostData, uint32_t size, void* stream) const
     {
         assert(m_Data != nullptr);
         assert(hostData != nullptr);

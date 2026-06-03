@@ -5,7 +5,7 @@
 namespace Core::Graphics::Cuda::Memory
 {
     template<typename T>
-    struct DeviceBuffer1DView
+    class DeviceBuffer1DView
     {
     public:
         DeviceBuffer1DView(T* data, uint32_t size)

@@ -85,10 +85,10 @@ namespace Core::Graphics::Cuda::Kernels
 
 		rayQueue.At(sampleIndex) = sampleIndex;
 		
-		// if (sampleIndex == 0)
-		// {
-		// 	rayQueue.SetSize(generateCount);
-		// }
+		if (sampleIndex == 0)
+		{
+			rayQueue.SetSize(generateCount);
+		}
 	}
 
 	__device__ __forceinline__ bool AabbIntersect(const BoundingBox& bounds, const float3& origin, const float3& invDirection, float tMin, float tMax)
@@ -151,7 +151,7 @@ namespace Core::Graphics::Cuda::Kernels
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<uint32_t> rayQueue, 
 		DeviceBvhView bvh, 
-		Memory::DeviceQueueView<HitData> hitQueue, 
+		MaterialQueueViews materialQueues,
 		Memory::DeviceQueueView<uint32_t> regenQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
@@ -166,6 +166,7 @@ namespace Core::Graphics::Cuda::Kernels
 		HitData closestHit;
 		closestHit.triangle = PathTracerDefaults::InvalidIndex;
 		float closestT = ray.tMax;
+		GlobalShadingModel shadingModel = GlobalShadingModel::Count;
 
 		while (!stack.IsEmpty())
 		{
@@ -189,6 +190,7 @@ namespace Core::Graphics::Cuda::Kernels
 						closestHit.material = triangle.materialIndex;
 						closestHit.u = u;
 						closestHit.v = v;
+						shadingModel = triangle.shadingModel;
 					}
 				}
 			}
@@ -202,7 +204,7 @@ namespace Core::Graphics::Cuda::Kernels
 		if (closestHit.triangle != PathTracerDefaults::InvalidIndex)
 		{
 			closestHit.path = pathIndex;
-			hitQueue.Push(closestHit);
+			materialQueues.At(static_cast<uint32_t>(shadingModel)).Push(closestHit);
 			pathPool.rays.At(pathIndex).tMax = closestT;
 		}
 		else
@@ -379,15 +381,66 @@ namespace Core::Graphics::Cuda::Kernels
 	{
 		return 0.2126f * color.x + 0.7152f * color.y + 0.0722f * color.z;
 	}
+	
+	__device__ __forceinline__ bool ApplyRussianRoulette(uint32_t depth, Contribution& contribution, float u)
+	{
+		if (depth < PathTracerDefaults::RussianRouletteStartDepth)
+			return false;
 
-	__global__ void ResolveHitsKernel(
+		float alpha = Math::MaxComponent(make_float3(contribution.throughput));
+		alpha = clamp(alpha, 0.0f, 1.0f);
+		bool terminated = alpha < u;
+
+		if (!terminated)
+			contribution.throughput = contribution.throughput / alpha;
+		
+		return terminated;
+	}
+
+	__global__ void EvaluateNormalKernel(
+		PathPoolView pathPool, 
+		Memory::DeviceQueueView<HitData> hitQueue, 
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceBuffer1DView<float4> accumulationBuffer)
+	{
+		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		if (queueIndex >= hitQueue.GetSize()) return;
+		
+		const HitData hitData = hitQueue.At(queueIndex);
+		const Material material = materials.At(hitData.material);
+		Contribution& contribution = pathPool.contributions.At(hitData.path);
+		
+		Triangle triangle = triangles.At(hitData.triangle);
+		float b0 = 1.0f - hitData.u - hitData.v;
+		float b1 = hitData.u;
+		float b2 = hitData.v;
+		float2 uv =
+			b0 * triangle.vertices[0].uv +
+			b1 * triangle.vertices[1].uv +
+			b2 * triangle.vertices[2].uv;
+		
+		Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
+
+		const uint32_t pixelIndex = pathPool.pixels.At(hitData.path).index;
+		
+		float3 normal = shadingFrame.normal;
+		const float4 radiance = contribution.throughput * make_float4(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1.0f);
+
+		atomicAdd(&accumulationBuffer.At(pixelIndex).x, radiance.x);
+		atomicAdd(&accumulationBuffer.At(pixelIndex).y, radiance.y);
+		atomicAdd(&accumulationBuffer.At(pixelIndex).z, radiance.z);
+		regenQueue.Push(hitData.path);
+	}
+
+	__global__ void EvaluateDiffuseKernel(
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<HitData> hitQueue, 
 		Memory::DeviceBuffer1DView<Triangle> triangles,
 		Memory::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
@@ -396,349 +449,39 @@ namespace Core::Graphics::Cuda::Kernels
 		const HitData hitData = hitQueue.At(queueIndex);
 		const Material material = materials.At(hitData.material);
 		Contribution& contribution = pathPool.contributions.At(hitData.path);
-		bool pathTerminated = false;
+		
+		Triangle triangle = triangles.At(hitData.triangle);
 
-		switch (material.shadingModel)
-		{
-			//TODO: unify throughput access?
-			case GlobalShadingModel::Normal:
-			{
-				Triangle triangle = triangles.At(hitData.triangle);
-				float b0 = 1.0f - hitData.u - hitData.v;
-				float b1 = hitData.u;
-				float b2 = hitData.v;
-				float2 uv =
-					b0 * triangle.vertices[0].uv +
-					b1 * triangle.vertices[1].uv +
-					b2 * triangle.vertices[2].uv;
-				
-				Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
+		float b0 = 1.0f - hitData.u - hitData.v;
+		float b1 = hitData.u;
+		float b2 = hitData.v;
+		float2 uv =
+			b0 * triangle.vertices[0].uv +
+			b1 * triangle.vertices[1].uv +
+			b2 * triangle.vertices[2].uv;
 
-				const uint32_t pixelIndex = pathPool.pixels.At(hitData.path).index;
-				
-				float3 normal = shadingFrame.normal;
-				const float4 radiance = contribution.throughput * make_float4(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1.0f);
+		Ray& ray = pathPool.rays.At(hitData.path);
 
-				atomicAdd(&accumulationBuffer.At(pixelIndex).x, radiance.x);
-				atomicAdd(&accumulationBuffer.At(pixelIndex).y, radiance.y);
-				atomicAdd(&accumulationBuffer.At(pixelIndex).z, radiance.z);
-				pathTerminated = true;
-				break;
-			}
-			case GlobalShadingModel::Diffuse:
-			{
-				Triangle triangle = triangles.At(hitData.triangle);
+		Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
+		float4 albedo = material.color.Sample(uv.x, uv.y);
+		Random& random = pathPool.randoms.At(hitData.path);
+		float2 u = make_float2(curand_uniform(&random.state), curand_uniform(&random.state));
 
-				float b0 = 1.0f - hitData.u - hitData.v;
-				float b1 = hitData.u;
-				float b2 = hitData.v;
-				float2 uv =
-					b0 * triangle.vertices[0].uv +
-					b1 * triangle.vertices[1].uv +
-					b2 * triangle.vertices[2].uv;
-
-				Ray& ray = pathPool.rays.At(hitData.path);
-
-				Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
-				float4 albedo = material.color.Sample(uv.x, uv.y);
-				Random& random = pathPool.randoms.At(hitData.path);
-				float2 u = make_float2(curand_uniform(&random.state), curand_uniform(&random.state));
-
-				float3 omegaI = shadingFrame.FromLocal(SampleCosineWeightedHemisphere(u));
-																												  
-				float3 geometricNormal = GetGeometricNormal(triangle);
-				if (dot(ray.direction, geometricNormal) > 0.0f)
-					geometricNormal = -geometricNormal;
-				
-				ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
-				ray.direction = omegaI;
-				ray.tMin = PathTracerDefaults::MinT;
-				ray.tMax = PathTracerDefaults::MaxT;
-				contribution.throughput *= albedo;
-				break;
-			}
-			case GlobalShadingModel::Mirror:
-			{
-				Triangle triangle = triangles.At(hitData.triangle);
-
-				float b0 = 1.0f - hitData.u - hitData.v;
-				float b1 = hitData.u;
-				float b2 = hitData.v;
-				float2 uv =
-					b0 * triangle.vertices[0].uv +
-					b1 * triangle.vertices[1].uv +
-					b2 * triangle.vertices[2].uv;
-
-				Ray& ray = pathPool.rays.At(hitData.path);
-				Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
-				
-				float3 omegaI = reflect(ray.direction, shadingFrame.normal);
-				float4 reflectance = material.specular.Sample(uv.x, uv.y);
-
-				float3 geometricNormal = GetGeometricNormal(triangle);
-				if (dot(ray.direction, geometricNormal) > 0.0f)
-					geometricNormal = -geometricNormal;
-
-				ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
-				ray.direction = omegaI;
-				ray.tMin = PathTracerDefaults::MinT;
-				ray.tMax = PathTracerDefaults::MaxT;
-				contribution.throughput *= reflectance;
-				break;
-			}
-			case GlobalShadingModel::Phong:
-			{
-				Triangle triangle = triangles.At(hitData.triangle);
-
-				float b0 = 1.0f - hitData.u - hitData.v;
-				float b1 = hitData.u;
-				float b2 = hitData.v;
-
-				float2 uv =
-					b0 * triangle.vertices[0].uv +
-					b1 * triangle.vertices[1].uv +
-					b2 * triangle.vertices[2].uv;
-
-				Ray& ray = pathPool.rays.At(hitData.path);
-
-				float3 geometricNormal = GetGeometricNormal(triangle);
-				if (dot(ray.direction, geometricNormal) > 0.0f)
-					geometricNormal = -geometricNormal;
-
-				Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
-
-				float4 albedo = material.color.Sample(uv.x, uv.y);
-				float4 specular = material.specular.Sample(uv.x, uv.y);
-
-				float shininess = material.shininess.Sample(uv.x, uv.y) * (MaterialDefaults::MaxShininess - MaterialDefaults::MinShininess) + MaterialDefaults::MinShininess;
-				float diffuseWeight = fmaxf(albedo.x, fmaxf(albedo.y, albedo.z));
-				float specularWeight = fmaxf(specular.x, fmaxf(specular.y, specular.z));
-				float weightSum = diffuseWeight + specularWeight;
-
-				if (weightSum <= 0.0f)
-				{
-					pathTerminated = true;
-					break;
-				}
-
-				float diffuseSelectionProbability = diffuseWeight / weightSum;
-				float specularSelectionProbability = 1.0f - diffuseSelectionProbability;
-
-				Random& random = pathPool.randoms.At(hitData.path);
-				float3 reflectionDirection = normalize(reflect(ray.direction, shadingFrame.normal));
-				float randomValue = curand_uniform(&random.state);
-
-				float3 omegaI;
-				float2 u = make_float2(curand_uniform(&random.state), curand_uniform(&random.state));
-
-				if (randomValue < diffuseSelectionProbability)
-				{
-					omegaI = shadingFrame.FromLocal(SampleCosineWeightedHemisphere(u));
-				}
-				else
-				{
-					omegaI = SamplePhongLobe(reflectionDirection, shininess, u);
-				}
-
-				float cosThetaI = fmaxf(dot(shadingFrame.normal, omegaI), 0.0f);
-				float geometricCosThetaI = fmaxf(dot(geometricNormal, omegaI), 0.0f);
-
-				if (cosThetaI <= 0.0f || geometricCosThetaI <= 0.0f)
-				{
-					pathTerminated = true;
-					break;
-				}
-
-				float cosThetaR = fmaxf(dot(reflectionDirection, omegaI), 0.0f);
-				float phongLobeOverTwoPi = Math::InvTwoPi * powf(cosThetaR, shininess); 
-				// this simplication can't be used in case of energy-normalized modified phong 
-				// (in such case the normalization term is sampled from precomputed textures since it's not trivial to compute on the fly)
-
-				float diffusePdf = cosThetaI * Math::InvPi;
-				float specularPdf = (shininess + 1.0f) * phongLobeOverTwoPi;
-
-				float pdf = diffuseSelectionProbability * diffusePdf + specularSelectionProbability * specularPdf;
-
-				if (pdf <= 0.0f)
-				{
-					pathTerminated = true;
-					break;
-				}
-
-				float4 diffuseBrdf = albedo * Math::InvPi;
-				float4 specularBrdf = specular * (shininess + 2.0f) * phongLobeOverTwoPi;
-
-				ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
-				ray.direction = omegaI;
-				ray.tMin = PathTracerDefaults::MinT;
-				ray.tMax = PathTracerDefaults::MaxT;
-
-				contribution.throughput *= (diffuseBrdf + specularBrdf) * (cosThetaI / pdf);
-				break;
-			}
-			case GlobalShadingModel::Ggx:
-			{
-				Triangle triangle = triangles.At(hitData.triangle);
-
-				float b0 = 1.0f - hitData.u - hitData.v;
-				float b1 = hitData.u;
-				float b2 = hitData.v;
-
-				float2 uv =
-					b0 * triangle.vertices[0].uv +
-					b1 * triangle.vertices[1].uv +
-					b2 * triangle.vertices[2].uv;
-
-				Ray& ray = pathPool.rays.At(hitData.path);
-
-				float3 geometricNormal = GetGeometricNormal(triangle);
-				if (dot(ray.direction, geometricNormal) > 0.0f)
-					geometricNormal = -geometricNormal;
-				
-				Random& random = pathPool.randoms.At(hitData.path);
-
-				Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
-				float3 baseColor = make_float3(material.color.Sample(uv.x, uv.y));
-				float4 rma = material.rma.Sample(uv.x, uv.y);
-
-				float alpha = rma.x * rma.x;
-				alpha = fmaxf(alpha, 0.001f); // in the future we should treat alpha=0 as a special case - effectively smooth surface
-				float3 wo = shadingFrame.ToLocal(-ray.direction);
-
-				if (wo.z <= 0.0f)
-				{
-					pathTerminated = true;
-					break;
-				}
-
-				float dielectricF0 = Math::Sqr((ray.ior - material.ior) / (ray.ior + material.ior));
-				float3 f0 = lerp(make_float3(dielectricF0), baseColor, rma.y);
-
-				float3 diffuseColor = baseColor * (1.0f - rma.y);
-
-				float diffuseWeight = luminance(diffuseColor);
-				float specularWeight = luminance(f0);
-
-				float weightSum = diffuseWeight + specularWeight;
-				if (weightSum <= 1e-6f)
-				{
-					pathTerminated = true;
-					break;
-				}
-
-				float diffuseSelectionProbability = diffuseWeight / weightSum;
-				float specularSelectionProbability = specularWeight / weightSum;
-				
-				float lobeSample = curand_uniform(&random.state);
-				float2 directionSample = make_float2(curand_uniform(&random.state), curand_uniform(&random.state));
-
-				float3 wi;
-
-				if (lobeSample < diffuseSelectionProbability)
-				{
-					wi = SampleCosineWeightedHemisphere(directionSample);
-				}
-				else
-				{
-					float3 sampledWm = TrowbridgeSampleWm(wo, make_float2(alpha, alpha), directionSample);
-					wi = reflect(-wo, sampledWm);
-				}
-
-				if (wi.z <= 0.0f)
-				{
-					pathTerminated = true;
-					break;
-				}
-				
-				float3 wm = normalize(wi + wo);
-				
-				if (wm.z <= 0.0f)
-				{
-					pathTerminated = true;
-					break;
-				}
-
-				float woDotWm = dot(wo, wm);
-				
-				if (woDotWm <= 1e-6f)
-				{
-					pathTerminated = true;
-					break;
-				}
-
-				float cosThetaI = Math::CosTheta(wi);
-				float cosThetaO = Math::CosTheta(wo);
-
-				float3 fresnel = FresnelSchlick(f0, clamp(woDotWm, 0.0f, 1.0f));
-				
-				float3 diffuseBsdf = (1.0f - fresnel) * diffuseColor * Math::InvPi;
-				float3 ggxBsdf = fresnel * D(wm, alpha) * G(wo, wi, alpha) / (4.0f * cosThetaI * cosThetaO);
-			
-				float diffusePdf = cosThetaI * Math::InvPi;
-				float ggxPdf = D(wo, wm, alpha) / (4.0f * woDotWm);
-				float pdf = diffuseSelectionProbability * diffusePdf + specularSelectionProbability * ggxPdf;
-				
-				if (pdf <= 1e-8f)
-				{
-					pathTerminated = true;
-					break;
-				}
-				
-				float3 worldWi = shadingFrame.FromLocal(wi);
-				if (dot(worldWi, geometricNormal) <= 0.0f)
-				{
-					pathTerminated = true;
-					break;
-				}
-				
-				ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
-				ray.direction = worldWi;
-				ray.tMin = PathTracerDefaults::MinT;
-				ray.tMax = PathTracerDefaults::MaxT;
-
-				contribution.throughput *= make_float4((diffuseBsdf + ggxBsdf) * (cosThetaI / pdf), 1.0f);
-				break;
-			}
-			case GlobalShadingModel::Emissive:
-			{
-				Triangle triangle = triangles.At(hitData.triangle);
-				
-				float b0 = 1.0f - hitData.u - hitData.v;
-				float b1 = hitData.u;
-				float b2 = hitData.v;
-				float2 uv =
-					b0 * triangle.vertices[0].uv +
-					b1 * triangle.vertices[1].uv +
-					b2 * triangle.vertices[2].uv;
-				
-				const float4 emission = material.emission.Sample(uv.x, uv.y);
-				const uint32_t pixelIndex = pathPool.pixels.At(hitData.path).index;
-				const float4 radiance = contribution.throughput * emission;
-
-				atomicAdd(&accumulationBuffer.At(pixelIndex).x, radiance.x);
-				atomicAdd(&accumulationBuffer.At(pixelIndex).y, radiance.y);
-				atomicAdd(&accumulationBuffer.At(pixelIndex).z, radiance.z);
-				
-				pathTerminated = true;
-				break;
-			}
-		}
+		float3 omegaI = shadingFrame.FromLocal(SampleCosineWeightedHemisphere(u));
+																										  
+		float3 geometricNormal = GetGeometricNormal(triangle);
+		if (dot(ray.direction, geometricNormal) > 0.0f)
+			geometricNormal = -geometricNormal;
+		
+		ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
+		ray.direction = omegaI;
+		ray.tMin = PathTracerDefaults::MinT;
+		ray.tMax = PathTracerDefaults::MaxT;
+		contribution.throughput *= albedo;
 		
 		PathFlags& pathFlags = pathPool.pathFlags.At(hitData.path);
 		pathFlags.depth++;
-		pathTerminated |= pathFlags.depth >= pathDepthLimit;
-
-		if (!pathTerminated && pathFlags.depth >= PathTracerDefaults::RussianRouletteStartDepth)
-		{
-			float alpha = fmaxf(contribution.throughput.x, fmaxf(contribution.throughput.y, contribution.throughput.z));
-			alpha = clamp(alpha, 0.0f, 1.0f);
-			float u = curand_uniform(&pathPool.randoms.At(hitData.path).state);
-
-			pathTerminated = alpha < u;
-
-			if (!pathTerminated)
-				pathPool.contributions.At(hitData.path).throughput = contribution.throughput / alpha;
-		}
+		bool pathTerminated = pathFlags.depth >= pathDepthLimit || ApplyRussianRoulette(pathFlags.depth, contribution, curand_uniform(&random.state));
 
 		if (pathTerminated)
 		{
@@ -748,6 +491,367 @@ namespace Core::Graphics::Cuda::Kernels
 		{
 			nextRayQueue.Push(hitData.path);
 		}
+	}
+	
+	__global__ void EvaluateMirrorKernel(
+		PathPoolView pathPool, 
+		Memory::DeviceQueueView<HitData> hitQueue, 
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+	{
+		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		if (queueIndex >= hitQueue.GetSize()) return;
+		
+		const HitData hitData = hitQueue.At(queueIndex);
+		const Material material = materials.At(hitData.material);
+		Contribution& contribution = pathPool.contributions.At(hitData.path);
+		Triangle triangle = triangles.At(hitData.triangle);
+
+		float b0 = 1.0f - hitData.u - hitData.v;
+		float b1 = hitData.u;
+		float b2 = hitData.v;
+		float2 uv =
+			b0 * triangle.vertices[0].uv +
+			b1 * triangle.vertices[1].uv +
+			b2 * triangle.vertices[2].uv;
+
+		Ray& ray = pathPool.rays.At(hitData.path);
+		Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
+		
+		float3 omegaI = reflect(ray.direction, shadingFrame.normal);
+		float4 reflectance = material.specular.Sample(uv.x, uv.y);
+
+		float3 geometricNormal = GetGeometricNormal(triangle);
+		if (dot(ray.direction, geometricNormal) > 0.0f)
+			geometricNormal = -geometricNormal;
+
+		ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
+		ray.direction = omegaI;
+		ray.tMin = PathTracerDefaults::MinT;
+		ray.tMax = PathTracerDefaults::MaxT;
+		contribution.throughput *= reflectance;
+		
+		Random& random = pathPool.randoms.At(hitData.path);
+		
+		PathFlags& pathFlags = pathPool.pathFlags.At(hitData.path);
+		pathFlags.depth++;
+		bool pathTerminated = pathFlags.depth >= pathDepthLimit || ApplyRussianRoulette(pathFlags.depth, contribution, curand_uniform(&random.state));
+
+		if (pathTerminated)
+		{
+			regenQueue.Push(hitData.path);
+		}
+		else
+		{
+			nextRayQueue.Push(hitData.path);
+		}
+	}
+
+	__global__ void EvaluatePhongKernel(
+		PathPoolView pathPool, 
+		Memory::DeviceQueueView<HitData> hitQueue, 
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+	{
+		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		if (queueIndex >= hitQueue.GetSize()) return;
+		
+		const HitData hitData = hitQueue.At(queueIndex);
+		const Material material = materials.At(hitData.material);
+		Contribution& contribution = pathPool.contributions.At(hitData.path);
+
+		Triangle triangle = triangles.At(hitData.triangle);
+
+		float b0 = 1.0f - hitData.u - hitData.v;
+		float b1 = hitData.u;
+		float b2 = hitData.v;
+
+		float2 uv =
+			b0 * triangle.vertices[0].uv +
+			b1 * triangle.vertices[1].uv +
+			b2 * triangle.vertices[2].uv;
+
+		Ray& ray = pathPool.rays.At(hitData.path);
+
+		float3 geometricNormal = GetGeometricNormal(triangle);
+		if (dot(ray.direction, geometricNormal) > 0.0f)
+			geometricNormal = -geometricNormal;
+
+		Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
+
+		float4 albedo = material.color.Sample(uv.x, uv.y);
+		float4 specular = material.specular.Sample(uv.x, uv.y);
+
+		float shininess = material.shininess.Sample(uv.x, uv.y) * (MaterialDefaults::MaxShininess - MaterialDefaults::MinShininess) + MaterialDefaults::MinShininess;
+		float diffuseWeight = Math::MaxComponent(make_float3(albedo));
+		float specularWeight = Math::MaxComponent(make_float3(specular));
+		float weightSum = diffuseWeight + specularWeight;
+
+		if (weightSum <= 0.0f)
+		{
+			regenQueue.Push(hitData.path);
+			return;
+		}
+
+		float diffuseSelectionProbability = diffuseWeight / weightSum;
+		float specularSelectionProbability = 1.0f - diffuseSelectionProbability;
+
+		Random& random = pathPool.randoms.At(hitData.path);
+		float3 reflectionDirection = normalize(reflect(ray.direction, shadingFrame.normal));
+		float randomValue = curand_uniform(&random.state);
+
+		float3 omegaI;
+		float2 u = make_float2(curand_uniform(&random.state), curand_uniform(&random.state));
+
+		if (randomValue < diffuseSelectionProbability)
+		{
+			omegaI = shadingFrame.FromLocal(SampleCosineWeightedHemisphere(u));
+		}
+		else
+		{
+			omegaI = SamplePhongLobe(reflectionDirection, shininess, u);
+		}
+
+		float cosThetaI = fmaxf(dot(shadingFrame.normal, omegaI), 0.0f);
+		float geometricCosThetaI = fmaxf(dot(geometricNormal, omegaI), 0.0f);
+
+		if (cosThetaI <= 0.0f || geometricCosThetaI <= 0.0f)
+		{
+			regenQueue.Push(hitData.path);
+			return;
+		}
+
+		float cosThetaR = fmaxf(dot(reflectionDirection, omegaI), 0.0f);
+		float phongLobeOverTwoPi = Math::InvTwoPi * powf(cosThetaR, shininess); 
+		// this simplication can't be used in case of energy-normalized modified phong 
+		// (in such case the normalization term is sampled from precomputed textures since it's not trivial to compute on the fly)
+
+		float diffusePdf = cosThetaI * Math::InvPi;
+		float specularPdf = (shininess + 1.0f) * phongLobeOverTwoPi;
+
+		float pdf = diffuseSelectionProbability * diffusePdf + specularSelectionProbability * specularPdf;
+
+		if (pdf <= 0.0f)
+		{
+			regenQueue.Push(hitData.path);
+			return;
+		}
+
+		float4 diffuseBrdf = albedo * Math::InvPi;
+		float4 specularBrdf = specular * (shininess + 2.0f) * phongLobeOverTwoPi;
+
+		ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
+		ray.direction = omegaI;
+		ray.tMin = PathTracerDefaults::MinT;
+		ray.tMax = PathTracerDefaults::MaxT;
+
+		contribution.throughput *= (diffuseBrdf + specularBrdf) * (cosThetaI / pdf);
+		
+		PathFlags& pathFlags = pathPool.pathFlags.At(hitData.path);
+		pathFlags.depth++;
+		bool pathTerminated = pathFlags.depth >= pathDepthLimit || ApplyRussianRoulette(pathFlags.depth, contribution, curand_uniform(&random.state));
+
+		if (pathTerminated)
+		{
+			regenQueue.Push(hitData.path);
+		}
+		else
+		{
+			nextRayQueue.Push(hitData.path);
+		}
+	}
+	
+
+	__global__ void EvaluateGgxKernel(
+		PathPoolView pathPool, 
+		Memory::DeviceQueueView<HitData> hitQueue, 
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+	{
+		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		if (queueIndex >= hitQueue.GetSize()) return;
+		
+		const HitData hitData = hitQueue.At(queueIndex);
+		const Material material = materials.At(hitData.material);
+		Contribution& contribution = pathPool.contributions.At(hitData.path);
+		
+		Triangle triangle = triangles.At(hitData.triangle);
+
+		float b0 = 1.0f - hitData.u - hitData.v;
+		float b1 = hitData.u;
+		float b2 = hitData.v;
+
+		float2 uv =
+			b0 * triangle.vertices[0].uv +
+			b1 * triangle.vertices[1].uv +
+			b2 * triangle.vertices[2].uv;
+
+		Ray& ray = pathPool.rays.At(hitData.path);
+
+		float3 geometricNormal = GetGeometricNormal(triangle);
+		if (dot(ray.direction, geometricNormal) > 0.0f)
+			geometricNormal = -geometricNormal;
+		
+		Random& random = pathPool.randoms.At(hitData.path);
+
+		Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
+		float3 baseColor = make_float3(material.color.Sample(uv.x, uv.y));
+		float4 rma = material.rma.Sample(uv.x, uv.y);
+
+		float alpha = rma.x * rma.x;
+		alpha = fmaxf(alpha, 0.001f); // in the future we should treat alpha=0 as a special case - effectively smooth surface
+		float3 wo = shadingFrame.ToLocal(-ray.direction);
+
+		if (wo.z <= 0.0f)
+		{
+			regenQueue.Push(hitData.path);
+			return;
+		}
+
+		float dielectricF0 = Math::Sqr((ray.ior - material.ior) / (ray.ior + material.ior));
+		float3 f0 = lerp(make_float3(dielectricF0), baseColor, rma.y);
+
+		float3 diffuseColor = baseColor * (1.0f - rma.y);
+
+		float diffuseWeight = luminance(diffuseColor);
+		float specularWeight = luminance(f0);
+
+		float weightSum = diffuseWeight + specularWeight;
+		if (weightSum <= 1e-6f)
+		{
+			regenQueue.Push(hitData.path);
+			return;
+		}
+
+		float diffuseSelectionProbability = diffuseWeight / weightSum;
+		float specularSelectionProbability = specularWeight / weightSum;
+		
+		float lobeSample = curand_uniform(&random.state);
+		float2 directionSample = make_float2(curand_uniform(&random.state), curand_uniform(&random.state));
+
+		float3 wi;
+
+		if (lobeSample < diffuseSelectionProbability)
+		{
+			wi = SampleCosineWeightedHemisphere(directionSample);
+		}
+		else
+		{
+			float3 sampledWm = TrowbridgeSampleWm(wo, make_float2(alpha, alpha), directionSample);
+			wi = reflect(-wo, sampledWm);
+		}
+
+		if (wi.z <= 0.0f)
+		{
+			regenQueue.Push(hitData.path);
+			return;
+		}
+		
+		float3 wm = normalize(wi + wo);
+		
+		if (wm.z <= 0.0f)
+		{
+			regenQueue.Push(hitData.path);
+			return;
+		}
+
+		float woDotWm = dot(wo, wm);
+		
+		if (woDotWm <= 1e-6f)
+		{
+			regenQueue.Push(hitData.path);
+			return;
+		}
+
+		float cosThetaI = Math::CosTheta(wi);
+		float cosThetaO = Math::CosTheta(wo);
+
+		float3 fresnel = FresnelSchlick(f0, clamp(woDotWm, 0.0f, 1.0f));
+		
+		float3 diffuseBsdf = (1.0f - fresnel) * diffuseColor * Math::InvPi;
+		float3 ggxBsdf = fresnel * D(wm, alpha) * G(wo, wi, alpha) / (4.0f * cosThetaI * cosThetaO);
+	
+		float diffusePdf = cosThetaI * Math::InvPi;
+		float ggxPdf = D(wo, wm, alpha) / (4.0f * woDotWm);
+		float pdf = diffuseSelectionProbability * diffusePdf + specularSelectionProbability * ggxPdf;
+		
+		if (pdf <= 1e-8f)
+		{
+			regenQueue.Push(hitData.path);
+			return;
+		}
+		
+		float3 worldWi = shadingFrame.FromLocal(wi);
+		if (dot(worldWi, geometricNormal) <= 0.0f)
+		{
+			regenQueue.Push(hitData.path);
+			return;
+		}
+		
+		ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
+		ray.direction = worldWi;
+		ray.tMin = PathTracerDefaults::MinT;
+		ray.tMax = PathTracerDefaults::MaxT;
+
+		contribution.throughput *= make_float4((diffuseBsdf + ggxBsdf) * (cosThetaI / pdf), 1.0f);
+		
+		PathFlags& pathFlags = pathPool.pathFlags.At(hitData.path);
+		pathFlags.depth++;
+		bool pathTerminated = pathFlags.depth >= pathDepthLimit || ApplyRussianRoulette(pathFlags.depth, contribution, curand_uniform(&random.state));
+
+		if (pathTerminated)
+		{
+			regenQueue.Push(hitData.path);
+		}
+		else
+		{
+			nextRayQueue.Push(hitData.path);
+		}
+	}
+
+
+	__global__ void EvaluateEmissiveKernel(
+		PathPoolView pathPool, 
+		Memory::DeviceQueueView<HitData> hitQueue, 
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceBuffer1DView<float4> accumulationBuffer)
+	{
+		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		if (queueIndex >= hitQueue.GetSize()) return;
+		
+		const HitData hitData = hitQueue.At(queueIndex);
+		const Material material = materials.At(hitData.material);
+		Contribution& contribution = pathPool.contributions.At(hitData.path);
+
+		Triangle triangle = triangles.At(hitData.triangle);
+		
+		float b0 = 1.0f - hitData.u - hitData.v;
+		float b1 = hitData.u;
+		float b2 = hitData.v;
+		float2 uv =
+			b0 * triangle.vertices[0].uv +
+			b1 * triangle.vertices[1].uv +
+			b2 * triangle.vertices[2].uv;
+		
+		const float4 emission = material.emission.Sample(uv.x, uv.y);
+		const uint32_t pixelIndex = pathPool.pixels.At(hitData.path).index;
+		const float4 radiance = contribution.throughput * emission;
+
+		atomicAdd(&accumulationBuffer.At(pixelIndex).x, radiance.x);
+		atomicAdd(&accumulationBuffer.At(pixelIndex).y, radiance.y);
+		atomicAdd(&accumulationBuffer.At(pixelIndex).z, radiance.z);
+		regenQueue.Push(hitData.path);
 	}
 
 	__global__ void RegeneratePathsKernel(
@@ -878,19 +982,19 @@ namespace Core::Graphics::Cuda::Kernels
 		PathPoolView pathPool, 
 		Memory::DeviceQueueView<uint32_t> rayQueue, 
 		DeviceBvhView bvh, 
-		Memory::DeviceQueueView<HitData> hitQueue,
+		MaterialQueueViews materialQueues,
 		Memory::DeviceQueueView<uint32_t> regenQueue)
 	{
 		assert(queueSize > 0);
 		dim3 block(TPB_DIM_1D);
 		dim3 grid(GetBlockCount(queueSize, block.x));
-		IntersectRaysWithSceneKernel<<<grid, block>>>(pathPool, rayQueue, bvh, hitQueue, regenQueue);
+		IntersectRaysWithSceneKernel<<<grid, block>>>(pathPool, rayQueue, bvh, materialQueues, regenQueue);
 	}
 
-	void ResolveHits(
-		uint32_t queueSize,
-		PathPoolView pathPool, 
-		Memory::DeviceQueueView<HitData> hitQueue, 
+	void EvaluateNormalMaterial(
+		uint32_t hitCount,
+		PathPoolView pathPool,
+		Memory::DeviceQueueView<HitData> hitQueue,
 		Memory::DeviceBuffer1DView<Triangle> triangles,
 		Memory::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
@@ -898,10 +1002,96 @@ namespace Core::Graphics::Cuda::Kernels
 		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
 		Memory::DeviceQueueView<uint32_t> nextRayQueue)
 	{
-		if (queueSize == 0) return;
+		if (hitCount == 0) return;
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(queueSize, block.x));
-		ResolveHitsKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, accumulationBuffer, nextRayQueue);
+		dim3 grid(GetBlockCount(hitCount, block.x));
+		EvaluateNormalKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, regenQueue, accumulationBuffer);
+	}
+
+	void EvaluateDiffuseMaterial(
+		uint32_t hitCount,
+		PathPoolView pathPool,
+		Memory::DeviceQueueView<HitData> hitQueue,
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+	{
+		if (hitCount == 0) return;
+		dim3 block(TPB_DIM_1D);
+		dim3 grid(GetBlockCount(hitCount, block.x));
+		EvaluateDiffuseKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
+	}
+
+	void EvaluatePhongMaterial(
+		uint32_t hitCount,
+		PathPoolView pathPool,
+		Memory::DeviceQueueView<HitData> hitQueue,
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+	{
+		if (hitCount == 0) return;
+		dim3 block(TPB_DIM_1D);
+		dim3 grid(GetBlockCount(hitCount, block.x));
+		EvaluatePhongKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
+	}
+	
+	void EvaluateMirrorMaterial(
+		uint32_t hitCount,
+		PathPoolView pathPool,
+		Memory::DeviceQueueView<HitData> hitQueue,
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+	{
+		if (hitCount == 0) return;
+		dim3 block(TPB_DIM_1D);
+		dim3 grid(GetBlockCount(hitCount, block.x));
+		EvaluateMirrorKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
+	}
+	
+
+	void EvaluateGgxMaterial(
+		uint32_t hitCount,
+		PathPoolView pathPool,
+		Memory::DeviceQueueView<HitData> hitQueue,
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+	{
+		if (hitCount == 0) return;
+		dim3 block(TPB_DIM_1D);
+		dim3 grid(GetBlockCount(hitCount, block.x));
+		EvaluateGgxKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
+	}
+	
+	void EvaluateEmissiveMaterial(
+		uint32_t hitCount,
+		PathPoolView pathPool,
+		Memory::DeviceQueueView<HitData> hitQueue,
+		Memory::DeviceBuffer1DView<Triangle> triangles,
+		Memory::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
+		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+	{
+		if (hitCount == 0) return;
+		dim3 block(TPB_DIM_1D);
+		dim3 grid(GetBlockCount(hitCount, block.x));
+		EvaluateEmissiveKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, regenQueue, accumulationBuffer);
 	}
 
 	void RegeneratePaths(

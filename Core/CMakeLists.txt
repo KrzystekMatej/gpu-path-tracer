@@ -42,6 +42,7 @@ target_sources(core PRIVATE
 	"Source/Graphics/Cuda/PathTracing/PathPool.cpp"
     "Source/Graphics/Cuda/PathTracing/Renderer.cpp"
     "Source/Graphics/Cuda/Resources/Texture.cpp"
+    "Source/Graphics/Cuda/Utils/Device.cpp"
     "Source/Graphics/Cuda/Utils/Error.cpp"
 
     "Source/Graphics/Ecs/Assets.cpp"

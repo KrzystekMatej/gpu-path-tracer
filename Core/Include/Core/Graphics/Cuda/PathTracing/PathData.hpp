@@ -36,6 +36,8 @@ namespace Core::Graphics::Cuda
 
 	struct HitData
 	{
+		HitData() = default;
+
 		uint32_t path;
 		uint32_t triangle;
 		uint32_t material;
