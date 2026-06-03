@@ -7,6 +7,7 @@
 #include <Core/Graphics/Cuda/Memory/DeviceBuffer2D.hpp>
 #include <Core/Graphics/Cuda/Memory/DeviceBuffer2DView.hpp>
 #include <Core/Utils/Error.hpp>
+#include <Core/Graphics/Cuda/Memory/Stream.hpp>
 
 namespace Core::Graphics::Cuda::Memory
 {
@@ -24,9 +25,9 @@ namespace Core::Graphics::Cuda::Memory
 
         std::expected<void, Core::Utils::Error> Allocate(size_t width, size_t height, size_t elementSize);
         std::expected<void, Core::Utils::Error> CopyHostToDeviceSync() const;
-        std::expected<void, Core::Utils::Error> CopyHostToDeviceAsync(void* stream) const;
+        std::expected<void, Core::Utils::Error> CopyHostToDeviceAsync(const Stream& stream) const;
         std::expected<void, Core::Utils::Error> CopyDeviceToHostSync() const;
-        std::expected<void, Core::Utils::Error> CopyDeviceToHostAsync(void* stream) const;
+        std::expected<void, Core::Utils::Error> CopyDeviceToHostAsync(const Stream& stream) const;
         std::expected<void, Core::Utils::Error> Free();
 
         void* GetHostData() const { return m_HostData; }

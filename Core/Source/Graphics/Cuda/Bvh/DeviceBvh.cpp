@@ -19,7 +19,7 @@ namespace Core::Graphics::Cuda
 		}
 	}
 
-	std::expected<void, Utils::Error> DeviceBvh::Build(const HostBvhNode& root, uint32_t depth, uint32_t nodeCount, const std::vector<Triangle>& triangles)
+	std::expected<void, Core::Utils::Error> DeviceBvh::Build(const HostBvhNode& root, uint32_t depth, uint32_t nodeCount, const std::vector<Triangle>& triangles)
 	{
 		std::vector<DeviceBvhNode> nodes;
 		nodes.reserve(nodeCount);
@@ -32,7 +32,7 @@ namespace Core::Graphics::Cuda
 		return {};
 	}
 
-	std::expected<void, Utils::Error> DeviceBvh::Free()
+	std::expected<void, Core::Utils::Error> DeviceBvh::Free()
 	{
 		auto nodeResult = m_Nodes.Free();
 		auto triangleResult = m_Triangles.Free();

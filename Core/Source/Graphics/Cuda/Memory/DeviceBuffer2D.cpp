@@ -69,11 +69,11 @@ namespace Core::Graphics::Cuda::Memory
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer2D::UploadAsync(const void* hostData, uint32_t hostPitchElement, void* stream) const
+    std::expected<void, Core::Utils::Error> DeviceBuffer2D::UploadAsync(const void* hostData, uint32_t hostPitchElement, const Stream& stream) const
     {
         assert(m_Data != nullptr);
         assert(hostData != nullptr);
-        assert(stream != nullptr);
+        assert(stream.GetRawHandle() != nullptr);
 
         CUDA_TRY("cudaMemcpy2DAsync", cudaMemcpy2DAsync(
             m_Data,
@@ -83,7 +83,7 @@ namespace Core::Graphics::Cuda::Memory
             m_Width * m_ElementSize,
             m_Height,
             cudaMemcpyKind::cudaMemcpyHostToDevice,
-            static_cast<cudaStream_t>(stream)));
+            stream.GetRawHandle()));
 
         return {};
     }
@@ -102,10 +102,10 @@ namespace Core::Graphics::Cuda::Memory
 		return {};
 	}
 
-	std::expected<void, Core::Utils::Error> DeviceBuffer2D::MemsetBytesAsync(uint8_t value, void* stream) const
+	std::expected<void, Core::Utils::Error> DeviceBuffer2D::MemsetBytesAsync(uint8_t value, const Stream& stream) const
 	{
 		assert(m_Data != nullptr);
-		assert(stream != nullptr);
+		assert(stream.GetRawHandle() != nullptr);
 
 		CUDA_TRY("cudaMemset2DAsync", cudaMemset2DAsync(
 			m_Data,
@@ -113,7 +113,7 @@ namespace Core::Graphics::Cuda::Memory
 			value,
 			m_Width * m_ElementSize,
 			m_Height,
-			static_cast<cudaStream_t>(stream)));
+			stream.GetRawHandle()));
 
 		return {};
 	}

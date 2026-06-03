@@ -295,7 +295,8 @@ namespace Core::Graphics::Cuda
         // SimulationLoop(std::stop_token{}, startFrame);
         
         CORE_TRY(memoryInfo, Utils::Device::GetMemoryInfo());
-        spdlog::info("Device memory - Free: {:.2f} GB, Total: {:.2f} GB", memoryInfo.freeBytes / 1e9, memoryInfo.totalBytes / 1e9);
+        size_t usedBytes = memoryInfo.totalBytes - memoryInfo.freeBytes;
+        spdlog::info("Renderer memory usage - Total: {:.2f} GB, Used: {:.2f} GB, Free: {:.2f} GB", memoryInfo.totalBytes / 1e9, usedBytes / 1e9, memoryInfo.freeBytes / 1e9);
 
         try
         {
