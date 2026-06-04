@@ -3,47 +3,25 @@
 
 namespace Core::Graphics::Cuda::Runtime
 {
-    DeviceQueue::~DeviceQueue()
+    std::expected<void, Core::Utils::Error> DeviceQueue::Allocate(uint32_t capacity, uint32_t elementSize, const Stream& stream)
     {
-        (void)Free();
-    }
+        CORE_TRY_DISCARD(Free(stream));
+        CORE_TRY_DISCARD(m_Buffer.Allocate(capacity, elementSize, stream));
 
-    DeviceQueue::DeviceQueue(DeviceQueue&& other) noexcept
-        : m_Buffer(std::move(other.m_Buffer))
-        , m_Counter(std::move(other.m_Counter))
-    {
-    }
-
-    DeviceQueue& DeviceQueue::operator=(DeviceQueue&& other) noexcept
-    {
-        if (this != &other)
-        {
-            (void)Free();
-            m_Buffer = std::move(other.m_Buffer);
-            m_Counter = std::move(other.m_Counter);
-        }
-
-        return *this;
-    }
-
-    std::expected<void, Core::Utils::Error> DeviceQueue::Allocate(uint32_t capacity, uint32_t elementSize)
-    {
-        CORE_TRY_DISCARD(Free());
-        CORE_TRY_DISCARD(m_Buffer.Allocate(capacity, elementSize));
-        auto counterAllocateResult = m_Counter.Allocate();
+        auto counterAllocateResult = m_Counter.Allocate(stream);
         if (!counterAllocateResult)
         {
-            (void)m_Buffer.Free();
+            (void)m_Buffer.Free(stream);
             return std::unexpected(counterAllocateResult.error());
         }
 
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> DeviceQueue::Free()
+    std::expected<void, Core::Utils::Error> DeviceQueue::Free(const Stream& stream)
     {
-        auto bufferFreeResult = m_Buffer.Free();
-        auto counterFreeResult = m_Counter.Free();
+        auto bufferFreeResult = m_Buffer.Free(stream);
+        auto counterFreeResult = m_Counter.Free(stream);
 
         if (!bufferFreeResult)
             return std::unexpected(bufferFreeResult.error());

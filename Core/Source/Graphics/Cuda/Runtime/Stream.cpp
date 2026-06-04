@@ -12,7 +12,7 @@ namespace Core::Graphics::Cuda::Runtime
     std::expected<Stream, Core::Utils::Error> Stream::Create()
     {
         Stream stream;
-        CUDA_TRY("cudaStreamCreate", cudaStreamCreate(&stream.m_Handle));
+        CUDA_TRY("cudaStreamCreate", cudaStreamCreateWithFlags(&stream.m_Handle, cudaStreamNonBlocking));
         return stream;
     }
 

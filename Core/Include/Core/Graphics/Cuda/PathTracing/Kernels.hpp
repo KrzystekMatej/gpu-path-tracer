@@ -7,7 +7,7 @@
 #include <Core/Graphics/Cuda/Runtime/DeviceQueueView.hpp>
 #include <Core/Graphics/Cuda/Bvh/DeviceBvhView.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Material.hpp>
-#include <Core/Graphics/Cuda/PathTracing/MaterialEvalQueueViews.hpp>
+#include <Core/Graphics/Cuda/PathTracing/MaterialEvalQueueViewsProvider.hpp>
 
 namespace Core::Graphics::Cuda::Kernels
 {
@@ -29,7 +29,7 @@ namespace Core::Graphics::Cuda::Kernels
 		Runtime::DeviceQueueView<uint32_t> currentRayQueue,
 		Runtime::DeviceQueueView<uint32_t> nextRayQueue,
 		Runtime::DeviceQueueView<uint32_t> regenQueue,
-		MaterialEvalQueueViews materialQueues,
+		MaterialEvalQueueViewsProvider materialQueues,
 		uint32_t nextRayCount);
 	void IntersectRaysWithScene(
 		cudaStream_t stream,
@@ -37,7 +37,7 @@ namespace Core::Graphics::Cuda::Kernels
 		PathPoolView pathPool, 
 		Runtime::DeviceQueueView<uint32_t> rayQueue, 
 		DeviceBvhView bvh,
-		MaterialEvalQueueViews materialQueues,
+		MaterialEvalQueueViewsProvider materialQueues,
 		Runtime::DeviceQueueView<uint32_t> regenQueue);
 	void EvaluateNormalMaterial(
 		cudaStream_t stream,

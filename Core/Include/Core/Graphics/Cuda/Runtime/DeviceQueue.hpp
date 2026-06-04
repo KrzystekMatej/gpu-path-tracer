@@ -1,12 +1,15 @@
 #pragma once
+
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cassert>
 #include <expected>
 #include <type_traits>
-#include <Core/Graphics/Cuda/Runtime/DeviceQueueView.hpp>
+
 #include <Core/Graphics/Cuda/Runtime/DeviceBuffer1D.hpp>
+#include <Core/Graphics/Cuda/Runtime/DeviceQueueView.hpp>
 #include <Core/Graphics/Cuda/Runtime/SharedCounter.hpp>
+#include <Core/Graphics/Cuda/Runtime/Stream.hpp>
 #include <Core/Utils/Error.hpp>
 
 namespace Core::Graphics::Cuda::Runtime
@@ -15,31 +18,46 @@ namespace Core::Graphics::Cuda::Runtime
     {
     public:
         DeviceQueue() = default;
-        ~DeviceQueue();
+        ~DeviceQueue() = default;
 
         DeviceQueue(const DeviceQueue&) = delete;
         DeviceQueue& operator=(const DeviceQueue&) = delete;
 
-        DeviceQueue(DeviceQueue&& other) noexcept;
-        DeviceQueue& operator=(DeviceQueue&& other) noexcept;
+        DeviceQueue(DeviceQueue&& other) noexcept = default;
+        DeviceQueue& operator=(DeviceQueue&& other) noexcept = default;
 
-        std::expected<void, Core::Utils::Error> Allocate(uint32_t capacity, uint32_t elementSize);
-        std::expected<void, Core::Utils::Error> Free();
+        std::expected<void, Core::Utils::Error> Allocate(uint32_t capacity, uint32_t elementSize, const Stream& stream = Stream::Default());
+        std::expected<void, Core::Utils::Error> Free(const Stream& stream = Stream::Default());
 
-        std::expected<void, Core::Utils::Error> ResetCounter() { return m_Counter.Reset(); }
-        std::expected<uint32_t, Core::Utils::Error> SyncCounterFromDevice() { return m_Counter.SyncFromDevice(); }
-        std::expected<uint32_t, Core::Utils::Error> SyncCounterFromHost() { return m_Counter.SyncFromHost(); }
+        const DeviceBuffer1D& GetBuffer() const
+        {
+            return m_Buffer;
+        }
 
-        const DeviceBuffer1D& GetBuffer() const { return m_Buffer; }
-        DeviceBuffer1D& GetBuffer() { return m_Buffer; }
+        DeviceBuffer1D& GetBuffer()
+        {
+            return m_Buffer;
+        }
 
-        const SharedCounter<uint32_t>& GetCounter() const { return m_Counter; }
-        SharedCounter<uint32_t>& GetCounter() { return m_Counter; }
-        uint32_t GetCounterHostValue() const { return m_Counter.GetHostValue(); }
-        void SetCounterHostValue(uint32_t value) { m_Counter.SetHostValue(value); }
+        const SharedCounter<uint32_t>& GetCounter() const
+        {
+            return m_Counter;
+        }
 
-		uint32_t GetCapacity() const { return m_Buffer.GetSize(); }
-        uint32_t GetElementSize() const { return m_Buffer.GetElementSize(); }
+        SharedCounter<uint32_t>& GetCounter()
+        {
+            return m_Counter;
+        }
+
+        uint32_t GetCapacity() const
+        {
+            return m_Buffer.GetSize();
+        }
+
+        uint32_t GetElementSize() const
+        {
+            return m_Buffer.GetElementSize();
+        }
 
         template<typename T>
         DeviceQueueView<T> GetView() const
@@ -47,8 +65,10 @@ namespace Core::Graphics::Cuda::Runtime
             static_assert(!std::is_void_v<T>);
             assert(m_Buffer.GetElementSize() == sizeof(T));
 
-            return
-            DeviceQueueView<T>(reinterpret_cast<T*>(m_Buffer.GetData()), GetCapacity(), m_Counter.GetView());
+            return DeviceQueueView<T>(
+                reinterpret_cast<T*>(m_Buffer.GetData()),
+                GetCapacity(),
+                m_Counter.GetView());
         }
 
     private:

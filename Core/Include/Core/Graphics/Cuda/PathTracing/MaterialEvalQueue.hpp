@@ -2,9 +2,11 @@
 
 #include <cstdint>
 #include <expected>
+
+#include <Core/Graphics/Cuda/PathTracing/MaterialEvalQueueView.hpp>
 #include <Core/Graphics/Cuda/Runtime/DeviceBuffer1D.hpp>
 #include <Core/Graphics/Cuda/Runtime/SharedCounter.hpp>
-#include <Core/Graphics/Cuda/PathTracing/MaterialEvalQueueView.hpp>
+#include <Core/Graphics/Cuda/Runtime/Stream.hpp>
 #include <Core/Utils/Error.hpp>
 
 namespace Core::Graphics::Cuda
@@ -13,7 +15,7 @@ namespace Core::Graphics::Cuda
     {
     public:
         MaterialEvalQueue() = default;
-        ~MaterialEvalQueue();
+        ~MaterialEvalQueue() = default;
 
         MaterialEvalQueue(const MaterialEvalQueue&) = delete;
         MaterialEvalQueue& operator=(const MaterialEvalQueue&) = delete;
@@ -24,14 +26,20 @@ namespace Core::Graphics::Cuda
         std::expected<void, Core::Utils::Error> Allocate(uint32_t capacity, const Runtime::Stream& stream = Runtime::Stream::Default());
         std::expected<void, Core::Utils::Error> Free(const Runtime::Stream& stream = Runtime::Stream::Default());
 
-        std::expected<void, Core::Utils::Error> ResetCounter() { return m_Counter.Reset(); }
-        std::expected<uint32_t, Core::Utils::Error> SyncCounterFromDevice() { return m_Counter.SyncFromDevice(); }
-        std::expected<uint32_t, Core::Utils::Error> SyncCounterFromHost() { return m_Counter.SyncFromHost(); }
+        uint32_t GetCapacity() const
+        {
+            return m_Paths.GetSize();
+        }
+        
+        const Runtime::SharedCounter<uint32_t>& GetCounter() const
+        {
+            return m_Counter;
+        }
 
-        uint32_t GetCapacity() const { return m_Paths.GetSize(); }
-
-        uint32_t GetCounterHostValue() const { return m_Counter.GetHostValue(); }
-        void SetCounterHostValue(uint32_t value) { m_Counter.SetHostValue(value); }
+        Runtime::SharedCounter<uint32_t>& GetCounter()
+        {
+            return m_Counter;
+        }
 
         MaterialEvalQueueView GetView() const
         {

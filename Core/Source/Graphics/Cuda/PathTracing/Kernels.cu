@@ -90,7 +90,7 @@ namespace Core::Graphics::Cuda::Kernels
 		Runtime::DeviceQueueView<uint32_t> currentRayQueue,
 		Runtime::DeviceQueueView<uint32_t> nextRayQueue,
 		Runtime::DeviceQueueView<uint32_t> regenQueue,
-		MaterialEvalQueueViews materialEvalQueues,
+		MaterialEvalQueueViewsProvider materialEvalQueueProvider,
 		uint32_t nextRayCount)
 	{
 		currentRayQueue.Clear();
@@ -98,7 +98,7 @@ namespace Core::Graphics::Cuda::Kernels
 		regenQueue.Clear();
 		for (uint32_t i = 0; i < static_cast<uint32_t>(GlobalShadingModel::Count); i++)
 		{
-			materialEvalQueues.At(i).Clear();
+			materialEvalQueueProvider.At(i).Clear();
 		}
 	}
 
@@ -162,7 +162,7 @@ namespace Core::Graphics::Cuda::Kernels
 		PathPoolView pathPool, 
 		Runtime::DeviceQueueView<uint32_t> rayQueue, 
 		DeviceBvhView bvh, 
-		MaterialEvalQueueViews materialEvalQueues,
+		MaterialEvalQueueViewsProvider materialEvalQueueProvider,
 		Runtime::DeviceQueueView<uint32_t> regenQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
@@ -215,7 +215,7 @@ namespace Core::Graphics::Cuda::Kernels
 		if (closestHit.triangle != PathTracerDefaults::InvalidIndex)
 		{
 			closestHit.path = pathIndex;
-			materialEvalQueues.At(static_cast<uint32_t>(shadingModel)).Push(closestHit);
+			materialEvalQueueProvider.At(static_cast<uint32_t>(shadingModel)).Push(closestHit);
 			pathPool.rays.At(pathIndex).tMax = closestT;
 		}
 		else
@@ -994,7 +994,7 @@ namespace Core::Graphics::Cuda::Kernels
 		Runtime::DeviceQueueView<uint32_t> currentRayQueue,
 		Runtime::DeviceQueueView<uint32_t> nextRayQueue,
 		Runtime::DeviceQueueView<uint32_t> regenQueue,
-		MaterialEvalQueueViews materialEvalQueues,
+		MaterialEvalQueueViewsProvider materialEvalQueues,
 		uint32_t nextRayCount)
 	{
 		PrepareIterationKernel<<<1, 1, 0, stream>>>(currentRayQueue, nextRayQueue, regenQueue, materialEvalQueues, nextRayCount);
@@ -1006,7 +1006,7 @@ namespace Core::Graphics::Cuda::Kernels
 		PathPoolView pathPool, 
 		Runtime::DeviceQueueView<uint32_t> rayQueue, 
 		DeviceBvhView bvh, 
-		MaterialEvalQueueViews materialEvalQueues,
+		MaterialEvalQueueViewsProvider materialEvalQueues,
 		Runtime::DeviceQueueView<uint32_t> regenQueue)
 	{
 		assert(queueSize > 0);

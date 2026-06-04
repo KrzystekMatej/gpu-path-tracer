@@ -1,11 +1,14 @@
 #pragma once
+
+#include <cassert>
 #include <cstdint>
 #include <expected>
-#include <utility>
-#include <cassert>
+#include <type_traits>
 
 #include <Core/Graphics/Cuda/Runtime/CounterView.hpp>
 #include <Core/Graphics/Cuda/Runtime/DeviceBuffer1D.hpp>
+#include <Core/Graphics/Cuda/Runtime/SharedBuffer1D.hpp>
+#include <Core/Graphics/Cuda/Runtime/Stream.hpp>
 #include <Core/Graphics/Cuda/Utils/Error.hpp>
 #include <Core/Utils/Error.hpp>
 
@@ -15,87 +18,114 @@ namespace Core::Graphics::Cuda::Runtime
     class SharedCounter
     {
     public:
+        static_assert(std::is_trivially_copyable_v<T>);
+
         SharedCounter() = default;
-        ~SharedCounter()
-        {
-            (void)Free();
-        }
+        ~SharedCounter() = default;
 
         SharedCounter(const SharedCounter&) = delete;
         SharedCounter& operator=(const SharedCounter&) = delete;
 
-        SharedCounter(SharedCounter&& other) noexcept
-            : m_DeviceBuffer(std::move(other.m_DeviceBuffer))
-            , m_HostValue(std::exchange(other.m_HostValue, 0))
+        SharedCounter(SharedCounter&& other) noexcept = default;
+        SharedCounter& operator=(SharedCounter&& other) noexcept = default;
+
+        std::expected<void, Core::Utils::Error> Allocate(const Stream& stream = Stream::Default())
         {
+            CORE_TRY_DISCARD(Free(stream));
+            CORE_TRY_DISCARD(m_Buffer.Allocate(1, sizeof(T), stream));
+            return Reset(stream);
         }
 
-        SharedCounter& operator=(SharedCounter&& other) noexcept
+        std::expected<void, Core::Utils::Error> Free(const Stream& stream = Stream::Default())
         {
-            if (this != &other)
-            {
-                (void)Free();
-                m_DeviceBuffer = std::move(other.m_DeviceBuffer);
-                m_HostValue = std::exchange(other.m_HostValue, 0);
-            }
-
-            return *this;
+            return m_Buffer.Free(stream);
         }
 
-        std::expected<void, Core::Utils::Error> Allocate()
+        std::expected<void, Core::Utils::Error> Reset(const Stream& stream = Stream::Default())
         {
-            CORE_TRY_DISCARD(Free());
-            m_HostValue = 0;
-            CORE_TRY_DISCARD(m_DeviceBuffer.Allocate(1, sizeof(T)));
-            return Reset();
+            SetHostValue(T{});
+            return CopyHostToDeviceAsync(stream);
         }
 
-        std::expected<void, Core::Utils::Error> Free()
+        std::expected<void, Core::Utils::Error> CopyDeviceToHostAsync(const Stream& stream = Stream::Default())
         {
-            m_HostValue = 0;
-            return m_DeviceBuffer.Free();
+            assert(m_Buffer.GetHostData() != nullptr);
+            assert(m_Buffer.GetDeviceBuffer().GetData() != nullptr);
+
+            return m_Buffer.CopyDeviceToHost(stream);
         }
 
-        std::expected<void, Core::Utils::Error> Reset()
+        std::expected<void, Core::Utils::Error> CopyHostToDeviceAsync(const Stream& stream = Stream::Default()) const
         {
-            m_HostValue = 0;
-            return m_DeviceBuffer.MemsetBytes(0);
+            assert(m_Buffer.GetHostData() != nullptr);
+            assert(m_Buffer.GetDeviceBuffer().GetData() != nullptr);
+
+            return m_Buffer.CopyHostToDevice(stream);
         }
 
-        std::expected<T, Core::Utils::Error> SyncFromDevice()
+        std::expected<T, Core::Utils::Error> SyncFromDevice(const Stream& stream = Stream::Default())
         {
-            assert(m_DeviceBuffer.GetData() != nullptr);
-
-
-            CUDA_TRY("cudaMemcpy", cudaMemcpy(
-                &m_HostValue,
-                m_DeviceBuffer.GetData(),
-                m_DeviceBuffer.GetSize() * m_DeviceBuffer.GetElementSize(),
-                cudaMemcpyKind::cudaMemcpyDeviceToHost));
-
-
-            return m_HostValue;
+            CORE_TRY_DISCARD(CopyDeviceToHostAsync(stream));
+            return Synchronize(stream);
         }
 
-        std::expected<T, Core::Utils::Error> SyncFromHost()
+        std::expected<T, Core::Utils::Error> SyncFromHost(const Stream& stream = Stream::Default()) const
         {
-            assert(m_DeviceBuffer.GetData() != nullptr);
-            CORE_TRY_DISCARD(m_DeviceBuffer.Upload(&m_HostValue, 1));
-            return m_HostValue;
+            CORE_TRY_DISCARD(CopyHostToDeviceAsync(stream));
+            CORE_TRY_DISCARD(stream.Synchronize());
+            return GetHostValue();
         }
 
-        T* GetDevicePointer() const { return reinterpret_cast<T*>(m_DeviceBuffer.GetData()); }
-        const DeviceBuffer1D& GetDeviceBuffer() const { return m_DeviceBuffer; }
+        std::expected<T, Core::Utils::Error> Synchronize(const Stream& stream = Stream::Default()) const
+        {
+            CORE_TRY_DISCARD(stream.Synchronize());
+            return GetHostValue();
+        }
 
-        T GetHostValue() const { return m_HostValue; }
-        void SetHostValue(T value) { m_HostValue = value; }
+        T* GetDevicePointer() const
+        {
+            return reinterpret_cast<T*>(m_Buffer.GetDeviceBuffer().GetData());
+        }
+
+        T* GetHostPointer() const
+        {
+            assert(m_Buffer.GetHostData() != nullptr);
+            return m_Buffer.GetHost<T>();
+        }
+
+        const DeviceBuffer1D& GetDeviceBuffer() const
+        {
+            return m_Buffer.GetDeviceBuffer();
+        }
+
+        const SharedBuffer1D& GetSharedBuffer() const
+        {
+            return m_Buffer;
+        }
+
+        SharedBuffer1D& GetSharedBuffer()
+        {
+            return m_Buffer;
+        }
+
+        T GetHostValue() const
+        {
+            assert(m_Buffer.GetHostData() != nullptr);
+            return *m_Buffer.GetHost<T>();
+        }
+
+        void SetHostValue(T value)
+        {
+            assert(m_Buffer.GetHostData() != nullptr);
+            *m_Buffer.GetHost<T>() = value;
+        }
 
         CounterView<T> GetView() const
         {
-            return { reinterpret_cast<T*>(m_DeviceBuffer.GetData()) };
+            return { GetDevicePointer() };
         }
+
     private:
-        DeviceBuffer1D m_DeviceBuffer;
-        T m_HostValue = 0;
+        SharedBuffer1D m_Buffer;
     };
 }

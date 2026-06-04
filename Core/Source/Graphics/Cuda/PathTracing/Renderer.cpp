@@ -14,7 +14,7 @@
 #include <cmath>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
 #include <Core/Utils/Time.hpp>
-#include <Core/Graphics/Cuda/PathTracing/MaterialEvalQueueViews.hpp>
+#include <Core/Graphics/Cuda/PathTracing/MaterialEvalQueueViewsProvider.hpp>
 #include <Core/Graphics/Cuda/Runtime/Global.hpp>
 #include <Core/Graphics/Cuda/Runtime/Profiler.hpp>
 
@@ -403,10 +403,10 @@ namespace Core::Graphics::Cuda
 
         uint32_t nextQueue = 0;
         uint32_t currentQueue = 1;
-        MaterialEvalQueueViews materialEvalQueueViews;
+        MaterialEvalQueueViewsProvider materialEvalQueueProvider;
         for (uint32_t i = 0; i < static_cast<uint32_t>(GlobalShadingModel::Count); i++)
         {
-            materialEvalQueueViews.At(i) = m_MaterialEvalQueues[i].GetView();
+            materialEvalQueueProvider.At(i) = m_MaterialEvalQueues[i].GetView();
         }
         CORE_TRY_DISCARD(m_AccumulationBuffer.MemsetBytes(0, m_RenderStream));
         
@@ -432,7 +432,7 @@ namespace Core::Graphics::Cuda
                     m_RayQueues[currentQueue].GetView<uint32_t>(),
                     m_RayQueues[nextQueue].GetView<uint32_t>(),
                     m_RegenQueue.GetView<uint32_t>(),
-                    materialEvalQueueViews,
+                    materialEvalQueueProvider,
                     generateCount));
         });
         
@@ -453,7 +453,7 @@ namespace Core::Graphics::Cuda
                         m_PathPool.GetView(),
                         m_RayQueues[currentQueue].GetView<uint32_t>(),
                         m_Bvh.GetView(),
-                        materialEvalQueueViews,
+                        materialEvalQueueProvider,
                         m_RegenQueue.GetView<uint32_t>()));
             });
 
@@ -470,7 +470,7 @@ namespace Core::Graphics::Cuda
                         evaluator(
                             m_RenderStream.GetRawHandle(),
                             m_PathPool.GetView(),
-                            materialEvalQueueViews.At(i),
+                            materialEvalQueueProvider.At(i),
                             m_Bvh.GetView().triangles,
                             m_MaterialBuffer.GetView<Material>(),
                             m_PathDepthLimit,
@@ -499,8 +499,7 @@ namespace Core::Graphics::Cuda
 
             CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Sync counters",
             {
-                CORE_TRY_DISCARD(m_RenderStream.Synchronize());
-                CORE_TRY(regenQueueSize, m_RegenQueue.SyncCounterFromDevice());
+                CORE_TRY(regenQueueSize, m_RegenQueue.GetCounter().SyncFromDevice(m_RenderStream));
                 uint32_t regenerateCount = std::min(regenQueueSize, remainingCount);
                 uint32_t nextRayCount = rayCount - regenQueueSize + regenerateCount;
 
@@ -514,7 +513,7 @@ namespace Core::Graphics::Cuda
                             m_RayQueues[currentQueue].GetView<uint32_t>(),
                             m_RayQueues[nextQueue].GetView<uint32_t>(),
                             m_RegenQueue.GetView<uint32_t>(),
-                            materialEvalQueueViews,
+                            materialEvalQueueProvider,
                             nextRayCount));
                 });
                 

@@ -6,7 +6,7 @@
 
 namespace Core::Graphics::Cuda
 {
-    class MaterialEvalQueueViews
+    class MaterialEvalQueueViewsProvider
     {
     public:
         __host__ __device__ __forceinline__ MaterialEvalQueueView& At(uint32_t index)
