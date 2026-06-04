@@ -1,8 +1,10 @@
 #pragma once
 #include <Core/Graphics/Cuda/Utils/Error.hpp>
 
-namespace Core::Graphics::Cuda::Utils::Device
+namespace Core::Graphics::Cuda::Runtime
 {
+    std::expected<void, Core::Utils::Error> SynchronizeDevice();   
+    
     struct MemoryInfo
     {
         size_t freeBytes;

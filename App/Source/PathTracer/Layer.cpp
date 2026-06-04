@@ -177,7 +177,12 @@ namespace App::PathTracer
 
 	void Layer::OnPathTracingStop(const Events::Stop&)
 	{
-		m_PathTracer.StopRendering();
+		auto stopResult = m_PathTracer.StopRendering();
+		if (!stopResult)
+		{
+			stopResult.error().Log();
+			return;
+		}
 		auto& blackboard = Core::Runtime::Application::Blackboard();
 
 		Status& status = blackboard.ctx().get<Status>();

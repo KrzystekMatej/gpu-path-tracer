@@ -4,12 +4,12 @@
 #include <expected>
 #include <type_traits>
 #include <cassert>
-#include <Core/Graphics/Cuda/Memory/DeviceBuffer2D.hpp>
-#include <Core/Graphics/Cuda/Memory/DeviceBuffer2DView.hpp>
+#include <Core/Graphics/Cuda/Runtime/DeviceBuffer2D.hpp>
+#include <Core/Graphics/Cuda/Runtime/DeviceBuffer2DView.hpp>
 #include <Core/Utils/Error.hpp>
-#include <Core/Graphics/Cuda/Memory/Stream.hpp>
+#include <Core/Graphics/Cuda/Runtime/Stream.hpp>
 
-namespace Core::Graphics::Cuda::Memory
+namespace Core::Graphics::Cuda::Runtime
 {
     class SharedBuffer2D
     {
@@ -23,12 +23,10 @@ namespace Core::Graphics::Cuda::Memory
         SharedBuffer2D(SharedBuffer2D&& other) noexcept;
         SharedBuffer2D& operator=(SharedBuffer2D&& other) noexcept;
 
-        std::expected<void, Core::Utils::Error> Allocate(size_t width, size_t height, size_t elementSize);
-        std::expected<void, Core::Utils::Error> CopyHostToDeviceSync() const;
-        std::expected<void, Core::Utils::Error> CopyHostToDeviceAsync(const Stream& stream) const;
-        std::expected<void, Core::Utils::Error> CopyDeviceToHostSync() const;
-        std::expected<void, Core::Utils::Error> CopyDeviceToHostAsync(const Stream& stream) const;
-        std::expected<void, Core::Utils::Error> Free();
+        std::expected<void, Core::Utils::Error> Allocate(uint32_t width, uint32_t height, uint32_t elementSize);
+        std::expected<void, Core::Utils::Error> CopyHostToDevice(const Stream& stream = Stream::Default()) const;
+        std::expected<void, Core::Utils::Error> CopyDeviceToHost(const Stream& stream = Stream::Default()) const;
+        std::expected<void, Core::Utils::Error> Free(const Stream& stream = Stream::Default());
 
         void* GetHostData() const { return m_HostData; }
         DeviceBuffer2D& GetDeviceBuffer() { return m_DeviceBuffer; }

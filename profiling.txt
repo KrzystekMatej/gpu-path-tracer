@@ -1,18 +1,41 @@
 test-spheres, 1024spp, 30 depth, partial soa, with full sync, tailored kernel grid, only needed kernels scheduled
 [2026-06-01 16:25:05.639] [info] Rendered frame 0 in 118.63 seconds
 [2026-06-01 16:27:05.272] [info] Rendered frame 1 in 119.63 seconds
+
 cornell-box-extended
-1024
+1024 - full sync
 [2026-06-02 19:08:40.810] [info] Rendered frame 0 in 88.54 seconds
-19881 spp
+19881 spp - full sync
 [2026-06-02 19:37:01.024] [info] Rendered frame 0 in 1672.82 seconds
 
+1024 - iter sync, soa for hitqueues, profiled
+[2026-06-04 05:46:56.438] [info] Renderer memory usage - Total: 2.15 GB, Used: 0.85 GB, Free: 1.30 GB
+[2026-06-04 05:48:30.642] [info] Total Time: 94201.578 ms
+[2026-06-04 05:48:30.642] [info] Section: Prepare iteration, Runs: 1262, Total Time: 21.471 ms, Average Time: 0.017 ms, Max Time: 0.088 ms, Percentage of Total Time: 0.02%
+[2026-06-04 05:48:30.642] [info] Section: Initialize paths, Runs: 1, Total Time: 7.414 ms, Average Time: 7.414 ms, Max Time: 7.414 ms, Percentage of Total Time: 0.01%
+[2026-06-04 05:48:30.643] [info] Section: Intersect, Runs: 1261, Total Time: 68952.266 ms, Average Time: 54.681 ms, Max Time: 115.452 ms, Percentage of Total Time: 73.20%
+[2026-06-04 05:48:30.643] [info] Section: Evaluate materials, Runs: 1261, Total Time: 20077.850 ms, Average Time: 15.922 ms, Max Time: 20.857 ms, Percentage of Total Time: 21.31%
+[2026-06-04 05:48:30.643] [info] Section: Sync counters, Runs: 1261, Total Time: 92.714 ms, Average Time: 0.074 ms, Max Time: 0.156 ms, Percentage of Total Time: 0.10%
+[2026-06-04 05:48:30.643] [info] Section: Regenerate paths, Runs: 1261, Total Time: 4969.283 ms, Average Time: 3.941 ms, Max Time: 7.143 ms, Percentage of Total Time: 5.28%
+[2026-06-04 05:48:30.643] [info] Section: Copy frame to host, Runs: 1, Total Time: 0.605 ms, Average Time: 0.605 ms, Max Time: 0.605 ms, Percentage of Total Time: 0.00%
+[2026-06-04 05:48:30.643] [info] Section: Postprocess, Runs: 1, Total Time: 0.217 ms, Average Time: 0.217 ms, Max Time: 0.217 ms, Percentage of Total Time: 0.00%
 
-test-spheres, 1024spp, 30 depth, partial soa, with partial sync after each iteration, full capacity kernel grid, only needed kernels scheduled
+the same as before but materials on different streams
+[2026-06-04 05:58:50.887] [info] Renderer memory usage - Total: 2.15 GB, Used: 0.85 GB, Free: 1.30 GB
+[2026-06-04 06:00:26.078] [info] Total Time: 95188.430 ms
+[2026-06-04 06:00:26.078] [info] Section: Prepare iteration, Runs: 1262, Total Time: 25.589 ms, Average Time: 0.020 ms, Max Time: 0.791 ms, Percentage of Total Time: 0.03%
+[2026-06-04 06:00:26.078] [info] Section: Initialize paths, Runs: 1, Total Time: 2.746 ms, Average Time: 2.746 ms, Max Time: 2.746 ms, Percentage of Total Time: 0.00%
+[2026-06-04 06:00:26.078] [info] Section: Intersect, Runs: 1261, Total Time: 69577.031 ms, Average Time: 55.176 ms, Max Time: 109.977 ms, Percentage of Total Time: 73.09%
+[2026-06-04 06:00:26.078] [info] Section: Evaluate materials, Runs: 1261, Total Time: 20370.873 ms, Average Time: 16.155 ms, Max Time: 26.003 ms, Percentage of Total Time: 21.40%
+[2026-06-04 06:00:26.079] [info] Section: Sync counters, Runs: 1261, Total Time: 109.447 ms, Average Time: 0.087 ms, Max Time: 0.870 ms, Percentage of Total Time: 0.11%
+[2026-06-04 06:00:26.079] [info] Section: Regenerate paths, Runs: 1261, Total Time: 4994.409 ms, Average Time: 3.961 ms, Max Time: 8.183 ms, Percentage of Total Time: 5.25%
+[2026-06-04 06:00:26.079] [info] Section: Copy frame to host, Runs: 1, Total Time: 0.589 ms, Average Time: 0.589 ms, Max Time: 0.589 ms, Percentage of Total Time: 0.00%
+[2026-06-04 06:00:26.079] [info] Section: Postprocess, Runs: 1, Total Time: 0.128 ms, Average Time: 0.128 ms, Max Time: 0.128 ms, Percentage of Total Time: 0.00%
+
+
+test-spheres, 1024spp, 30 depth, partial soa, iter sync, full capacity kernel grid, only needed kernels scheduled
 [2026-06-01 21:54:26.317] [info] Rendered frame 0 in 119.73 seconds
 [2026-06-01 21:56:26.523] [info] Rendered frame 1 in 120.21 seconds
-
-
 
 1024spp, 30 depth, partial soa, with no sync (sync after the entire frame), full capacity kernel grid, upper limit kernels scheduled
 test-spheres

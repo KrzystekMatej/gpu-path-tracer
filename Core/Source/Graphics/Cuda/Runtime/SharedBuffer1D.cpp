@@ -1,13 +1,13 @@
-#include <Core/Graphics/Cuda/Memory/SharedBuffer1D.hpp>
+#include <Core/Graphics/Cuda/Runtime/SharedBuffer1D.hpp>
 #include <Core/Graphics/Cuda/Utils/Error.hpp>
 #include <cuda_runtime.h>
 #include <utility>
 
-namespace Core::Graphics::Cuda::Memory
+namespace Core::Graphics::Cuda::Runtime
 {
     SharedBuffer1D::~SharedBuffer1D()
     {
-        Free();
+        (void)Free();
     }
 
     SharedBuffer1D::SharedBuffer1D(SharedBuffer1D&& other) noexcept
@@ -20,7 +20,7 @@ namespace Core::Graphics::Cuda::Memory
     {
         if (this != &other)
         {
-            Free();
+            (void)Free();
             m_HostData = std::exchange(other.m_HostData, nullptr);
             m_DeviceBuffer = std::move(other.m_DeviceBuffer);
         }
@@ -28,14 +28,14 @@ namespace Core::Graphics::Cuda::Memory
         return *this;
     }
 
-    std::expected<void, Core::Utils::Error> SharedBuffer1D::Allocate(size_t size, size_t elementSize)
+    std::expected<void, Core::Utils::Error> SharedBuffer1D::Allocate(uint32_t size, uint32_t elementSize, const Stream& stream)
     {
-        CORE_TRY_DISCARD(Free());
+        CORE_TRY_DISCARD(Free(stream));
 
         void* hostData = nullptr;
         CUDA_TRY("cudaMallocHost", cudaMallocHost(&hostData, size * elementSize));
 
-        auto deviceAllocateResult = m_DeviceBuffer.Allocate(size, elementSize);
+        auto deviceAllocateResult = m_DeviceBuffer.Allocate(size, elementSize, stream);
         if (!deviceAllocateResult)
         {
             cudaFreeHost(hostData);
@@ -46,36 +46,16 @@ namespace Core::Graphics::Cuda::Memory
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> SharedBuffer1D::CopyHostToDeviceSync() const
+
+    std::expected<void, Core::Utils::Error> SharedBuffer1D::CopyHostToDevice(const Stream& stream) const
     {
         assert(m_HostData != nullptr);
-        return m_DeviceBuffer.UploadSync(m_HostData, m_DeviceBuffer.GetSize());
+        return m_DeviceBuffer.Upload(m_HostData, m_DeviceBuffer.GetSize(), stream);
     }
 
-    std::expected<void, Core::Utils::Error> SharedBuffer1D::CopyHostToDeviceAsync(const Stream& stream) const
+    std::expected<void, Core::Utils::Error> SharedBuffer1D::CopyDeviceToHost(const Stream& stream) const
     {
         assert(m_HostData != nullptr);
-        assert(stream.GetRawHandle() != nullptr);
-        return m_DeviceBuffer.UploadAsync(m_HostData, m_DeviceBuffer.GetSize(), stream);
-    }
-
-    std::expected<void, Core::Utils::Error> SharedBuffer1D::CopyDeviceToHostSync() const
-    {
-        assert(m_HostData != nullptr);
-
-        CUDA_TRY("cudaMemcpy", cudaMemcpy(
-            m_HostData,
-            m_DeviceBuffer.GetData(),
-            m_DeviceBuffer.GetSize() * m_DeviceBuffer.GetElementSize(),
-            cudaMemcpyKind::cudaMemcpyDeviceToHost));
-
-        return {};
-    }
-
-    std::expected<void, Core::Utils::Error> SharedBuffer1D::CopyDeviceToHostAsync(const Stream& stream) const
-    {
-        assert(m_HostData != nullptr);
-        assert(stream.GetRawHandle() != nullptr);
 
         CUDA_TRY("cudaMemcpyAsync", cudaMemcpyAsync(
             m_HostData,
@@ -87,7 +67,7 @@ namespace Core::Graphics::Cuda::Memory
         return {};
     }
 
-	std::expected<void, Core::Utils::Error> SharedBuffer1D::Free()
+	std::expected<void, Core::Utils::Error> SharedBuffer1D::Free(const Stream& stream)
     {
         cudaError_t hostError = cudaSuccess;
 
@@ -97,7 +77,7 @@ namespace Core::Graphics::Cuda::Memory
             m_HostData = nullptr;
         }
 
-        auto deviceFreeResult = m_DeviceBuffer.Free();
+        auto deviceFreeResult = m_DeviceBuffer.Free(stream);
 
         if (hostError != cudaSuccess)
             return std::unexpected(Utils::MakeCudaError("cudaFreeHost", hostError));

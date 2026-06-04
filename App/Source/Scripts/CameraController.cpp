@@ -8,7 +8,7 @@ namespace App::Scripts
 	std::expected<void, Core::Utils::Error> CameraControllerBuilder::Build(
 		const Core::Ecs::BuildContext& context,
 		entt::registry& registry,
-		Core::Assets::Manager& assetManager) const
+		Core::Assets::Manager&) const
 	{
 		CORE_TRY_CONTEXT(speed, Core::Utils::Yaml::GetValue<float>(context.node, "speed"), "Failed to get 'speed' for CameraController");
 		CORE_TRY_CONTEXT(sensitivity, Core::Utils::Yaml::GetValue<float>(context.node, "sensitivity"), "Failed to get 'sensitivity' for CameraController");

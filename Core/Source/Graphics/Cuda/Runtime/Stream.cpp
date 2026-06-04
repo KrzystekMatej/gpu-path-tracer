@@ -1,16 +1,28 @@
-#include <Core/Graphics/Cuda/Memory/Stream.hpp>
+#include <Core/Graphics/Cuda/Runtime/Stream.hpp>
 #include <utility>
 
-namespace Core::Graphics::Cuda::Memory
+namespace Core::Graphics::Cuda::Runtime
 {
-    Stream::Stream()
+    const Stream& Stream::Default()
     {
-        cudaStreamCreate(&m_Handle);
+        static const Stream stream;
+        return stream;
+    }
+
+    std::expected<Stream, Core::Utils::Error> Stream::Create()
+    {
+        Stream stream;
+        CUDA_TRY("cudaStreamCreate", cudaStreamCreate(&stream.m_Handle));
+        return stream;
     }
 
     Stream::~Stream()
     {
-        cudaStreamDestroy(m_Handle);
+        if (m_Handle)
+        {
+            cudaStreamDestroy(m_Handle);
+            m_Handle = nullptr;
+        }
     }
 
     Stream::Stream(Stream&& other) noexcept
@@ -32,9 +44,7 @@ namespace Core::Graphics::Cuda::Memory
 
     std::expected<void, Core::Utils::Error> Stream::Synchronize() const
     {
-        cudaError_t result = cudaStreamSynchronize(m_Handle);
-        if (result != cudaSuccess)
-            return std::unexpected(Utils::MakeCudaError("cudaStreamSynchronize", result));
+        CUDA_TRY("cudaStreamSynchronize", cudaStreamSynchronize(m_Handle));
         return {};
     }
 

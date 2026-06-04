@@ -4,12 +4,12 @@
 #include <utility>
 #include <cassert>
 
-#include <Core/Graphics/Cuda/Memory/CounterView.hpp>
-#include <Core/Graphics/Cuda/Memory/DeviceBuffer1D.hpp>
+#include <Core/Graphics/Cuda/Runtime/CounterView.hpp>
+#include <Core/Graphics/Cuda/Runtime/DeviceBuffer1D.hpp>
 #include <Core/Graphics/Cuda/Utils/Error.hpp>
 #include <Core/Utils/Error.hpp>
 
-namespace Core::Graphics::Cuda::Memory
+namespace Core::Graphics::Cuda::Runtime
 {
     template<typename T>
     class SharedCounter
@@ -18,7 +18,7 @@ namespace Core::Graphics::Cuda::Memory
         SharedCounter() = default;
         ~SharedCounter()
         {
-            Free();
+            (void)Free();
         }
 
         SharedCounter(const SharedCounter&) = delete;
@@ -34,7 +34,7 @@ namespace Core::Graphics::Cuda::Memory
         {
             if (this != &other)
             {
-                Free();
+                (void)Free();
                 m_DeviceBuffer = std::move(other.m_DeviceBuffer);
                 m_HostValue = std::exchange(other.m_HostValue, 0);
             }
@@ -59,7 +59,7 @@ namespace Core::Graphics::Cuda::Memory
         std::expected<void, Core::Utils::Error> Reset()
         {
             m_HostValue = 0;
-            return m_DeviceBuffer.MemsetBytesSync(0);
+            return m_DeviceBuffer.MemsetBytes(0);
         }
 
         std::expected<T, Core::Utils::Error> SyncFromDevice()
@@ -80,7 +80,7 @@ namespace Core::Graphics::Cuda::Memory
         std::expected<T, Core::Utils::Error> SyncFromHost()
         {
             assert(m_DeviceBuffer.GetData() != nullptr);
-            CORE_TRY_DISCARD(m_DeviceBuffer.UploadSync(&m_HostValue, 1));
+            CORE_TRY_DISCARD(m_DeviceBuffer.Upload(&m_HostValue, 1));
             return m_HostValue;
         }
 

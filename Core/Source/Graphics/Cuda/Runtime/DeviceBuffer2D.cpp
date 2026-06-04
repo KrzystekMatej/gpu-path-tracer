@@ -1,13 +1,13 @@
-#include <Core/Graphics/Cuda/Memory/DeviceBuffer2D.hpp>
+#include <Core/Graphics/Cuda/Runtime/DeviceBuffer2D.hpp>
 #include <Core/Graphics/Cuda/Utils/Error.hpp>
 #include <cuda_runtime.h>
 #include <utility>
 
-namespace Core::Graphics::Cuda::Memory
+namespace Core::Graphics::Cuda::Runtime
 {
     DeviceBuffer2D::~DeviceBuffer2D()
     {
-        Free();
+        (void)Free();
     }
 
     DeviceBuffer2D::DeviceBuffer2D(DeviceBuffer2D&& other) noexcept
@@ -23,7 +23,7 @@ namespace Core::Graphics::Cuda::Memory
     {
         if (this != &other)
         {
-            Free();
+            (void)Free();
             m_Data = std::exchange(other.m_Data, nullptr);
             m_Width = other.m_Width;
             m_Height = other.m_Height;
@@ -52,28 +52,10 @@ namespace Core::Graphics::Cuda::Memory
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer2D::UploadSync(const void* hostData, uint32_t hostPitchElement) const
+    std::expected<void, Core::Utils::Error> DeviceBuffer2D::Upload(const void* hostData, uint32_t hostPitchElement, const Stream& stream) const
     {
         assert(m_Data != nullptr);
         assert(hostData != nullptr);
-
-        CUDA_TRY("cudaMemcpy2D", cudaMemcpy2D(
-            m_Data,
-            m_PitchBytes,
-            hostData,
-            hostPitchElement * m_ElementSize,
-            m_Width * m_ElementSize,
-            m_Height,
-            cudaMemcpyKind::cudaMemcpyHostToDevice));
-
-        return {};
-    }
-
-    std::expected<void, Core::Utils::Error> DeviceBuffer2D::UploadAsync(const void* hostData, uint32_t hostPitchElement, const Stream& stream) const
-    {
-        assert(m_Data != nullptr);
-        assert(hostData != nullptr);
-        assert(stream.GetRawHandle() != nullptr);
 
         CUDA_TRY("cudaMemcpy2DAsync", cudaMemcpy2DAsync(
             m_Data,
@@ -88,24 +70,9 @@ namespace Core::Graphics::Cuda::Memory
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer2D::MemsetBytesSync(uint8_t value) const
+	std::expected<void, Core::Utils::Error> DeviceBuffer2D::MemsetBytes(uint8_t value, const Stream& stream) const
 	{
 		assert(m_Data != nullptr);
-
-		CUDA_TRY("cudaMemset2D", cudaMemset2D(
-			m_Data,
-			m_PitchBytes,
-			value,
-			m_Width * m_ElementSize,
-			m_Height));
-
-		return {};
-	}
-
-	std::expected<void, Core::Utils::Error> DeviceBuffer2D::MemsetBytesAsync(uint8_t value, const Stream& stream) const
-	{
-		assert(m_Data != nullptr);
-		assert(stream.GetRawHandle() != nullptr);
 
 		CUDA_TRY("cudaMemset2DAsync", cudaMemset2DAsync(
 			m_Data,
@@ -118,12 +85,12 @@ namespace Core::Graphics::Cuda::Memory
 		return {};
 	}
 
-    std::expected<void, Core::Utils::Error> DeviceBuffer2D::Free()
+    std::expected<void, Core::Utils::Error> DeviceBuffer2D::Free(const Stream& stream)
     {
         if (m_Data == nullptr)
             return {};
 
-        CUDA_TRY("cudaFree", cudaFree(m_Data));
+        CUDA_TRY("cudaFree", cudaFreeAsync(m_Data, stream.GetRawHandle()));
 
 		m_Data = nullptr;
 		m_Width = 0;

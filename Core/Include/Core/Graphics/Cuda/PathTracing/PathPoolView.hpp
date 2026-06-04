@@ -1,15 +1,15 @@
 #pragma once
 #include <Core/Graphics/Cuda/PathTracing/PathData.hpp>
-#include <Core/Graphics/Cuda/Memory/DeviceBuffer1DView.hpp>
+#include <Core/Graphics/Cuda/Runtime/DeviceBuffer1DView.hpp>
 
 namespace Core::Graphics::Cuda
 {
 	struct PathPoolView
 	{
-		Memory::DeviceBuffer1DView<Pixel> pixels;
-		Memory::DeviceBuffer1DView<Ray> rays;
-		Memory::DeviceBuffer1DView<Contribution> contributions;
-		Memory::DeviceBuffer1DView<Random> randoms;
-		Memory::DeviceBuffer1DView<PathFlags> pathFlags;
+		Runtime::DeviceBuffer1DView<Pixel> pixels;
+		Runtime::DeviceBuffer1DView<Ray> rays;
+		Runtime::DeviceBuffer1DView<Contribution> contributions;
+		Runtime::DeviceBuffer1DView<Random> randoms;
+		Runtime::DeviceBuffer1DView<PathFlags> pathFlags;
 	};
 }

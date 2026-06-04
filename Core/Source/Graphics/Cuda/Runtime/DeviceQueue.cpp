@@ -1,11 +1,11 @@
-#include <Core/Graphics/Cuda/Memory/DeviceQueue.hpp>
+#include <Core/Graphics/Cuda/Runtime/DeviceQueue.hpp>
 #include <utility>
 
-namespace Core::Graphics::Cuda::Memory
+namespace Core::Graphics::Cuda::Runtime
 {
     DeviceQueue::~DeviceQueue()
     {
-        Free();
+        (void)Free();
     }
 
     DeviceQueue::DeviceQueue(DeviceQueue&& other) noexcept
@@ -18,7 +18,7 @@ namespace Core::Graphics::Cuda::Memory
     {
         if (this != &other)
         {
-            Free();
+            (void)Free();
             m_Buffer = std::move(other.m_Buffer);
             m_Counter = std::move(other.m_Counter);
         }
@@ -26,14 +26,14 @@ namespace Core::Graphics::Cuda::Memory
         return *this;
     }
 
-    std::expected<void, Core::Utils::Error> DeviceQueue::Allocate(size_t capacity, size_t elementSize)
+    std::expected<void, Core::Utils::Error> DeviceQueue::Allocate(uint32_t capacity, uint32_t elementSize)
     {
         CORE_TRY_DISCARD(Free());
         CORE_TRY_DISCARD(m_Buffer.Allocate(capacity, elementSize));
         auto counterAllocateResult = m_Counter.Allocate();
         if (!counterAllocateResult)
         {
-            m_Buffer.Free();
+            (void)m_Buffer.Free();
             return std::unexpected(counterAllocateResult.error());
         }
 

@@ -14,8 +14,9 @@
 #include <cmath>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
 #include <Core/Utils/Time.hpp>
-#include <Core/Graphics/Cuda/PathTracing/MaterialQueueViews.hpp>
-#include <Core/Graphics/Cuda/Utils/Device.hpp>
+#include <Core/Graphics/Cuda/PathTracing/MaterialEvalQueueViews.hpp>
+#include <Core/Graphics/Cuda/Runtime/Global.hpp>
+#include <Core/Graphics/Cuda/Runtime/Profiler.hpp>
 
 namespace Core::Graphics::Cuda
 {
@@ -23,28 +24,29 @@ namespace Core::Graphics::Cuda
     {
         using MaterialEvaluator =
             void (*)(
+                cudaStream_t,
                 PathPoolView,
-                Memory::DeviceQueueView<HitData>,
-                Memory::DeviceBuffer1DView<Triangle>,
-                Memory::DeviceBuffer1DView<Material>,
+                MaterialEvalQueueView,
+                Runtime::DeviceBuffer1DView<Triangle>,
+                Runtime::DeviceBuffer1DView<Material>,
                 uint32_t,
-                Memory::DeviceQueueView<uint32_t>,
-                Memory::DeviceBuffer1DView<float4>,
-                Memory::DeviceQueueView<uint32_t>);
+                Runtime::DeviceQueueView<uint32_t>,
+                Runtime::DeviceBuffer1DView<float4>,
+                Runtime::DeviceQueueView<uint32_t>);
 
-        constexpr std::array<MaterialEvaluator, static_cast<size_t>(GlobalShadingModel::Count)> CreateMaterialEvaluatorTable()
+        constexpr std::array<MaterialEvaluator, static_cast<size_t>(GlobalShadingModel::Count)> CreateMaterialEvaluators()
         {
-            std::array<MaterialEvaluator, static_cast<size_t>(GlobalShadingModel::Count)> table{};
-            table[static_cast<size_t>(GlobalShadingModel::Normal)] = &Kernels::EvaluateNormalMaterial;
-            table[static_cast<size_t>(GlobalShadingModel::Diffuse)] = &Kernels::EvaluateDiffuseMaterial;
-            table[static_cast<size_t>(GlobalShadingModel::Mirror)] = &Kernels::EvaluateMirrorMaterial;
-            table[static_cast<size_t>(GlobalShadingModel::Phong)] = &Kernels::EvaluatePhongMaterial;
-            table[static_cast<size_t>(GlobalShadingModel::Ggx)] = &Kernels::EvaluateGgxMaterial;
-            table[static_cast<size_t>(GlobalShadingModel::Emissive)] = &Kernels::EvaluateEmissiveMaterial;
-            return table;
+            std::array<MaterialEvaluator, static_cast<size_t>(GlobalShadingModel::Count)> evaluators{};
+            evaluators[static_cast<size_t>(GlobalShadingModel::Normal)] = &Kernels::EvaluateNormalMaterial;
+            evaluators[static_cast<size_t>(GlobalShadingModel::Diffuse)] = &Kernels::EvaluateDiffuseMaterial;
+            evaluators[static_cast<size_t>(GlobalShadingModel::Mirror)] = &Kernels::EvaluateMirrorMaterial;
+            evaluators[static_cast<size_t>(GlobalShadingModel::Phong)] = &Kernels::EvaluatePhongMaterial;
+            evaluators[static_cast<size_t>(GlobalShadingModel::Ggx)] = &Kernels::EvaluateGgxMaterial;
+            evaluators[static_cast<size_t>(GlobalShadingModel::Emissive)] = &Kernels::EvaluateEmissiveMaterial;
+            return evaluators;
         }
 
-        constexpr std::array<MaterialEvaluator, static_cast<size_t>(GlobalShadingModel::Count)> MaterialEvaluators = CreateMaterialEvaluatorTable();
+        constexpr std::array<MaterialEvaluator, static_cast<size_t>(GlobalShadingModel::Count)> MaterialEvaluators = CreateMaterialEvaluators();
 
         uchar4 MakeSimulationColor(uint32_t frameIndex)
         {
@@ -97,11 +99,11 @@ namespace Core::Graphics::Cuda
             return table;
         }
 
-        std::expected<Memory::DeviceBuffer1D, Core::Utils::Error> BuildMaterialBuffer(const std::vector<Material>& materials)
+        std::expected<Runtime::DeviceBuffer1D, Core::Utils::Error> BuildMaterialBuffer(const std::vector<Material>& materials)
         {
-            Memory::DeviceBuffer1D buffer;
-            CORE_TRY_DISCARD(buffer.Allocate(materials.size(), sizeof(Material)));
-            CORE_TRY_DISCARD(buffer.UploadSync(materials.data(), materials.size()));
+            Runtime::DeviceBuffer1D buffer;
+            CORE_TRY_DISCARD(buffer.Allocate(static_cast<uint32_t>(materials.size()), sizeof(Material)));
+            CORE_TRY_DISCARD(buffer.Upload(materials.data(), static_cast<uint32_t>(materials.size())));
             return buffer;
 		}
 
@@ -186,20 +188,21 @@ namespace Core::Graphics::Cuda
 
     Renderer::~Renderer()
     {
-        StopRendering();
+        (void)StopRendering();
     }
 
     std::expected<void, Core::Utils::Error> Renderer::InitializeRenderingBuffers(uint32_t width, uint32_t height)
     {
+        CORE_TRY_ASSIGN(m_RenderStream, Runtime::Stream::Create());
 		CORE_TRY_DISCARD(m_PathPool.Allocate(PathPoolSize));
         for (auto& rayQueue : m_RayQueues)
         {
             CORE_TRY_DISCARD(rayQueue.Allocate(PathPoolSize, sizeof(uint32_t)));
         }
 
-        for (auto& materialQueue : m_MaterialQueues)
+        for (auto& materialQueue : m_MaterialEvalQueues)
         {
-            CORE_TRY_DISCARD(materialQueue.Allocate(PathPoolSize, sizeof(HitData)));
+            CORE_TRY_DISCARD(materialQueue.Allocate(PathPoolSize));
         }
 
 		CORE_TRY_DISCARD(m_RegenQueue.Allocate(PathPoolSize, sizeof(uint32_t)));
@@ -207,8 +210,9 @@ namespace Core::Graphics::Cuda
         CORE_TRY_DISCARD(m_Framebuffer.Allocate(width * height, sizeof(uchar4)));
         m_Width = width;
         m_Height = height;
-        CORE_TRY_DISCARD(m_Framebuffer.GetDeviceBuffer().MemsetBytesSync(0));
-		CORE_TRY_DISCARD(m_Framebuffer.CopyDeviceToHostSync());
+        CORE_TRY_DISCARD(m_Framebuffer.GetDeviceBuffer().MemsetBytes(0));
+		CORE_TRY_DISCARD(m_Framebuffer.CopyDeviceToHost());
+        CORE_TRY_DISCARD(Runtime::SynchronizeDevice());
 		return {};
     }
 
@@ -222,6 +226,7 @@ namespace Core::Graphics::Cuda
 		std::vector<Triangle> triangleList = BuildTriangleList(sceneRegistry, storage, materialTable.indices);
 		CORE_TRY(bvh, BuildBvh(std::move(triangleList)));
 		m_Bvh = std::move(bvh);
+        CORE_TRY_DISCARD(Runtime::SynchronizeDevice());
         return {};
     }
 
@@ -276,6 +281,7 @@ namespace Core::Graphics::Cuda
         {
             CORE_TRY_DISCARD(m_Framebuffer.Allocate(width * height, sizeof(uchar4)));
             CORE_TRY_DISCARD(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)));
+            CORE_TRY_DISCARD(Runtime::SynchronizeDevice());
             m_Width = width;
             m_Height = height;
 		}
@@ -294,7 +300,7 @@ namespace Core::Graphics::Cuda
         m_IsRendering.store(true, std::memory_order_relaxed);
         // SimulationLoop(std::stop_token{}, startFrame);
         
-        CORE_TRY(memoryInfo, Utils::Device::GetMemoryInfo());
+        CORE_TRY(memoryInfo, Runtime::GetMemoryInfo());
         size_t usedBytes = memoryInfo.totalBytes - memoryInfo.freeBytes;
         spdlog::info("Renderer memory usage - Total: {:.2f} GB, Used: {:.2f} GB, Free: {:.2f} GB", memoryInfo.totalBytes / 1e9, usedBytes / 1e9, memoryInfo.freeBytes / 1e9);
 
@@ -342,7 +348,7 @@ namespace Core::Graphics::Cuda
         return {};
     }
 
-    void Renderer::StopRendering()
+    std::expected<void, Core::Utils::Error> Renderer::StopRendering()
     {
         if (m_RenderThread.joinable())
         {
@@ -350,7 +356,9 @@ namespace Core::Graphics::Cuda
             m_RenderThread.join();
         }
 
-        m_IsRendering = false;
+        CORE_TRY_DISCARD(Runtime::SynchronizeDevice());
+        m_IsRendering.store(false, std::memory_order_relaxed);
+        return {};
     }
 
     void Renderer::SimulationLoop(std::stop_token stopToken, uint32_t startFrame)
@@ -367,6 +375,7 @@ namespace Core::Graphics::Cuda
             auto result = RenderFrame(stopToken, camera, generateCount);
             if (!result)
             {
+                Runtime::SynchronizeDevice(); // better would be to reset device state entirely
                 std::scoped_lock lock(m_ErrorMutex);
                 m_LastError = result.error();
                 m_DoneSamples.store(0, std::memory_order_relaxed);
@@ -387,33 +396,45 @@ namespace Core::Graphics::Cuda
         DeviceCamera camera,
         uint32_t generateCount)
     {
+        CUDA_PROFILE_CREATE(profiler);
+        CUDA_PROFILE_START(profiler, m_RenderStream);
+        
         m_DoneSamples.store(0, std::memory_order_relaxed);
 
         uint32_t nextQueue = 0;
         uint32_t currentQueue = 1;
-        MaterialQueueViews materialQueueViews;
+        MaterialEvalQueueViews materialEvalQueueViews;
         for (uint32_t i = 0; i < static_cast<uint32_t>(GlobalShadingModel::Count); i++)
         {
-            materialQueueViews.At(i) = m_MaterialQueues[i].GetView<HitData>();
+            materialEvalQueueViews.At(i) = m_MaterialEvalQueues[i].GetView();
         }
-        CORE_TRY_DISCARD(m_AccumulationBuffer.MemsetBytesSync(0));
+        CORE_TRY_DISCARD(m_AccumulationBuffer.MemsetBytes(0, m_RenderStream));
         
-        CUDA_TRY_KERNEL_DEBUG("InitializePaths", 
-            Kernels::InitializePaths(
-                generateCount,
-                camera, 
-                m_Width,
-                m_Height,
-                m_SampleGridSize,
-                m_PathPool.GetView(),
-                m_RayQueues[nextQueue].GetView<uint32_t>()));
-        CUDA_TRY_KERNEL_DEBUG("PrepareIteration", 
-            Kernels::PrepareIteration(
-                m_RayQueues[currentQueue].GetView<uint32_t>(),
-                m_RayQueues[nextQueue].GetView<uint32_t>(),
-                m_RegenQueue.GetView<uint32_t>(),
-                materialQueueViews,
-                generateCount));
+        CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Initialize paths",
+        {
+            CUDA_TRY_KERNEL_DEBUG("InitializePaths",
+                Kernels::InitializePaths(
+                    m_RenderStream.GetRawHandle(),
+                    generateCount,
+                    camera,
+                    m_Width,
+                    m_Height,
+                    m_SampleGridSize,
+                    m_PathPool.GetView(),
+                    m_RayQueues[nextQueue].GetView<uint32_t>()));
+        });
+        
+        CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Prepare iteration",
+        {
+            CUDA_TRY_KERNEL_DEBUG("PrepareIteration",
+                Kernels::PrepareIteration(
+                    m_RenderStream.GetRawHandle(),
+                    m_RayQueues[currentQueue].GetView<uint32_t>(),
+                    m_RayQueues[nextQueue].GetView<uint32_t>(),
+                    m_RegenQueue.GetView<uint32_t>(),
+                    materialEvalQueueViews,
+                    generateCount));
+        });
         
         currentQueue = nextQueue;
         nextQueue = currentQueue ^ 1;
@@ -423,79 +444,108 @@ namespace Core::Graphics::Cuda
 
         while (rayCount > 0)
         {
-            CUDA_TRY_KERNEL_DEBUG("IntersectRaysWithScene", 
-                Kernels::IntersectRaysWithScene(
-                    rayCount,
-                    m_PathPool.GetView(),
-                    m_RayQueues[currentQueue].GetView<uint32_t>(),
-                    m_Bvh.GetView(),
-                    materialQueueViews,
-                    m_RegenQueue.GetView<uint32_t>()));
-            
-            for (size_t i = 0; i < static_cast<size_t>(GlobalShadingModel::Count); i++)
+            CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Intersect",
             {
-                if (m_MaterialCounts[i] == 0) continue;
-                MaterialEvaluator evaluator = MaterialEvaluators[i];
-
-                //CORE_TRY(hitCount, m_MaterialQueues[i].SyncCounterFromDevice());
-
-                CUDA_TRY_KERNEL_DEBUG("EvaluateMaterial", 
-                    evaluator(
+                CUDA_TRY_KERNEL_DEBUG("IntersectRaysWithScene",
+                    Kernels::IntersectRaysWithScene(
+                        m_RenderStream.GetRawHandle(),
+                        rayCount,
                         m_PathPool.GetView(),
-                        materialQueueViews.At(i),
-                        m_Bvh.GetView().triangles,
-                        m_MaterialBuffer.GetView<Material>(),
-                        m_PathDepthLimit,
-                        m_RegenQueue.GetView<uint32_t>(),
-                        m_AccumulationBuffer.GetView<float4>(),
-                        m_RayQueues[nextQueue].GetView<uint32_t>()));   
-            }
+                        m_RayQueues[currentQueue].GetView<uint32_t>(),
+                        m_Bvh.GetView(),
+                        materialEvalQueueViews,
+                        m_RegenQueue.GetView<uint32_t>()));
+            });
+
+            CORE_TRY_DISCARD(m_RenderStream.Synchronize());
+            
+            CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Evaluate materials",
+            {
+                for (uint32_t i = 0; i < static_cast<uint32_t>(GlobalShadingModel::Count); i++)
+                {
+                    if (m_MaterialCounts[i] == 0) continue;
+                    MaterialEvaluator evaluator = MaterialEvaluators[i];
+
+                    CUDA_TRY_KERNEL_DEBUG("EvaluateMaterial", 
+                        evaluator(
+                            m_RenderStream.GetRawHandle(),
+                            m_PathPool.GetView(),
+                            materialEvalQueueViews.At(i),
+                            m_Bvh.GetView().triangles,
+                            m_MaterialBuffer.GetView<Material>(),
+                            m_PathDepthLimit,
+                            m_RegenQueue.GetView<uint32_t>(),
+                            m_AccumulationBuffer.GetView<float4>(),
+                            m_RayQueues[nextQueue].GetView<uint32_t>()));   
+                }
+            });
 
             uint32_t remainingCount = static_cast<uint32_t>(std::min<uint64_t>(m_TotalSamples - launchedSampleCount, m_PathPool.GetPathCount()));
-            CUDA_TRY_KERNEL_DEBUG("RegeneratePaths", 
-                Kernels::RegeneratePaths(
-                    remainingCount,
-                    m_RegenQueue.GetView<uint32_t>(),
-                    launchedSampleCount,
-                    camera,
-                    m_Width,
-                    m_Height,
-                    m_SampleGridSize,
-                    m_PathPool.GetView(),
-                    m_RayQueues[nextQueue].GetView<uint32_t>()));
-            
-            CORE_TRY(regenQueueSize, m_RegenQueue.SyncCounterFromDevice());
-            uint32_t regenerateCount = std::min(regenQueueSize, remainingCount);
-            uint32_t nextRayCount = rayCount - regenQueueSize + regenerateCount;
+            CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Regenerate paths",
+            {
+                CUDA_TRY_KERNEL_DEBUG("RegeneratePaths", 
+                    Kernels::RegeneratePaths(
+                        m_RenderStream.GetRawHandle(),
+                        remainingCount,
+                        m_RegenQueue.GetView<uint32_t>(),
+                        launchedSampleCount,
+                        camera,
+                        m_Width,
+                        m_Height,
+                        m_SampleGridSize,
+                        m_PathPool.GetView(),
+                        m_RayQueues[nextQueue].GetView<uint32_t>()));
+            });
 
+            CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Sync counters",
+            {
+                CORE_TRY_DISCARD(m_RenderStream.Synchronize());
+                CORE_TRY(regenQueueSize, m_RegenQueue.SyncCounterFromDevice());
+                uint32_t regenerateCount = std::min(regenQueueSize, remainingCount);
+                uint32_t nextRayCount = rayCount - regenQueueSize + regenerateCount;
 
-            CUDA_TRY_KERNEL_DEBUG("PrepareIteration", 
-                Kernels::PrepareIteration(
-                    m_RayQueues[currentQueue].GetView<uint32_t>(),
-                    m_RayQueues[nextQueue].GetView<uint32_t>(),
-                    m_RegenQueue.GetView<uint32_t>(),
-                    materialQueueViews,
-                    nextRayCount));
-            
-            currentQueue = nextQueue;
-            nextQueue = currentQueue ^ 1;
-            rayCount = nextRayCount;
-            launchedSampleCount += regenerateCount;
-            
-            m_DoneSamples.fetch_add(regenerateCount, std::memory_order_relaxed);
-            if (stopToken.stop_requested()) return {};
+                if (stopToken.stop_requested()) return {};
+
+                CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Prepare iteration",
+                {
+                    CUDA_TRY_KERNEL_DEBUG("PrepareIteration", 
+                        Kernels::PrepareIteration(
+                            m_RenderStream.GetRawHandle(),
+                            m_RayQueues[currentQueue].GetView<uint32_t>(),
+                            m_RayQueues[nextQueue].GetView<uint32_t>(),
+                            m_RegenQueue.GetView<uint32_t>(),
+                            materialEvalQueueViews,
+                            nextRayCount));
+                });
+                
+                currentQueue = nextQueue;
+                nextQueue = currentQueue ^ 1;
+                rayCount = nextRayCount;
+                launchedSampleCount += regenerateCount;
+
+                m_DoneSamples.fetch_add(regenerateCount, std::memory_order_relaxed);
+            });
         }
         
-        CUDA_TRY_KERNEL_DEBUG("PostprocessAccumulatedRadiance", 
-            Kernels::PostprocessAccumulatedRadiance(
-                m_AccumulationBuffer.GetView<float4>(),
-                1.0f / static_cast<float>(m_SamplesPerPixel),
-                m_Framebuffer.GetDeviceView<uchar4>()));
+        CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Postprocess",
+        {
+            CUDA_TRY_KERNEL_DEBUG("PostprocessAccumulatedRadiance",
+                Kernels::PostprocessAccumulatedRadiance(
+                    m_RenderStream.GetRawHandle(),
+                    m_AccumulationBuffer.GetView<float4>(),
+                    1.0f / static_cast<float>(m_SamplesPerPixel),
+                    m_Framebuffer.GetDeviceView<uchar4>()));
+        });
         
+        CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Copy frame to host",
         {
             std::scoped_lock lock(m_FrameMutex);
-            CORE_TRY_DISCARD(m_Framebuffer.CopyDeviceToHostSync());
-        }
+            CORE_TRY_DISCARD(m_Framebuffer.CopyDeviceToHost(m_RenderStream));
+            CORE_TRY_DISCARD(m_RenderStream.Synchronize());
+        });
+
+        CUDA_PROFILE_STOP(profiler, m_RenderStream);
+        CUDA_PROFILE_LOG(profiler);
 
         m_DoneSamples.store(m_TotalSamples, std::memory_order_relaxed);
         return {};
@@ -505,9 +555,11 @@ namespace Core::Graphics::Cuda
     {
         const uchar4 clearColor = make_uchar4(r, g, b, a);
 
-        CUDA_TRY_KERNEL_DEBUG("Clear", Kernels::Clear(clearColor, m_Framebuffer.GetDeviceView<uchar4>()));
+        CUDA_TRY_KERNEL_DEBUG("Clear", Kernels::Clear(m_RenderStream.GetRawHandle(), clearColor, m_Framebuffer.GetDeviceView<uchar4>()));
 
         std::scoped_lock lock(m_FrameMutex);
-        return m_Framebuffer.CopyDeviceToHostSync();
+        CORE_TRY_DISCARD(m_Framebuffer.CopyDeviceToHost(m_RenderStream));
+        CORE_TRY_DISCARD(m_RenderStream.Synchronize());
+        return {};
     }
 }

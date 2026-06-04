@@ -2,7 +2,7 @@
 #include <helper_math.h>
 #include <cuda_runtime.h>
 #include <cstdio>
-#include <Core/Graphics/Cuda/Memory/Stack.hpp>
+#include <Core/Graphics/Cuda/Runtime/Stack.hpp>
 #include <Core/Graphics/Cuda/Bvh/BvhDefaults.hpp>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
 #include <math_constants.h>
@@ -21,7 +21,7 @@ namespace Core::Graphics::Cuda::Kernels
 		return (dataSize + blockSize - 1) / blockSize;
 	}
 
-	__global__ void ClearKernel(uchar4 color, Memory::DeviceBuffer1DView<uchar4> framebuffer)
+	__global__ void ClearKernel(uchar4 color, Runtime::DeviceBuffer1DView<uchar4> framebuffer)
 	{
 		uint32_t pixelIndex = blockIdx.x * blockDim.x + threadIdx.x;
 		if (pixelIndex >= framebuffer.GetSize()) return;
@@ -37,7 +37,7 @@ namespace Core::Graphics::Cuda::Kernels
 		uint32_t sampleGridSize, 
 		uint32_t spp, 
 		PathPoolView pathPool, 
-		Memory::DeviceQueueView<uint32_t> rayQueue)
+		Runtime::DeviceQueueView<uint32_t> rayQueue)
 	{
 		const uint32_t sampleIndex = blockIdx.x * blockDim.x + threadIdx.x;
 		if (sampleIndex >= generateCount) return;
@@ -87,10 +87,10 @@ namespace Core::Graphics::Cuda::Kernels
 	}
 
 	__global__ void PrepareIterationKernel(
-		Memory::DeviceQueueView<uint32_t> currentRayQueue,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		MaterialQueueViews materialQueues,
+		Runtime::DeviceQueueView<uint32_t> currentRayQueue,
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue,
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		MaterialEvalQueueViews materialEvalQueues,
 		uint32_t nextRayCount)
 	{
 		currentRayQueue.Clear();
@@ -98,7 +98,7 @@ namespace Core::Graphics::Cuda::Kernels
 		regenQueue.Clear();
 		for (uint32_t i = 0; i < static_cast<uint32_t>(GlobalShadingModel::Count); i++)
 		{
-			materialQueues.At(i).Clear();
+			materialEvalQueues.At(i).Clear();
 		}
 	}
 
@@ -160,10 +160,10 @@ namespace Core::Graphics::Cuda::Kernels
 	
 	__global__ void IntersectRaysWithSceneKernel(
 		PathPoolView pathPool, 
-		Memory::DeviceQueueView<uint32_t> rayQueue, 
+		Runtime::DeviceQueueView<uint32_t> rayQueue, 
 		DeviceBvhView bvh, 
-		MaterialQueueViews materialQueues,
-		Memory::DeviceQueueView<uint32_t> regenQueue)
+		MaterialEvalQueueViews materialEvalQueues,
+		Runtime::DeviceQueueView<uint32_t> regenQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
 		if (queueIndex >= rayQueue.GetSize()) return;
@@ -172,7 +172,7 @@ namespace Core::Graphics::Cuda::Kernels
 		const Ray ray = pathPool.rays.At(pathIndex);
 		const float3 invDirection = make_float3(1.0f) / ray.direction;
 		//TODO: use templates to accomodate stack sizes for different (shallower) BVH depths
-		Memory::Stack<uint32_t, BvhDefaults::MaxDepth + 2> stack;
+		Runtime::Stack<uint32_t, BvhDefaults::MaxDepth + 2> stack;
 		stack.Push(0);
 		HitData closestHit;
 		closestHit.triangle = PathTracerDefaults::InvalidIndex;
@@ -215,7 +215,7 @@ namespace Core::Graphics::Cuda::Kernels
 		if (closestHit.triangle != PathTracerDefaults::InvalidIndex)
 		{
 			closestHit.path = pathIndex;
-			materialQueues.At(static_cast<uint32_t>(shadingModel)).Push(closestHit);
+			materialEvalQueues.At(static_cast<uint32_t>(shadingModel)).Push(closestHit);
 			pathPool.rays.At(pathIndex).tMax = closestT;
 		}
 		else
@@ -410,16 +410,16 @@ namespace Core::Graphics::Cuda::Kernels
 
 	__global__ void EvaluateNormalKernel(
 		PathPoolView pathPool, 
-		Memory::DeviceQueueView<HitData> hitQueue, 
-		Memory::DeviceBuffer1DView<Triangle> triangles,
-		Memory::DeviceBuffer1DView<Material> materials,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceBuffer1DView<float4> accumulationBuffer)
+		MaterialEvalQueueView materialEvalQueue, 
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= hitQueue.GetSize()) return;
+		if (queueIndex >= materialEvalQueue.GetSize()) return;
 		
-		const HitData hitData = hitQueue.At(queueIndex);
+		const HitData hitData = materialEvalQueue.At(queueIndex);
 		const Material material = materials.At(hitData.material);
 		Contribution& contribution = pathPool.contributions.At(hitData.path);
 		
@@ -447,17 +447,17 @@ namespace Core::Graphics::Cuda::Kernels
 
 	__global__ void EvaluateDiffuseKernel(
 		PathPoolView pathPool, 
-		Memory::DeviceQueueView<HitData> hitQueue, 
-		Memory::DeviceBuffer1DView<Triangle> triangles,
-		Memory::DeviceBuffer1DView<Material> materials,
+		MaterialEvalQueueView materialEvalQueue, 
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= hitQueue.GetSize()) return;
+		if (queueIndex >= materialEvalQueue.GetSize()) return;
 		
-		const HitData hitData = hitQueue.At(queueIndex);
+		const HitData hitData = materialEvalQueue.At(queueIndex);
 		const Material material = materials.At(hitData.material);
 		Contribution& contribution = pathPool.contributions.At(hitData.path);
 		
@@ -506,17 +506,17 @@ namespace Core::Graphics::Cuda::Kernels
 	
 	__global__ void EvaluateMirrorKernel(
 		PathPoolView pathPool, 
-		Memory::DeviceQueueView<HitData> hitQueue, 
-		Memory::DeviceBuffer1DView<Triangle> triangles,
-		Memory::DeviceBuffer1DView<Material> materials,
+		MaterialEvalQueueView materialEvalQueue, 
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= hitQueue.GetSize()) return;
+		if (queueIndex >= materialEvalQueue.GetSize()) return;
 		
-		const HitData hitData = hitQueue.At(queueIndex);
+		const HitData hitData = materialEvalQueue.At(queueIndex);
 		const Material material = materials.At(hitData.material);
 		Contribution& contribution = pathPool.contributions.At(hitData.path);
 		Triangle triangle = triangles.At(hitData.triangle);
@@ -563,17 +563,17 @@ namespace Core::Graphics::Cuda::Kernels
 
 	__global__ void EvaluatePhongKernel(
 		PathPoolView pathPool, 
-		Memory::DeviceQueueView<HitData> hitQueue, 
-		Memory::DeviceBuffer1DView<Triangle> triangles,
-		Memory::DeviceBuffer1DView<Material> materials,
+		MaterialEvalQueueView materialEvalQueue, 
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= hitQueue.GetSize()) return;
+		if (queueIndex >= materialEvalQueue.GetSize()) return;
 		
-		const HitData hitData = hitQueue.At(queueIndex);
+		const HitData hitData = materialEvalQueue.At(queueIndex);
 		const Material material = materials.At(hitData.material);
 		Contribution& contribution = pathPool.contributions.At(hitData.path);
 
@@ -681,17 +681,17 @@ namespace Core::Graphics::Cuda::Kernels
 
 	__global__ void EvaluateGgxKernel(
 		PathPoolView pathPool, 
-		Memory::DeviceQueueView<HitData> hitQueue, 
-		Memory::DeviceBuffer1DView<Triangle> triangles,
-		Memory::DeviceBuffer1DView<Material> materials,
+		MaterialEvalQueueView materialEvalQueue, 
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= hitQueue.GetSize()) return;
+		if (queueIndex >= materialEvalQueue.GetSize()) return;
 		
-		const HitData hitData = hitQueue.At(queueIndex);
+		const HitData hitData = materialEvalQueue.At(queueIndex);
 		const Material material = materials.At(hitData.material);
 		Contribution& contribution = pathPool.contributions.At(hitData.path);
 		
@@ -832,16 +832,16 @@ namespace Core::Graphics::Cuda::Kernels
 
 	__global__ void EvaluateEmissiveKernel(
 		PathPoolView pathPool, 
-		Memory::DeviceQueueView<HitData> hitQueue, 
-		Memory::DeviceBuffer1DView<Triangle> triangles,
-		Memory::DeviceBuffer1DView<Material> materials,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceBuffer1DView<float4> accumulationBuffer)
+		MaterialEvalQueueView materialEvalQueue, 
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= hitQueue.GetSize()) return;
+		if (queueIndex >= materialEvalQueue.GetSize()) return;
 		
-		const HitData hitData = hitQueue.At(queueIndex);
+		const HitData hitData = materialEvalQueue.At(queueIndex);
 		const Material material = materials.At(hitData.material);
 		Contribution& contribution = pathPool.contributions.At(hitData.path);
 
@@ -867,7 +867,7 @@ namespace Core::Graphics::Cuda::Kernels
 
 	__global__ void RegeneratePathsKernel(
 		uint32_t remainingCount,
-		Memory::DeviceQueueView<uint32_t> regenQueue, 
+		Runtime::DeviceQueueView<uint32_t> regenQueue, 
 		uint64_t launchedSampleCount,
 		DeviceCamera camera, 
 		uint32_t width, 
@@ -875,7 +875,7 @@ namespace Core::Graphics::Cuda::Kernels
 		uint32_t sampleGridSize, 
 		uint32_t spp,
 		PathPoolView pathPool,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
 		uint32_t regenerateCount = Math::Min(remainingCount, regenQueue.GetSize());
@@ -939,9 +939,9 @@ namespace Core::Graphics::Cuda::Kernels
 	}
 
 	__global__ void PostprocessKernel(
-		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		float invSpp,
-		Memory::DeviceBuffer1DView<uchar4> framebuffer)
+		Runtime::DeviceBuffer1DView<uchar4> framebuffer)
 	{
 		uint32_t pixelIndex = blockIdx.x * blockDim.x + threadIdx.x;
 		if (pixelIndex >= framebuffer.GetSize()) return;
@@ -955,30 +955,30 @@ namespace Core::Graphics::Cuda::Kernels
 			255);
 	}
 
-	void Clear(uchar4 color, Memory::DeviceBuffer1DView<uchar4> framebuffer)
+	void Clear(cudaStream_t stream, uchar4 color, Runtime::DeviceBuffer1DView<uchar4> framebuffer)
 	{
 
 		dim3 block(TPB_DIM_1D);
 		dim3 grid(GetBlockCount(framebuffer.GetSize(), block.x));
-
-		ClearKernel<<<grid, block>>>(color, framebuffer);
+		ClearKernel<<<grid, block, 0, stream>>>(color, framebuffer);
 	}
 
 	void InitializePaths(
+		cudaStream_t stream,
 		uint32_t generateCount,
 		DeviceCamera camera, 
 		uint32_t width, 
 		uint32_t height, 
 		uint32_t sampleGridSize, 
 		PathPoolView pathPool, 
-		Memory::DeviceQueueView<uint32_t> rayQueue)
+		Runtime::DeviceQueueView<uint32_t> rayQueue)
 	{
 		assert(generateCount > 0);
 		uint32_t spp = sampleGridSize * sampleGridSize;
 		dim3 block(TPB_DIM_1D);
 		dim3 grid(GetBlockCount(generateCount, block.x));
 
-		InitializePathsKernel<<<grid, block>>>(
+		InitializePathsKernel<<<grid, block, 0, stream>>>(
 			generateCount,
 			camera,
 			width,
@@ -990,146 +990,156 @@ namespace Core::Graphics::Cuda::Kernels
 	}
 	
 	void PrepareIteration(
-		Memory::DeviceQueueView<uint32_t> currentRayQueue,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		MaterialQueueViews materialQueues,
+		cudaStream_t stream,
+		Runtime::DeviceQueueView<uint32_t> currentRayQueue,
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue,
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		MaterialEvalQueueViews materialEvalQueues,
 		uint32_t nextRayCount)
 	{
-		PrepareIterationKernel<<<1, 1>>>(currentRayQueue, nextRayQueue, regenQueue, materialQueues, nextRayCount);
+		PrepareIterationKernel<<<1, 1, 0, stream>>>(currentRayQueue, nextRayQueue, regenQueue, materialEvalQueues, nextRayCount);
 	}
 
 	void IntersectRaysWithScene(
+		cudaStream_t stream,
 		uint32_t queueSize,
 		PathPoolView pathPool, 
-		Memory::DeviceQueueView<uint32_t> rayQueue, 
+		Runtime::DeviceQueueView<uint32_t> rayQueue, 
 		DeviceBvhView bvh, 
-		MaterialQueueViews materialQueues,
-		Memory::DeviceQueueView<uint32_t> regenQueue)
+		MaterialEvalQueueViews materialEvalQueues,
+		Runtime::DeviceQueueView<uint32_t> regenQueue)
 	{
 		assert(queueSize > 0);
 		dim3 block(TPB_DIM_1D);
 		dim3 grid(GetBlockCount(queueSize, block.x));
-		IntersectRaysWithSceneKernel<<<grid, block>>>(pathPool, rayQueue, bvh, materialQueues, regenQueue);
+		IntersectRaysWithSceneKernel<<<grid, block, 0, stream>>>(pathPool, rayQueue, bvh, materialEvalQueues, regenQueue);
 	}
 
 	void EvaluateNormalMaterial(
+		cudaStream_t stream,
 		PathPoolView pathPool,
-		Memory::DeviceQueueView<HitData> hitQueue,
-		Memory::DeviceBuffer1DView<Triangle> triangles,
-		Memory::DeviceBuffer1DView<Material> materials,
+		MaterialEvalQueueView materialEvalQueue,
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
-		EvaluateNormalKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, regenQueue, accumulationBuffer);
+		dim3 grid(GetBlockCount(materialEvalQueue.GetCapacity(), block.x));
+		EvaluateNormalKernel<<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, regenQueue, accumulationBuffer);
 	}
 
 	void EvaluateDiffuseMaterial(
+		cudaStream_t stream,
 		PathPoolView pathPool,
-		Memory::DeviceQueueView<HitData> hitQueue,
-		Memory::DeviceBuffer1DView<Triangle> triangles,
-		Memory::DeviceBuffer1DView<Material> materials,
+		MaterialEvalQueueView materialEvalQueue,
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
-		EvaluateDiffuseKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
+		dim3 grid(GetBlockCount(materialEvalQueue.GetCapacity(), block.x));
+		EvaluateDiffuseKernel<<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
 	}
 
 	void EvaluatePhongMaterial(
+		cudaStream_t stream,
 		PathPoolView pathPool,
-		Memory::DeviceQueueView<HitData> hitQueue,
-		Memory::DeviceBuffer1DView<Triangle> triangles,
-		Memory::DeviceBuffer1DView<Material> materials,
+		MaterialEvalQueueView materialEvalQueue,
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
-		EvaluatePhongKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
+		dim3 grid(GetBlockCount(materialEvalQueue.GetCapacity(), block.x));
+		EvaluatePhongKernel<<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
 	}
 	
 	void EvaluateMirrorMaterial(
+		cudaStream_t stream,
 		PathPoolView pathPool,
-		Memory::DeviceQueueView<HitData> hitQueue,
-		Memory::DeviceBuffer1DView<Triangle> triangles,
-		Memory::DeviceBuffer1DView<Material> materials,
+		MaterialEvalQueueView materialEvalQueue,
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
-		EvaluateMirrorKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
+		dim3 grid(GetBlockCount(materialEvalQueue.GetCapacity(), block.x));
+		EvaluateMirrorKernel<<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
 	}
 	
 
 	void EvaluateGgxMaterial(
+		cudaStream_t stream,
 		PathPoolView pathPool,
-		Memory::DeviceQueueView<HitData> hitQueue,
-		Memory::DeviceBuffer1DView<Triangle> triangles,
-		Memory::DeviceBuffer1DView<Material> materials,
+		MaterialEvalQueueView materialEvalQueue,
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
-		EvaluateGgxKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
+		dim3 grid(GetBlockCount(materialEvalQueue.GetCapacity(), block.x));
+		EvaluateGgxKernel<<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
 	}
 	
 	void EvaluateEmissiveMaterial(
+		cudaStream_t stream,
 		PathPoolView pathPool,
-		Memory::DeviceQueueView<HitData> hitQueue,
-		Memory::DeviceBuffer1DView<Triangle> triangles,
-		Memory::DeviceBuffer1DView<Material> materials,
+		MaterialEvalQueueView materialEvalQueue,
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
-		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		dim3 block(TPB_DIM_1D);
-		dim3 grid(GetBlockCount(hitQueue.GetCapacity(), block.x));
-		EvaluateEmissiveKernel<<<grid, block>>>(pathPool, hitQueue, triangles, materials, regenQueue, accumulationBuffer);
+		dim3 grid(GetBlockCount(materialEvalQueue.GetCapacity(), block.x));
+		EvaluateEmissiveKernel<<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, regenQueue, accumulationBuffer);
 	}
 
 	void RegeneratePaths(
+		cudaStream_t stream,
 		uint32_t remainingCount,
-		Memory::DeviceQueueView<uint32_t> regenQueue,
+		Runtime::DeviceQueueView<uint32_t> regenQueue,
 		uint64_t launchedSampleCount,
 		DeviceCamera camera, 
 		uint32_t width, 
 		uint32_t height, 
 		uint32_t sampleGridSize,
 		PathPoolView pathPool,
-		Memory::DeviceQueueView<uint32_t> nextRayQueue)
+		Runtime::DeviceQueueView<uint32_t> nextRayQueue)
 	{
 		if (remainingCount == 0) return;
 		uint32_t spp = sampleGridSize * sampleGridSize;
 		dim3 block(TPB_DIM_1D);
 		dim3 grid(GetBlockCount(std::min(remainingCount, regenQueue.GetCapacity()), block.x));
-		RegeneratePathsKernel<<<grid, block>>>(remainingCount, regenQueue, launchedSampleCount, camera, width, height, sampleGridSize, spp, pathPool, nextRayQueue);
+		RegeneratePathsKernel<<<grid, block, 0, stream>>>(remainingCount, regenQueue, launchedSampleCount, camera, width, height, sampleGridSize, spp, pathPool, nextRayQueue);
 	}
 
 	void PostprocessAccumulatedRadiance(
-		Memory::DeviceBuffer1DView<float4> accumulationBuffer,
+		cudaStream_t stream,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		float invSpp,
-		Memory::DeviceBuffer1DView<uchar4> framebuffer)
+		Runtime::DeviceBuffer1DView<uchar4> framebuffer)
 	{
 		dim3 block(TPB_DIM_1D);
 		dim3 grid(GetBlockCount(accumulationBuffer.GetSize(), block.x));
 
-		PostprocessKernel<<<grid, block>>>(accumulationBuffer, invSpp, framebuffer);
+		PostprocessKernel<<<grid, block, 0, stream>>>(accumulationBuffer, invSpp, framebuffer);
 	}
 }

@@ -3,7 +3,7 @@
 #include <cuda_runtime.h>
 #include "CounterView.hpp"
 
-namespace Core::Graphics::Cuda::Memory
+namespace Core::Graphics::Cuda::Runtime
 {
     template<typename T>
     class DeviceQueueView

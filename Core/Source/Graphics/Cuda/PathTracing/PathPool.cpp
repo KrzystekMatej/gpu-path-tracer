@@ -2,24 +2,24 @@
 
 namespace Core::Graphics::Cuda
 {
-	std::expected<void, Core::Utils::Error> PathPool::Allocate(uint32_t pathCount)
+	std::expected<void, Core::Utils::Error> PathPool::Allocate(uint32_t pathCount, const Runtime::Stream& stream)
 	{
-    	CORE_TRY_DISCARD(Free());
-		CORE_TRY_DISCARD(m_Samples.Allocate(pathCount, sizeof(Pixel)));
-		CORE_TRY_DISCARD(m_Rays.Allocate(pathCount, sizeof(Ray)));
-		CORE_TRY_DISCARD(m_Contributions.Allocate(pathCount, sizeof(Contribution)));
-		CORE_TRY_DISCARD(m_RandomStates.Allocate(pathCount, sizeof(Random)));
-		CORE_TRY_DISCARD(m_PathFlags.Allocate(pathCount, sizeof(PathFlags)));
+    	CORE_TRY_DISCARD(Free(stream));
+		CORE_TRY_DISCARD(m_Samples.Allocate(pathCount, sizeof(Pixel), stream));
+		CORE_TRY_DISCARD(m_Rays.Allocate(pathCount, sizeof(Ray), stream));
+		CORE_TRY_DISCARD(m_Contributions.Allocate(pathCount, sizeof(Contribution), stream));
+		CORE_TRY_DISCARD(m_RandomStates.Allocate(pathCount, sizeof(Random), stream));
+		CORE_TRY_DISCARD(m_PathFlags.Allocate(pathCount, sizeof(PathFlags), stream));
 		return {};
 	}
 
-	std::expected<void, Core::Utils::Error> PathPool::Free()
+	std::expected<void, Core::Utils::Error> PathPool::Free(const Runtime::Stream& stream)
 	{
-		CORE_TRY_DISCARD(m_Samples.Free());
-		CORE_TRY_DISCARD(m_Rays.Free());
-		CORE_TRY_DISCARD(m_Contributions.Free());
-		CORE_TRY_DISCARD(m_RandomStates.Free());
-		CORE_TRY_DISCARD(m_PathFlags.Free());
+		CORE_TRY_DISCARD(m_Samples.Free(stream));
+		CORE_TRY_DISCARD(m_Rays.Free(stream));
+		CORE_TRY_DISCARD(m_Contributions.Free(stream));
+		CORE_TRY_DISCARD(m_RandomStates.Free(stream));
+		CORE_TRY_DISCARD(m_PathFlags.Free(stream));
 		return {};
 	}
 }

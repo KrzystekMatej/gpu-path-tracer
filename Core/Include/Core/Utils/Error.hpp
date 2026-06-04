@@ -78,6 +78,27 @@ namespace Core::Utils
 	}                                                                       \
 	auto name = std::move(name##_expected).value()
 
+#define CORE_TRY_ASSIGN(variable, expression)                                			\
+	auto variable##_expected = (expression);                           			\
+	if (!variable##_expected) {                                        			\
+		return std::unexpected(std::move(variable##_expected).error()); 		\
+	}                                                             			\
+	variable = std::move(variable##_expected).value()
+
+#define CORE_TRY_ASSIGN_CONTEXT(variable, expression, ...)                             \
+	auto variable##_expected = (expression);                                    \
+	if (!variable##_expected) {                                                 \
+		return std::unexpected(                                             \
+			Core::Utils::Error(                                             \
+				std::make_shared<Core::Utils::Error>(                       \
+					std::move(variable##_expected).error()                      \
+				),                                                          \
+				__VA_ARGS__                                                 \
+			)                                                               \
+		);                                                                  \
+	}                                                                       \
+	variable = std::move(variable##_expected).value()
+
 #define CORE_TRY_DISCARD(expression)                                 			\
 	do {                                                          			\
 		auto core_try_expected = (expression);                     			\

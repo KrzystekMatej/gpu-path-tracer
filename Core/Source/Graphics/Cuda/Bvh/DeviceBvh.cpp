@@ -19,23 +19,29 @@ namespace Core::Graphics::Cuda
 		}
 	}
 
-	std::expected<void, Core::Utils::Error> DeviceBvh::Build(const HostBvhNode& root, uint32_t depth, uint32_t nodeCount, const std::vector<Triangle>& triangles)
+	std::expected<void, Core::Utils::Error> DeviceBvh::Build(
+		const HostBvhNode& root, 
+		uint32_t depth, 
+		uint32_t nodeCount, 
+		const std::vector<Triangle>& triangles, 
+		const Runtime::Stream& stream)
 	{
 		std::vector<DeviceBvhNode> nodes;
 		nodes.reserve(nodeCount);
 		m_Depth = depth;
 		FlattenBvh(root, nodes);
-		CORE_TRY_DISCARD(m_Nodes.Allocate(nodes.size(), sizeof(DeviceBvhNode)));
-		CORE_TRY_DISCARD(m_Nodes.UploadSync(nodes.data(), nodes.size()));
-		CORE_TRY_DISCARD(m_Triangles.Allocate(triangles.size(), sizeof(Triangle)));
-		CORE_TRY_DISCARD(m_Triangles.UploadSync(triangles.data(), triangles.size()));
+		CORE_TRY_DISCARD(m_Nodes.Allocate(static_cast<uint32_t>(nodes.size()), sizeof(DeviceBvhNode), stream));
+		CORE_TRY_DISCARD(m_Nodes.Upload(nodes.data(), static_cast<uint32_t>(nodes.size()), stream));
+		CORE_TRY_DISCARD(m_Triangles.Allocate(static_cast<uint32_t>(triangles.size()), sizeof(Triangle), stream));
+		CORE_TRY_DISCARD(m_Triangles.Upload(triangles.data(), static_cast<uint32_t>(triangles.size()), stream));
+		CORE_TRY_DISCARD(stream.Synchronize());
 		return {};
 	}
 
-	std::expected<void, Core::Utils::Error> DeviceBvh::Free()
+	std::expected<void, Core::Utils::Error> DeviceBvh::Free(const Runtime::Stream& stream)
 	{
-		auto nodeResult = m_Nodes.Free();
-		auto triangleResult = m_Triangles.Free();
+		auto nodeResult = m_Nodes.Free(stream);
+		auto triangleResult = m_Triangles.Free(stream);
 		if (!nodeResult)
 			return std::unexpected(std::move(nodeResult).error());
 		if (!triangleResult)

@@ -4,12 +4,12 @@
 #include <cassert>
 #include <expected>
 #include <type_traits>
-#include <Core/Graphics/Cuda/Memory/DeviceQueueView.hpp>
-#include <Core/Graphics/Cuda/Memory/DeviceBuffer1D.hpp>
-#include <Core/Graphics/Cuda/Memory/SharedCounter.hpp>
+#include <Core/Graphics/Cuda/Runtime/DeviceQueueView.hpp>
+#include <Core/Graphics/Cuda/Runtime/DeviceBuffer1D.hpp>
+#include <Core/Graphics/Cuda/Runtime/SharedCounter.hpp>
 #include <Core/Utils/Error.hpp>
 
-namespace Core::Graphics::Cuda::Memory
+namespace Core::Graphics::Cuda::Runtime
 {
     class DeviceQueue
     {
@@ -23,7 +23,7 @@ namespace Core::Graphics::Cuda::Memory
         DeviceQueue(DeviceQueue&& other) noexcept;
         DeviceQueue& operator=(DeviceQueue&& other) noexcept;
 
-        std::expected<void, Core::Utils::Error> Allocate(size_t capacity, size_t elementSize);
+        std::expected<void, Core::Utils::Error> Allocate(uint32_t capacity, uint32_t elementSize);
         std::expected<void, Core::Utils::Error> Free();
 
         std::expected<void, Core::Utils::Error> ResetCounter() { return m_Counter.Reset(); }
@@ -38,8 +38,8 @@ namespace Core::Graphics::Cuda::Memory
         uint32_t GetCounterHostValue() const { return m_Counter.GetHostValue(); }
         void SetCounterHostValue(uint32_t value) { m_Counter.SetHostValue(value); }
 
-		size_t GetCapacity() const { return m_Buffer.GetSize(); }
-        size_t GetElementSize() const { return m_Buffer.GetElementSize(); }
+		uint32_t GetCapacity() const { return m_Buffer.GetSize(); }
+        uint32_t GetElementSize() const { return m_Buffer.GetElementSize(); }
 
         template<typename T>
         DeviceQueueView<T> GetView() const

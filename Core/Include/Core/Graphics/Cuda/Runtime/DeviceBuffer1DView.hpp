@@ -2,7 +2,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 
-namespace Core::Graphics::Cuda::Memory
+namespace Core::Graphics::Cuda::Runtime
 {
     template<typename T>
     class DeviceBuffer1DView

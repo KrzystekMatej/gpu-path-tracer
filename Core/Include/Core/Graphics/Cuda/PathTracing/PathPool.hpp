@@ -1,6 +1,6 @@
 #pragma once
 #include <Core/Utils/Error.hpp>
-#include <Core/Graphics/Cuda/Memory/DeviceBuffer1D.hpp>
+#include <Core/Graphics/Cuda/Runtime/DeviceBuffer1D.hpp>
 #include <Core/Graphics/Cuda/PathTracing/PathPoolView.hpp>
 
 namespace Core::Graphics::Cuda
@@ -15,8 +15,8 @@ namespace Core::Graphics::Cuda
 		PathPool(const PathPool&) = delete;
 		PathPool& operator=(const PathPool&) = delete;
 		
-		std::expected<void, Core::Utils::Error> Allocate(uint32_t pathCount);
-		std::expected<void, Core::Utils::Error> Free();
+		std::expected<void, Core::Utils::Error> Allocate(uint32_t pathCount, const Runtime::Stream& stream = Runtime::Stream::Default());
+		std::expected<void, Core::Utils::Error> Free(const Runtime::Stream& stream = Runtime::Stream::Default());
 
 
 		PathPoolView GetView() const
@@ -33,10 +33,10 @@ namespace Core::Graphics::Cuda
 
 		uint32_t GetPathCount() const { return m_Samples.GetSize(); }
 	private:
-		Memory::DeviceBuffer1D m_Samples;
-		Memory::DeviceBuffer1D m_Rays;
-		Memory::DeviceBuffer1D m_Contributions;
-		Memory::DeviceBuffer1D m_RandomStates;
-		Memory::DeviceBuffer1D m_PathFlags;
+		Runtime::DeviceBuffer1D m_Samples;
+		Runtime::DeviceBuffer1D m_Rays;
+		Runtime::DeviceBuffer1D m_Contributions;
+		Runtime::DeviceBuffer1D m_RandomStates;
+		Runtime::DeviceBuffer1D m_PathFlags;
 	};
 }
