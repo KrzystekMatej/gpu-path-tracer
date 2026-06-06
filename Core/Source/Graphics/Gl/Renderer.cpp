@@ -53,7 +53,6 @@ namespace Core::Graphics::Gl
 		constexpr std::string_view skyboxPath = "Models/Skybox/mesh.obj";
     }
 
-
 	void Renderer::InitContext(const Window::GraphicsContext* context)
     {
 		m_Context = context;

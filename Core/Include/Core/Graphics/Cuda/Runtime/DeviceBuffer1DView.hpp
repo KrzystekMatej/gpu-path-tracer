@@ -24,7 +24,7 @@ namespace Core::Graphics::Cuda::Runtime
         __device__ __forceinline__ const T* GetData() const { return m_Data; }
         __host__ __device__ __forceinline__ uint32_t GetSize() const { return m_Size; }
     private:
-        T* m_Data = nullptr;
+        T* __restrict__ m_Data = nullptr;
         uint32_t m_Size = 0;
     };
 }

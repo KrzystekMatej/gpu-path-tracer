@@ -1,7 +1,11 @@
 add_library(core_cuda_kernels STATIC)
 
 target_sources(core_cuda_kernels PRIVATE
-    "Source/Graphics/Cuda/PathTracing/Kernels.cu"
+    "Source/Graphics/Cuda/PathTracing/Kernels/Image.cu"
+    "Source/Graphics/Cuda/PathTracing/Kernels/Intersect.cu"
+    "Source/Graphics/Cuda/PathTracing/Kernels/Iteration.cu"
+    "Source/Graphics/Cuda/PathTracing/Kernels/MaterialEval.cu"
+    "Source/Graphics/Cuda/PathTracing/Kernels/PathGeneration.cu"
 )
 target_include_directories(core_cuda_kernels PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Include")
 target_link_libraries(core_cuda_kernels PUBLIC CUDA::cudart)
@@ -36,6 +40,8 @@ target_sources(core PRIVATE
     "Source/Graphics/Cuda/Bvh/HostBvh.cpp"
     "Source/Graphics/Cuda/PathTracing/MaterialEvalQueue.cpp"
 	"Source/Graphics/Cuda/PathTracing/PathPool.cpp"
+	"Source/Graphics/Cuda/PathTracing/RayQueue.cpp"
+	"Source/Graphics/Cuda/PathTracing/RegenQueue.cpp"
     "Source/Graphics/Cuda/PathTracing/Renderer.cpp"
     "Source/Graphics/Cuda/Resources/Texture.cpp"
     "Source/Graphics/Cuda/Runtime/DeviceBuffer1D.cpp"

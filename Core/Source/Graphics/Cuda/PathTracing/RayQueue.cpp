@@ -1,17 +1,15 @@
-#include <Core/Graphics/Cuda/PathTracing/MaterialEvalQueue.hpp>
+#include <Core/Graphics/Cuda/PathTracing/RayQueue.hpp>
 
 namespace Core::Graphics::Cuda
 {
-    std::expected<void, Core::Utils::Error> MaterialEvalQueue::Allocate(uint32_t capacity, const Runtime::Stream& stream)
+    std::expected<void, Core::Utils::Error> RayQueue::Allocate(uint32_t capacity, const Runtime::Stream& stream)
     {
         CORE_TRY_DISCARD(Free(stream));
 
         auto allocateResult = [&]() -> std::expected<void, Core::Utils::Error>
         {
             CORE_TRY_DISCARD(m_Counter.Allocate(stream));
-
             CORE_TRY_DISCARD(m_Paths.Allocate(capacity, sizeof(uint32_t), stream));
-
             CORE_TRY_DISCARD(m_OriginXs.Allocate(capacity, sizeof(float), stream));
             CORE_TRY_DISCARD(m_OriginYs.Allocate(capacity, sizeof(float), stream));
             CORE_TRY_DISCARD(m_OriginZs.Allocate(capacity, sizeof(float), stream));
@@ -21,12 +19,6 @@ namespace Core::Graphics::Cuda
             CORE_TRY_DISCARD(m_TMins.Allocate(capacity, sizeof(float), stream));
             CORE_TRY_DISCARD(m_TMaxs.Allocate(capacity, sizeof(float), stream));
             CORE_TRY_DISCARD(m_Iors.Allocate(capacity, sizeof(float), stream));
-
-            CORE_TRY_DISCARD(m_Triangles.Allocate(capacity, sizeof(uint32_t), stream));
-            CORE_TRY_DISCARD(m_Materials.Allocate(capacity, sizeof(uint32_t), stream));
-            CORE_TRY_DISCARD(m_Us.Allocate(capacity, sizeof(float), stream));
-            CORE_TRY_DISCARD(m_Vs.Allocate(capacity, sizeof(float), stream));
-
             return {};
         }();
 
@@ -39,12 +31,10 @@ namespace Core::Graphics::Cuda
         return {};
     }
 
-    std::expected<void, Core::Utils::Error> MaterialEvalQueue::Free(const Runtime::Stream& stream)
+    std::expected<void, Core::Utils::Error> RayQueue::Free(const Runtime::Stream& stream)
     {
         auto counterResult = m_Counter.Free(stream);
-
         auto pathResult = m_Paths.Free(stream);
-
         auto originXResult = m_OriginXs.Free(stream);
         auto originYResult = m_OriginYs.Free(stream);
         auto originZResult = m_OriginZs.Free(stream);
@@ -54,11 +44,6 @@ namespace Core::Graphics::Cuda
         auto tMinResult = m_TMins.Free(stream);
         auto tMaxResult = m_TMaxs.Free(stream);
         auto iorResult = m_Iors.Free(stream);
-
-        auto triangleResult = m_Triangles.Free(stream);
-        auto materialResult = m_Materials.Free(stream);
-        auto uResult = m_Us.Free(stream);
-        auto vResult = m_Vs.Free(stream);
 
         if (!counterResult)
             return std::unexpected(counterResult.error());
@@ -92,18 +77,6 @@ namespace Core::Graphics::Cuda
 
         if (!iorResult)
             return std::unexpected(iorResult.error());
-
-        if (!triangleResult)
-            return std::unexpected(triangleResult.error());
-
-        if (!materialResult)
-            return std::unexpected(materialResult.error());
-
-        if (!uResult)
-            return std::unexpected(uResult.error());
-
-        if (!vResult)
-            return std::unexpected(vResult.error());
 
         return {};
     }

@@ -6,6 +6,6 @@ namespace Core::Graphics::Cuda
     class BvhDefaults
     {
     public:
-        constexpr static uint32_t MaxDepth = 32;
+        constexpr static uint32_t MaxDepth = 64;
     };
 }

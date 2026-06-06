@@ -79,7 +79,7 @@ namespace Core::Graphics::Cuda::Runtime
             return index;
         }
     private:
-        T* m_Data = nullptr;
+        T* __restrict__ m_Data = nullptr;
         uint32_t m_Capacity = 0;
         CounterView<uint32_t> m_Counter;
     };

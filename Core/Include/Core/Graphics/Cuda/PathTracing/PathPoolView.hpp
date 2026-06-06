@@ -7,7 +7,6 @@ namespace Core::Graphics::Cuda
 	struct PathPoolView
 	{
 		Runtime::DeviceBuffer1DView<Pixel> pixels;
-		Runtime::DeviceBuffer1DView<Ray> rays;
 		Runtime::DeviceBuffer1DView<Contribution> contributions;
 		Runtime::DeviceBuffer1DView<Random> randoms;
 		Runtime::DeviceBuffer1DView<PathFlags> pathFlags;

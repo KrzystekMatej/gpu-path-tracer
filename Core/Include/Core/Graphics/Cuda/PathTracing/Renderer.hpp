@@ -26,7 +26,9 @@
 #include <Core/Graphics/Cuda/PathTracing/DeviceCamera.hpp>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Material.hpp>
+#include <Core/Graphics/Cuda/PathTracing/RayQueue.hpp>
 #include <Core/Graphics/Cuda/PathTracing/MaterialEvalQueue.hpp>
+#include <Core/Graphics/Cuda/PathTracing/RegenQueue.hpp>
 #include <Core/Graphics/Cuda/Runtime/Stream.hpp>
 
 namespace Core::Graphics::Cuda
@@ -175,8 +177,7 @@ namespace Core::Graphics::Cuda
 		DeviceBvh m_Bvh;
 
         PathPool m_PathPool;
-        std::array<Runtime::DeviceQueue, 2> m_RayQueues;
-        
-        Runtime::DeviceQueue m_RegenQueue;
+        std::array<RayQueue, 2> m_RayQueues;
+        RegenQueue m_RegenQueue;
     };
 }

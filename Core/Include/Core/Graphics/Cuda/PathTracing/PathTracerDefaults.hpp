@@ -27,5 +27,7 @@ namespace Core::Graphics::Cuda
             static constexpr uint32_t FrameHeight = 1080;
             static constexpr uint32_t MinFrameHeight = 1;
             static constexpr uint32_t MaxFrameHeight = 4320;
+            
+            static constexpr uint64_t RandomSeed = 1234;
     };
 }

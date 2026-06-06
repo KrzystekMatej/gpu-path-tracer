@@ -30,9 +30,9 @@ namespace Core::Graphics::Cuda
                 Runtime::DeviceBuffer1DView<Triangle>,
                 Runtime::DeviceBuffer1DView<Material>,
                 uint32_t,
-                Runtime::DeviceQueueView<uint32_t>,
+                RegenQueueView,
                 Runtime::DeviceBuffer1DView<float4>,
-                Runtime::DeviceQueueView<uint32_t>);
+                RayQueueView);
 
         constexpr std::array<MaterialEvaluator, static_cast<size_t>(GlobalShadingModel::Count)> CreateMaterialEvaluators()
         {
@@ -197,7 +197,7 @@ namespace Core::Graphics::Cuda
 		CORE_TRY_DISCARD(m_PathPool.Allocate(PathPoolSize));
         for (auto& rayQueue : m_RayQueues)
         {
-            CORE_TRY_DISCARD(rayQueue.Allocate(PathPoolSize, sizeof(uint32_t)));
+            CORE_TRY_DISCARD(rayQueue.Allocate(PathPoolSize));
         }
 
         for (auto& materialQueue : m_MaterialEvalQueues)
@@ -205,7 +205,7 @@ namespace Core::Graphics::Cuda
             CORE_TRY_DISCARD(materialQueue.Allocate(PathPoolSize));
         }
 
-		CORE_TRY_DISCARD(m_RegenQueue.Allocate(PathPoolSize, sizeof(uint32_t)));
+		CORE_TRY_DISCARD(m_RegenQueue.Allocate(PathPoolSize));
 		CORE_TRY_DISCARD(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)));
         CORE_TRY_DISCARD(m_Framebuffer.Allocate(width * height, sizeof(uchar4)));
         m_Width = width;
@@ -403,10 +403,10 @@ namespace Core::Graphics::Cuda
 
         uint32_t nextQueue = 0;
         uint32_t currentQueue = 1;
-        MaterialEvalQueueViewsProvider materialEvalQueueProvider;
+        MaterialEvalQueueViewsProvider materialQueueProvider;
         for (uint32_t i = 0; i < static_cast<uint32_t>(GlobalShadingModel::Count); i++)
         {
-            materialEvalQueueProvider.At(i) = m_MaterialEvalQueues[i].GetView();
+            materialQueueProvider.At(i) = m_MaterialEvalQueues[i].GetView();
         }
         CORE_TRY_DISCARD(m_AccumulationBuffer.MemsetBytes(0, m_RenderStream));
         
@@ -421,7 +421,7 @@ namespace Core::Graphics::Cuda
                     m_Height,
                     m_SampleGridSize,
                     m_PathPool.GetView(),
-                    m_RayQueues[nextQueue].GetView<uint32_t>()));
+                    m_RayQueues[nextQueue].GetView()));
         });
         
         CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Prepare iteration",
@@ -429,10 +429,10 @@ namespace Core::Graphics::Cuda
             CUDA_TRY_KERNEL_DEBUG("PrepareIteration",
                 Kernels::PrepareIteration(
                     m_RenderStream.GetRawHandle(),
-                    m_RayQueues[currentQueue].GetView<uint32_t>(),
-                    m_RayQueues[nextQueue].GetView<uint32_t>(),
-                    m_RegenQueue.GetView<uint32_t>(),
-                    materialEvalQueueProvider,
+                    m_RayQueues[currentQueue].GetView(),
+                    m_RayQueues[nextQueue].GetView(),
+                    m_RegenQueue.GetView(),
+                    materialQueueProvider,
                     generateCount));
         });
         
@@ -451,10 +451,11 @@ namespace Core::Graphics::Cuda
                         m_RenderStream.GetRawHandle(),
                         rayCount,
                         m_PathPool.GetView(),
-                        m_RayQueues[currentQueue].GetView<uint32_t>(),
+                        m_RayQueues[currentQueue].GetView(),
                         m_Bvh.GetView(),
-                        materialEvalQueueProvider,
-                        m_RegenQueue.GetView<uint32_t>()));
+                        m_Bvh.GetDepth(),
+                        materialQueueProvider,
+                        m_RegenQueue.GetView()));
             });
 
             CORE_TRY_DISCARD(m_RenderStream.Synchronize());
@@ -470,13 +471,13 @@ namespace Core::Graphics::Cuda
                         evaluator(
                             m_RenderStream.GetRawHandle(),
                             m_PathPool.GetView(),
-                            materialEvalQueueProvider.At(i),
+                            materialQueueProvider.At(i),
                             m_Bvh.GetView().triangles,
                             m_MaterialBuffer.GetView<Material>(),
                             m_PathDepthLimit,
-                            m_RegenQueue.GetView<uint32_t>(),
+                            m_RegenQueue.GetView(),
                             m_AccumulationBuffer.GetView<float4>(),
-                            m_RayQueues[nextQueue].GetView<uint32_t>()));   
+                            m_RayQueues[nextQueue].GetView()));   
                 }
             });
 
@@ -487,14 +488,14 @@ namespace Core::Graphics::Cuda
                     Kernels::RegeneratePaths(
                         m_RenderStream.GetRawHandle(),
                         remainingCount,
-                        m_RegenQueue.GetView<uint32_t>(),
+                        m_RegenQueue.GetView(),
                         launchedSampleCount,
                         camera,
                         m_Width,
                         m_Height,
                         m_SampleGridSize,
                         m_PathPool.GetView(),
-                        m_RayQueues[nextQueue].GetView<uint32_t>()));
+                        m_RayQueues[nextQueue].GetView()));
             });
 
             CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Sync counters",
@@ -510,10 +511,10 @@ namespace Core::Graphics::Cuda
                     CUDA_TRY_KERNEL_DEBUG("PrepareIteration", 
                         Kernels::PrepareIteration(
                             m_RenderStream.GetRawHandle(),
-                            m_RayQueues[currentQueue].GetView<uint32_t>(),
-                            m_RayQueues[nextQueue].GetView<uint32_t>(),
-                            m_RegenQueue.GetView<uint32_t>(),
-                            materialEvalQueueProvider,
+                            m_RayQueues[currentQueue].GetView(),
+                            m_RayQueues[nextQueue].GetView(),
+                            m_RegenQueue.GetView(),
+                            materialQueueProvider,
                             nextRayCount));
                 });
                 

@@ -3,16 +3,16 @@
 #include <cstdint>
 #include <type_traits>
 #include <cuda_runtime.h>
-#include <Core/Graphics/Cuda/PathTracing/RayQueueView.hpp>
+#include <Core/Graphics/Cuda/PathTracing/PathData.hpp>
 
 namespace Core::Graphics::Cuda
 {
-    class MaterialEvalQueueView
+    class RayQueueView
     {
     public:
-        MaterialEvalQueueView() = default;
+        RayQueueView() = default;
 
-        MaterialEvalQueueView(
+        RayQueueView(
             uint32_t* size,
             uint32_t capacity,
             uint32_t* paths,
@@ -24,11 +24,7 @@ namespace Core::Graphics::Cuda
             float* directionZs,
             float* tMins,
             float* tMaxs,
-            float* iors,
-            uint32_t* triangles,
-            uint32_t* materials,
-            float* us,
-            float* vs)
+            float* iors)
             : m_Size(size)
             , m_Capacity(capacity)
             , m_Paths(paths)
@@ -41,10 +37,6 @@ namespace Core::Graphics::Cuda
             , m_TMins(tMins)
             , m_TMaxs(tMaxs)
             , m_Iors(iors)
-            , m_Triangles(triangles)
-            , m_Materials(materials)
-            , m_Us(us)
-            , m_Vs(vs)
         {
         }
 
@@ -92,31 +84,21 @@ namespace Core::Graphics::Cuda
             ray.tMax = m_TMaxs[index];
             ray.ior = m_Iors[index];
             return ray;
-        }
+        }   
 
-        __device__ __forceinline__ HitData GetHitData(uint32_t index) const
-        {
-            HitData hitData{};
-            hitData.triangle = m_Triangles[index];
-            hitData.material = m_Materials[index];
-            hitData.u = m_Us[index];
-            hitData.v = m_Vs[index];
-            return hitData;
-        }
-
-        __device__ __forceinline__ void Set(uint32_t index, const Path& path, const Ray& ray, const HitData& hitData) const
+        __device__ __forceinline__ void Set(uint32_t index, const Path& path, const Ray& ray) const
         {
             Set(index, path);
             Set(index, ray);
-            Set(index, hitData);
         }
 
-        __device__ __forceinline__ uint32_t Push(const Path& path, const Ray& ray, const HitData& hitData) const
+        __device__ __forceinline__ uint32_t Push(const Path& path, const Ray& ray) const
         {
             const uint32_t index = PushIndex();
-            Set(index, path, ray, hitData);
+            Set(index, path, ray);
             return index;
         }
+
     private:
         
         __device__ __forceinline__ void Set(uint32_t index, Path path) const
@@ -137,14 +119,6 @@ namespace Core::Graphics::Cuda
             m_Iors[index] = ray.ior;
         }
 
-        __device__ __forceinline__ void Set(uint32_t index, const HitData& hitData) const
-        {
-            m_Triangles[index] = hitData.triangle;
-            m_Materials[index] = hitData.material;
-            m_Us[index] = hitData.u;
-            m_Vs[index] = hitData.v;
-        }
-
         __device__ __forceinline__ uint32_t PushIndex() const
         {
 #if defined(__CUDA_ARCH__)
@@ -158,7 +132,6 @@ namespace Core::Graphics::Cuda
         uint32_t m_Capacity = 0;
 
         uint32_t* __restrict__ m_Paths = nullptr;
-
         float* __restrict__ m_OriginXs = nullptr;
         float* __restrict__ m_OriginYs = nullptr;
         float* __restrict__ m_OriginZs = nullptr;
@@ -168,10 +141,5 @@ namespace Core::Graphics::Cuda
         float* __restrict__ m_TMins = nullptr;
         float* __restrict__ m_TMaxs = nullptr;
         float* __restrict__ m_Iors = nullptr;
-
-        uint32_t* __restrict__ m_Triangles = nullptr;
-        uint32_t* __restrict__ m_Materials = nullptr;
-        float* __restrict__ m_Us = nullptr;
-        float* __restrict__ m_Vs = nullptr;
     };
 }

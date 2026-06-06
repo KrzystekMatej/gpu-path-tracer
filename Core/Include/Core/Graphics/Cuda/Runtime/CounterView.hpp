@@ -59,6 +59,6 @@ namespace Core::Graphics::Cuda::Runtime
 #endif
         }
     private:
-        T* m_Value = nullptr;
+        T* __restrict__ m_Value = nullptr;
     };
 }

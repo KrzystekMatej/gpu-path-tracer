@@ -27,7 +27,7 @@ namespace Core::Graphics::Cuda::Runtime
         __host__ __device__ __forceinline__ uint32_t GetHeight() const { return m_Height; }
         __host__ __device__ __forceinline__ uint32_t GetPitchBytes() const { return m_PitchBytes; }
     private:
-        T* m_Data = nullptr;
+        T* __restrict__ m_Data = nullptr;
         uint32_t m_Width = 0;
         uint32_t m_Height = 0;
         uint32_t m_PitchBytes = 0;
