@@ -23,11 +23,7 @@ namespace Core::Graphics::Cuda
 		float tMax;
 		float ior;
 		uint32_t depth;
-	};
-
-	struct Contribution
-	{
-		float4 throughput;
+		float3 throughput;
 	};
 
 	struct Random

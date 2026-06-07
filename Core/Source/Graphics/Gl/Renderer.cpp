@@ -142,7 +142,7 @@ namespace Core::Graphics::Gl
 				ShaderProgram& program = context.storage.Get(m_Normal).value().get().program;
 				program.Bind();
 
-				program.SetTexture("normal_texture", context.material.normal);
+				// program.SetTexture("normal_texture", context.material.normal); - can be used if we want shading normals instead of visual normals
 
 				program.SetMatrix4x4("pvm_matrix", pvm);
 				program.SetMatrix4x4("model_matrix", context.model);

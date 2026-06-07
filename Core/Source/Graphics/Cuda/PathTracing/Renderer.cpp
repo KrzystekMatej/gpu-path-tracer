@@ -107,6 +107,36 @@ namespace Core::Graphics::Cuda
             return buffer;
 		}
 
+        glm::vec3 ComputeWorldTangent(glm::mat3 model, glm::vec3 worldNormal, glm::vec3 vertexTangent)
+        {
+            auto makeFallbackTangent = [](const glm::vec3& normal)
+            {
+                const glm::vec3 axis = std::abs(normal.z) < 0.999f
+                    ? glm::vec3(0.0f, 0.0f, 1.0f)
+                    : glm::vec3(1.0f, 0.0f, 0.0f);
+
+                return glm::normalize(glm::cross(axis, normal));
+            };
+
+            glm::vec3 worldTangent = model * vertexTangent;
+            float tangentLengthSquared = glm::dot(worldTangent, worldTangent);
+
+            if (tangentLengthSquared > 1e-16f)
+            {
+                worldTangent *= glm::inversesqrt(tangentLengthSquared);
+                worldTangent -= worldNormal * glm::dot(worldNormal, worldTangent);
+            }
+
+            tangentLengthSquared = glm::dot(worldTangent, worldTangent);
+
+            if (tangentLengthSquared > 1e-16f)
+                worldTangent *= glm::inversesqrt(tangentLengthSquared);
+            else
+                worldTangent = makeFallbackTangent(worldNormal);
+            
+            return worldTangent;
+        }
+
         std::vector<Triangle> BuildTriangleList(
             const entt::registry& sceneRegistry,
             const Assets::Storage& storage,
@@ -120,7 +150,7 @@ namespace Core::Graphics::Cuda
 						const Cpu::Mesh& meshAsset = storage.Get(mesh.handle).value().get().cpu;
 						const std::vector<Core::Graphics::Vertex>& vertices = meshAsset.GetVertices();
 						const std::vector<uint32_t>& indices = meshAsset.GetIndices();
-						const glm::mat4& model = transform.GetMatrix();
+						const glm::mat3 model = glm::mat3(transform.GetMatrix());
 						const glm::mat3 normal = glm::mat3(glm::transpose(glm::inverse(model)));
                         const uint32_t materialIndex = materialIndices.at(material.handle.GetId());
                         const GlobalShadingModel shadingModel = ToGlobalShadingUnchecked(storage.Get(material.handle).value().get().surface);
@@ -138,9 +168,7 @@ namespace Core::Graphics::Cuda
                                 const glm::vec3 worldPosition = glm::vec3(model * glm::vec4(vertex.position, 1.0f));
                                 const glm::vec3 worldNormal = glm::normalize(normal * vertex.normal);
 
-                                glm::vec3 worldTangent = glm::mat3(model) * glm::vec3(vertex.tangent);
-                                worldTangent = glm::normalize(worldTangent);
-                                worldTangent = glm::normalize(worldTangent - worldNormal * glm::dot(worldNormal, worldTangent));
+                                const glm::vec3 worldTangent = ComputeWorldTangent(model, worldNormal, vertex.tangent);
 
                                 triangle.vertices[j].position = Utils::Glm::ToFloat3(worldPosition);
                                 triangle.vertices[j].normal = Utils::Glm::ToFloat3(worldNormal);
@@ -227,6 +255,7 @@ namespace Core::Graphics::Cuda
 		CORE_TRY(bvh, BuildBvh(std::move(triangleList)));
 		m_Bvh = std::move(bvh);
         CORE_TRY_DISCARD(Runtime::SynchronizeDevice());
+        spdlog::info("Scene buffers initialized - Triangles: {}, BVH Nodes: {} (depth: {}), Materials: {}", m_Bvh.GetTriangleCount(), m_Bvh.GetNodeCount(), m_Bvh.GetDepth(), materialTable.materials.size());
         return {};
     }
 

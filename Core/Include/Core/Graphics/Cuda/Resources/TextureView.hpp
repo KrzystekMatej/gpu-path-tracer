@@ -20,6 +20,8 @@ namespace Core::Graphics::Cuda
 			return tex2D<T>(m_Texture, x, y);
 		}
 
+		
+
 	private:
 		uint64_t m_Texture;
 	};

@@ -26,6 +26,9 @@ namespace Core::Graphics::Cuda
             float* tMaxs,
             float* iors,
             uint32_t* depths,
+            float* throughputXs,
+            float* throughputYs,
+            float* throughputZs,
             uint32_t* triangles,
             uint32_t* materials,
             float* us,
@@ -43,6 +46,9 @@ namespace Core::Graphics::Cuda
               m_TMaxs(tMaxs),
               m_Iors(iors),
               m_Depths(depths),
+              m_ThrouputXs(throughputXs),
+              m_ThrouputYs(throughputYs),
+              m_ThrouputZs(throughputZs),
               m_Triangles(triangles),
               m_Materials(materials),
               m_Us(us),
@@ -94,7 +100,13 @@ namespace Core::Graphics::Cuda
             ray.tMax = m_TMaxs[index];
             ray.ior = m_Iors[index];
             ray.depth = m_Depths[index];
+            ray.throughput = make_float3(m_ThrouputXs[index], m_ThrouputYs[index], m_ThrouputZs[index]);
             return ray;
+        }
+
+        __device__ __forceinline__ float3 GetThroughput(uint32_t index) const
+        {
+            return make_float3(m_ThrouputXs[index], m_ThrouputYs[index], m_ThrouputZs[index]);
         }
 
         __device__ __forceinline__ HitData GetHitData(uint32_t index) const
@@ -139,6 +151,9 @@ namespace Core::Graphics::Cuda
             m_TMaxs[index] = ray.tMax;
             m_Iors[index] = ray.ior;
             m_Depths[index] = ray.depth;
+            m_ThrouputXs[index] = ray.throughput.x;
+            m_ThrouputYs[index] = ray.throughput.y;
+            m_ThrouputZs[index] = ray.throughput.z;
         }
 
         __device__ __forceinline__ void Set(uint32_t index, const HitData& hitData) const
@@ -173,6 +188,9 @@ namespace Core::Graphics::Cuda
         float* __restrict__ m_TMaxs = nullptr;
         float* __restrict__ m_Iors = nullptr;
         uint32_t* __restrict__ m_Depths = nullptr;
+        float* __restrict__ m_ThrouputXs = nullptr;
+        float* __restrict__ m_ThrouputYs = nullptr;
+        float* __restrict__ m_ThrouputZs = nullptr;
 
         uint32_t* __restrict__ m_Triangles = nullptr;
         uint32_t* __restrict__ m_Materials = nullptr;

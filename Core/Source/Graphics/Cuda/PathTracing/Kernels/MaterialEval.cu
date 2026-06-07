@@ -15,15 +15,25 @@ namespace Core::Graphics::Cuda::Kernels
 		float3 e2 = v2 - v0;
 
 		return normalize(cross(e1, e2));
+		
+		// safe version (in case of degenerate triangles)
+		// float3 vertexNormal =
+        // triangle.vertices[0].normal +
+        // triangle.vertices[1].normal +
+        // triangle.vertices[2].normal;
+
+		// return Math::SafeNormalize(
+		// 	cross(e1, e2),
+		// 	Math::SafeNormalize(vertexNormal, make_float3(0.0f, 0.0f, 1.0f))
+		// );
 	}
 
-	inline __forceinline__ __host__ __device__ Math::Frame GetShadingFrame(const Triangle& triangle, float4 normalMapSample, float b0, float b1, float b2)
+	inline __forceinline__ __host__ __device__ Math::Frame GetShadingFrame(const Triangle& triangle, float3 normalMapSample, float b0, float b1, float b2)
 	{
-		float3 baseNormal = normalize(
+		float3 baseNormal = 
 			b0 * triangle.vertices[0].normal +
 			b1 * triangle.vertices[1].normal +
-			b2 * triangle.vertices[2].normal
-		);
+			b2 * triangle.vertices[2].normal;
 
 		float4 interpolatedTangent =
 			b0 * triangle.vertices[0].tangent +
@@ -39,21 +49,82 @@ namespace Core::Graphics::Cuda::Kernels
 		float tangentSign = interpolatedTangent.w < 0.0f ? -1.0f : 1.0f;
 		Math::Frame baseFrame = Math::BuildFrame(baseNormal, baseTangent, tangentSign);
 
-		float3 tangentSpaceNormal = normalize(make_float3(
-			normalMapSample.x * 2.0f - 1.0f,
-			normalMapSample.y * 2.0f - 1.0f,
-			normalMapSample.z * 2.0f - 1.0f
-		));
+		float3 tangentSpaceNormal = normalize(normalMapSample * 2.0f - 1.0f);
 
-		float3 shadingNormal = normalize(
+		float3 shadingNormal = 
 			tangentSpaceNormal.x * baseFrame.tangent +
 			tangentSpaceNormal.y * baseFrame.bitangent +
-			tangentSpaceNormal.z * baseFrame.normal
-		);
+			tangentSpaceNormal.z * baseFrame.normal;
 
 		return Math::BuildFrame(shadingNormal, baseTangent, tangentSign);
 	}
 
+	__device__ __forceinline__ float Luminance(float3 color)
+	{
+		return 0.2126f * color.x + 0.7152f * color.y + 0.0722f * color.z;
+	}
+	
+	__device__ __forceinline__ bool ApplyRussianRoulette(Ray& ray, float u)
+	{
+		if (ray.depth < PathTracerDefaults::RussianRouletteStartDepth)
+			return false;
+
+		float alpha = Math::MaxComponent(ray.throughput);
+		alpha = clamp(alpha, 0.0f, 1.0f);
+		bool terminated = alpha < u;
+
+		if (!terminated)
+			ray.throughput = ray.throughput / alpha;
+		
+		return terminated;
+	}
+
+	__global__ void EvaluateNormalKernel(
+		PathPoolView pathPool, 
+		MaterialEvalQueueView materialEvalQueue, 
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		RegenQueueView regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer)
+	{
+		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		if (queueIndex >= materialEvalQueue.GetSize()) return;
+		
+		const Path path = materialEvalQueue.GetPath(queueIndex);
+		const float3 throughput = materialEvalQueue.GetThroughput(queueIndex);
+		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
+		const Material material = materials.At(hitData.material);
+		
+		Triangle triangle = triangles.At(hitData.triangle);
+		float b0 = 1.0f - hitData.u - hitData.v;
+		float b1 = hitData.u;
+		float b2 = hitData.v;
+		float2 uv =
+			b0 * triangle.vertices[0].uv +
+			b1 * triangle.vertices[1].uv +
+			b2 * triangle.vertices[2].uv;
+		
+		float3 geometricNormal = GetGeometricNormal(triangle);
+		float3 visualNormal = 
+			b0 * triangle.vertices[0].normal +
+			b1 * triangle.vertices[1].normal +
+			b2 * triangle.vertices[2].normal;
+
+		// shading normal can be used instead of visual normal to see the effect of normal mapping in the debug view
+		// float3 normalSample = make_float3(material.normal.Sample(uv.x, uv.y));
+		// Math::Frame shadingFrame = GetShadingFrame(triangle, normalSample, b0, b1, b2);
+		visualNormal = Math::SafeNormalize(visualNormal, geometricNormal);
+
+		const uint32_t pixelIndex = pathPool.pixels.At(path.index).index;
+		
+		const float3 radiance = throughput * (visualNormal * 0.5f + 0.5f);
+
+		atomicAdd(&accumulationBuffer.At(pixelIndex).x, radiance.x);
+		atomicAdd(&accumulationBuffer.At(pixelIndex).y, radiance.y);
+		atomicAdd(&accumulationBuffer.At(pixelIndex).z, radiance.z);
+		regenQueue.Push(path);
+	}
+	
 	__device__ __forceinline__ float3 SampleCosineWeightedHemisphere(float2 u)
 	{
 		float phi = 2.0f * CUDART_PI_F * u.x;
@@ -63,6 +134,126 @@ namespace Core::Graphics::Cuda::Kernels
 		return make_float3(sinTheta * cosf(phi), sinTheta * sinf(phi), cosTheta);
 	}
 
+
+	__global__ void EvaluateDiffuseKernel(
+		PathPoolView pathPool, 
+		MaterialEvalQueueView materialEvalQueue, 
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		RegenQueueView regenQueue,
+		RayQueueView nextRayQueue)
+	{
+		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		if (queueIndex >= materialEvalQueue.GetSize()) return;
+		
+		Path path = materialEvalQueue.GetPath(queueIndex);
+		Ray ray = materialEvalQueue.GetRay(queueIndex);
+		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
+		const Material material = materials.At(hitData.material);
+		Triangle triangle = triangles.At(hitData.triangle);
+        
+        Random random = pathPool.randoms.At(path.index);
+        float3 samples = random.NextFloat3();
+        float2 directionSample = make_float2(samples.x, samples.y);
+		float rrSample = samples.z; 
+		pathPool.randoms.At(path.index) = random;
+
+		float b0 = 1.0f - hitData.u - hitData.v;
+		float b1 = hitData.u;
+		float b2 = hitData.v;
+		float2 uv =
+			b0 * triangle.vertices[0].uv +
+			b1 * triangle.vertices[1].uv +
+			b2 * triangle.vertices[2].uv;
+
+		float3 normalSample = make_float3(material.normal.Sample(uv.x, uv.y));
+		Math::Frame shadingFrame = GetShadingFrame(triangle, normalSample, b0, b1, b2);
+		float3 albedo = make_float3(material.color.Sample(uv.x, uv.y));
+		
+		float3 omegaI = shadingFrame.FromLocal(SampleCosineWeightedHemisphere(directionSample));
+																										  
+		float3 geometricNormal = GetGeometricNormal(triangle);
+		if (dot(ray.direction, geometricNormal) > 0.0f)
+			geometricNormal = -geometricNormal;
+		
+		ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
+		ray.direction = omegaI;
+		ray.tMin = PathTracerDefaults::MinT;
+		ray.tMax = PathTracerDefaults::MaxT;
+		ray.throughput *= albedo;
+		ray.depth++;
+		bool pathTerminated = ray.depth >= pathDepthLimit || ApplyRussianRoulette(ray, rrSample);
+
+		if (pathTerminated)
+		{
+			regenQueue.Push(path);
+		}
+		else
+		{
+			nextRayQueue.Push(path, ray);
+		}
+	}
+	
+	__global__ void EvaluateMirrorKernel(
+		PathPoolView pathPool, 
+		MaterialEvalQueueView materialEvalQueue, 
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		RegenQueueView regenQueue,
+		RayQueueView nextRayQueue)
+	{
+		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		if (queueIndex >= materialEvalQueue.GetSize()) return;
+		
+		Path path = materialEvalQueue.GetPath(queueIndex);
+		Ray ray = materialEvalQueue.GetRay(queueIndex);
+		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
+		const Material material = materials.At(hitData.material);
+		Triangle triangle = triangles.At(hitData.triangle);
+
+		Random random = pathPool.randoms.At(path.index);
+		float rrSample = random.NextFloat();
+		pathPool.randoms.At(path.index) = random;
+
+		float b0 = 1.0f - hitData.u - hitData.v;
+		float b1 = hitData.u;
+		float b2 = hitData.v;
+		float2 uv =
+			b0 * triangle.vertices[0].uv +
+			b1 * triangle.vertices[1].uv +
+			b2 * triangle.vertices[2].uv;
+
+		float3 normalSample = make_float3(material.normal.Sample(uv.x, uv.y));
+		Math::Frame shadingFrame = GetShadingFrame(triangle, normalSample, b0, b1, b2);
+
+		float3 omegaI = reflect(ray.direction, shadingFrame.normal);
+		float3 reflectance = make_float3(material.specular.Sample(uv.x, uv.y));
+
+		float3 geometricNormal = GetGeometricNormal(triangle);
+		if (dot(ray.direction, geometricNormal) > 0.0f)
+			geometricNormal = -geometricNormal;
+
+		ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
+		ray.direction = omegaI;
+		ray.tMin = PathTracerDefaults::MinT;
+		ray.tMax = PathTracerDefaults::MaxT;
+		ray.throughput *= reflectance;
+		ray.depth++;
+
+		bool pathTerminated = ray.depth >= pathDepthLimit || ApplyRussianRoulette(ray, rrSample);
+
+		if (pathTerminated)
+		{
+			regenQueue.Push(path);
+		}
+		else
+		{
+			nextRayQueue.Push(path, ray);
+		}
+	}
+	
 	__device__ __forceinline__ float3 SamplePhongLobe(float3 reflected, float exponent, float2 u)
 	{
 		float phi = 2.0f * CUDART_PI_F * u.x;
@@ -74,6 +265,123 @@ namespace Core::Graphics::Cuda::Kernels
 		return Math::BuildFrame(reflected).FromLocal(sampled);
 	}
 
+	__global__ void EvaluatePhongKernel(
+		PathPoolView pathPool, 
+		MaterialEvalQueueView materialEvalQueue, 
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		RegenQueueView regenQueue,
+		RayQueueView nextRayQueue)
+	{
+		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		if (queueIndex >= materialEvalQueue.GetSize()) return;
+		
+		Path path = materialEvalQueue.GetPath(queueIndex);
+		Ray ray = materialEvalQueue.GetRay(queueIndex);
+		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
+		const Material material = materials.At(hitData.material);
+		Triangle triangle = triangles.At(hitData.triangle);
+        
+		Random random = pathPool.randoms.At(path.index);
+        float4 samples = random.NextFloat4();
+		float2 directionSample = make_float2(samples.x, samples.y);
+		float lobeSample = samples.z;
+		float rrSample = samples.w;
+		pathPool.randoms.At(path.index) = random;
+
+		float b0 = 1.0f - hitData.u - hitData.v;
+		float b1 = hitData.u;
+		float b2 = hitData.v;
+
+		float2 uv =
+			b0 * triangle.vertices[0].uv +
+			b1 * triangle.vertices[1].uv +
+			b2 * triangle.vertices[2].uv;
+
+		float3 geometricNormal = GetGeometricNormal(triangle);
+		if (dot(ray.direction, geometricNormal) > 0.0f)
+			geometricNormal = -geometricNormal;
+
+		float3 normalSample = make_float3(material.normal.Sample(uv.x, uv.y));
+		Math::Frame shadingFrame = GetShadingFrame(triangle, normalSample, b0, b1, b2);
+
+		float3 albedo = make_float3(material.color.Sample(uv.x, uv.y));
+		float3 specular = make_float3(material.specular.Sample(uv.x, uv.y));
+
+		float shininess = material.shininess.Sample(uv.x, uv.y) * (MaterialDefaults::MaxShininess - MaterialDefaults::MinShininess) + MaterialDefaults::MinShininess;
+		float diffuseWeight = Math::MaxComponent(albedo);
+		float specularWeight = Math::MaxComponent(specular);
+		float weightSum = diffuseWeight + specularWeight;
+
+		if (weightSum <= 0.0f)
+		{
+			regenQueue.Push(path);
+			return;
+		}
+
+		float diffuseSelectionProbability = diffuseWeight / weightSum;
+		float specularSelectionProbability = 1.0f - diffuseSelectionProbability;
+
+		float3 reflectionDirection = normalize(reflect(ray.direction, shadingFrame.normal));
+
+		float3 omegaI;
+
+		if (lobeSample < diffuseSelectionProbability)
+		{
+			omegaI = shadingFrame.FromLocal(SampleCosineWeightedHemisphere(directionSample));
+		}
+		else
+		{
+			omegaI = SamplePhongLobe(reflectionDirection, shininess, directionSample);
+		}
+
+		float cosThetaI = fmaxf(dot(shadingFrame.normal, omegaI), 0.0f);
+		float geometricCosThetaI = fmaxf(dot(geometricNormal, omegaI), 0.0f);
+
+		if (cosThetaI <= 0.0f || geometricCosThetaI <= 0.0f)
+		{
+			regenQueue.Push(path);
+			return;
+		}
+
+		float cosThetaR = fmaxf(dot(reflectionDirection, omegaI), 0.0f);
+		float phongLobeOverTwoPi = Math::InvTwoPi * powf(cosThetaR, shininess); 
+		// this simplication can't be used in case of energy-normalized modified phong 
+		// (in such case the normalization term is sampled from precomputed textures since it's not trivial to compute on the fly)
+
+		float diffusePdf = cosThetaI * Math::InvPi;
+		float specularPdf = (shininess + 1.0f) * phongLobeOverTwoPi;
+
+		float pdf = diffuseSelectionProbability * diffusePdf + specularSelectionProbability * specularPdf;
+
+		if (pdf <= 0.0f)
+		{
+			regenQueue.Push(path);
+			return;
+		}
+
+		float3 diffuseBrdf = albedo * Math::InvPi;
+		float3 specularBrdf = specular * (shininess + 2.0f) * phongLobeOverTwoPi;
+
+		ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
+		ray.direction = omegaI;
+		ray.tMin = PathTracerDefaults::MinT;
+		ray.tMax = PathTracerDefaults::MaxT;
+		ray.throughput *= (diffuseBrdf + specularBrdf) * (cosThetaI / pdf);
+		ray.depth++;
+
+		bool pathTerminated = ray.depth >= pathDepthLimit || ApplyRussianRoulette(ray, rrSample);
+		if (pathTerminated)
+		{
+			regenQueue.Push(path);
+		}
+		else
+		{
+			nextRayQueue.Push(path, ray);
+		}
+	}
+	
 	__device__ __forceinline__ float2 SampleUniformDiskPolar(float2 u)
 	{
 		float r = sqrtf(u.x);
@@ -139,306 +447,6 @@ namespace Core::Graphics::Cuda::Kernels
 		return f0 + (1.0f - f0) * powf(1.0f - cosThetaH, 5.0f);
 	}
 
-	__device__ __forceinline__ float Luminance(float3 color)
-	{
-		return 0.2126f * color.x + 0.7152f * color.y + 0.0722f * color.z;
-	}
-	
-	__device__ __forceinline__ bool ApplyRussianRoulette(uint32_t depth, Contribution& contribution, float u)
-	{
-		if (depth < PathTracerDefaults::RussianRouletteStartDepth)
-			return false;
-
-		float alpha = Math::MaxComponent(make_float3(contribution.throughput));
-		alpha = clamp(alpha, 0.0f, 1.0f);
-		bool terminated = alpha < u;
-
-		if (!terminated)
-			contribution.throughput = contribution.throughput / alpha;
-		
-		return terminated;
-	}
-
-	__global__ void EvaluateNormalKernel(
-		PathPoolView pathPool, 
-		MaterialEvalQueueView materialEvalQueue, 
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
-		Runtime::DeviceBuffer1DView<Material> materials,
-		RegenQueueView regenQueue,
-		Runtime::DeviceBuffer1DView<float4> accumulationBuffer)
-	{
-		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= materialEvalQueue.GetSize()) return;
-		
-		const Path path = materialEvalQueue.GetPath(queueIndex);
-		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
-		const Material material = materials.At(hitData.material);
-		
-		Triangle triangle = triangles.At(hitData.triangle);
-		float b0 = 1.0f - hitData.u - hitData.v;
-		float b1 = hitData.u;
-		float b2 = hitData.v;
-		float2 uv =
-			b0 * triangle.vertices[0].uv +
-			b1 * triangle.vertices[1].uv +
-			b2 * triangle.vertices[2].uv;
-		
-		Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
-
-		const uint32_t pixelIndex = pathPool.pixels.At(path.index).index;
-		
-		float3 normal = shadingFrame.normal;
-		Contribution contribution = pathPool.contributions.At(path.index);
-		const float4 radiance = contribution.throughput * make_float4(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1.0f);
-
-		atomicAdd(&accumulationBuffer.At(pixelIndex).x, radiance.x);
-		atomicAdd(&accumulationBuffer.At(pixelIndex).y, radiance.y);
-		atomicAdd(&accumulationBuffer.At(pixelIndex).z, radiance.z);
-		regenQueue.Push(path);
-	}
-
-	__global__ void EvaluateDiffuseKernel(
-		PathPoolView pathPool, 
-		MaterialEvalQueueView materialEvalQueue, 
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
-		Runtime::DeviceBuffer1DView<Material> materials,
-		uint32_t pathDepthLimit,
-		RegenQueueView regenQueue,
-		RayQueueView nextRayQueue)
-	{
-		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= materialEvalQueue.GetSize()) return;
-		
-		Path path = materialEvalQueue.GetPath(queueIndex);
-		Ray ray = materialEvalQueue.GetRay(queueIndex);
-		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
-		const Material material = materials.At(hitData.material);
-		Triangle triangle = triangles.At(hitData.triangle);
-        
-        Random random = pathPool.randoms.At(path.index);
-        float3 samples = random.NextFloat3();
-        float2 directionSample = make_float2(samples.x, samples.y);
-		float rrSample = samples.z; 
-		pathPool.randoms.At(path.index) = random;
-
-		float b0 = 1.0f - hitData.u - hitData.v;
-		float b1 = hitData.u;
-		float b2 = hitData.v;
-		float2 uv =
-			b0 * triangle.vertices[0].uv +
-			b1 * triangle.vertices[1].uv +
-			b2 * triangle.vertices[2].uv;
-
-		Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
-		float4 albedo = material.color.Sample(uv.x, uv.y);
-		
-		float3 omegaI = shadingFrame.FromLocal(SampleCosineWeightedHemisphere(directionSample));
-																										  
-		float3 geometricNormal = GetGeometricNormal(triangle);
-		if (dot(ray.direction, geometricNormal) > 0.0f)
-			geometricNormal = -geometricNormal;
-		
-		ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
-		ray.direction = omegaI;
-		ray.tMin = PathTracerDefaults::MinT;
-		ray.tMax = PathTracerDefaults::MaxT;
-		Contribution contribution = pathPool.contributions.At(path.index);
-		contribution.throughput *= albedo;
-		
-		ray.depth++;
-		bool pathTerminated = ray.depth >= pathDepthLimit || ApplyRussianRoulette(ray.depth, contribution, rrSample);
-		pathPool.contributions.At(path.index) = contribution;
-
-		if (pathTerminated)
-		{
-			regenQueue.Push(path);
-		}
-		else
-		{
-			nextRayQueue.Push(path, ray);
-		}
-	}
-	
-	__global__ void EvaluateMirrorKernel(
-		PathPoolView pathPool, 
-		MaterialEvalQueueView materialEvalQueue, 
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
-		Runtime::DeviceBuffer1DView<Material> materials,
-		uint32_t pathDepthLimit,
-		RegenQueueView regenQueue,
-		RayQueueView nextRayQueue)
-	{
-		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= materialEvalQueue.GetSize()) return;
-		
-		Path path = materialEvalQueue.GetPath(queueIndex);
-		Ray ray = materialEvalQueue.GetRay(queueIndex);
-		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
-		const Material material = materials.At(hitData.material);
-		Triangle triangle = triangles.At(hitData.triangle);
-
-		Random random = pathPool.randoms.At(path.index);
-		float rrSample = random.NextFloat();
-		pathPool.randoms.At(path.index) = random;
-
-		float b0 = 1.0f - hitData.u - hitData.v;
-		float b1 = hitData.u;
-		float b2 = hitData.v;
-		float2 uv =
-			b0 * triangle.vertices[0].uv +
-			b1 * triangle.vertices[1].uv +
-			b2 * triangle.vertices[2].uv;
-
-		Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
-		
-		float3 omegaI = reflect(ray.direction, shadingFrame.normal);
-		float4 reflectance = material.specular.Sample(uv.x, uv.y);
-
-		float3 geometricNormal = GetGeometricNormal(triangle);
-		if (dot(ray.direction, geometricNormal) > 0.0f)
-			geometricNormal = -geometricNormal;
-
-		ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
-		ray.direction = omegaI;
-		ray.tMin = PathTracerDefaults::MinT;
-		ray.tMax = PathTracerDefaults::MaxT;
-		Contribution contribution = pathPool.contributions.At(path.index);
-		contribution.throughput *= reflectance;
-		
-		ray.depth++;
-		bool pathTerminated = ray.depth >= pathDepthLimit || ApplyRussianRoulette(ray.depth, contribution, rrSample);
-		pathPool.contributions.At(path.index) = contribution;
-
-		if (pathTerminated)
-		{
-			regenQueue.Push(path);
-		}
-		else
-		{
-			nextRayQueue.Push(path, ray);
-		}
-	}
-
-	__global__ void EvaluatePhongKernel(
-		PathPoolView pathPool, 
-		MaterialEvalQueueView materialEvalQueue, 
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
-		Runtime::DeviceBuffer1DView<Material> materials,
-		uint32_t pathDepthLimit,
-		RegenQueueView regenQueue,
-		RayQueueView nextRayQueue)
-	{
-		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= materialEvalQueue.GetSize()) return;
-		
-		Path path = materialEvalQueue.GetPath(queueIndex);
-		Ray ray = materialEvalQueue.GetRay(queueIndex);
-		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
-		const Material material = materials.At(hitData.material);
-		Triangle triangle = triangles.At(hitData.triangle);
-        
-		Random random = pathPool.randoms.At(path.index);
-        float4 samples = random.NextFloat4();
-		float2 directionSample = make_float2(samples.x, samples.y);
-		float lobeSample = samples.z;
-		float rrSample = samples.w;
-		pathPool.randoms.At(path.index) = random;
-
-		float b0 = 1.0f - hitData.u - hitData.v;
-		float b1 = hitData.u;
-		float b2 = hitData.v;
-
-		float2 uv =
-			b0 * triangle.vertices[0].uv +
-			b1 * triangle.vertices[1].uv +
-			b2 * triangle.vertices[2].uv;
-
-		float3 geometricNormal = GetGeometricNormal(triangle);
-		if (dot(ray.direction, geometricNormal) > 0.0f)
-			geometricNormal = -geometricNormal;
-
-		Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
-
-		float4 albedo = material.color.Sample(uv.x, uv.y);
-		float4 specular = material.specular.Sample(uv.x, uv.y);
-
-		float shininess = material.shininess.Sample(uv.x, uv.y) * (MaterialDefaults::MaxShininess - MaterialDefaults::MinShininess) + MaterialDefaults::MinShininess;
-		float diffuseWeight = Math::MaxComponent(make_float3(albedo));
-		float specularWeight = Math::MaxComponent(make_float3(specular));
-		float weightSum = diffuseWeight + specularWeight;
-
-		if (weightSum <= 0.0f)
-		{
-			regenQueue.Push(path);
-			return;
-		}
-
-		float diffuseSelectionProbability = diffuseWeight / weightSum;
-		float specularSelectionProbability = 1.0f - diffuseSelectionProbability;
-
-		float3 reflectionDirection = normalize(reflect(ray.direction, shadingFrame.normal));
-
-		float3 omegaI;
-
-		if (lobeSample < diffuseSelectionProbability)
-		{
-			omegaI = shadingFrame.FromLocal(SampleCosineWeightedHemisphere(directionSample));
-		}
-		else
-		{
-			omegaI = SamplePhongLobe(reflectionDirection, shininess, directionSample);
-		}
-
-		float cosThetaI = fmaxf(dot(shadingFrame.normal, omegaI), 0.0f);
-		float geometricCosThetaI = fmaxf(dot(geometricNormal, omegaI), 0.0f);
-
-		if (cosThetaI <= 0.0f || geometricCosThetaI <= 0.0f)
-		{
-			regenQueue.Push(path);
-			return;
-		}
-
-		float cosThetaR = fmaxf(dot(reflectionDirection, omegaI), 0.0f);
-		float phongLobeOverTwoPi = Math::InvTwoPi * powf(cosThetaR, shininess); 
-		// this simplication can't be used in case of energy-normalized modified phong 
-		// (in such case the normalization term is sampled from precomputed textures since it's not trivial to compute on the fly)
-
-		float diffusePdf = cosThetaI * Math::InvPi;
-		float specularPdf = (shininess + 1.0f) * phongLobeOverTwoPi;
-
-		float pdf = diffuseSelectionProbability * diffusePdf + specularSelectionProbability * specularPdf;
-
-		if (pdf <= 0.0f)
-		{
-			regenQueue.Push(path);
-			return;
-		}
-
-		float4 diffuseBrdf = albedo * Math::InvPi;
-		float4 specularBrdf = specular * (shininess + 2.0f) * phongLobeOverTwoPi;
-
-		ray.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
-		ray.direction = omegaI;
-		ray.tMin = PathTracerDefaults::MinT;
-		ray.tMax = PathTracerDefaults::MaxT;
-		Contribution contribution = pathPool.contributions.At(path.index);
-		contribution.throughput *= (diffuseBrdf + specularBrdf) * (cosThetaI / pdf);
-		
-		ray.depth++;
-		bool pathTerminated = ray.depth >= pathDepthLimit || ApplyRussianRoulette(ray.depth, contribution, rrSample);
-		pathPool.contributions.At(path.index) = contribution;
-
-		if (pathTerminated)
-		{
-			regenQueue.Push(path);
-		}
-		else
-		{
-			nextRayQueue.Push(path, ray);
-		}
-	}
-	
-
 	__global__ void EvaluateGgxKernel(
 		PathPoolView pathPool, 
 		MaterialEvalQueueView materialEvalQueue, 
@@ -477,9 +485,10 @@ namespace Core::Graphics::Cuda::Kernels
 		if (dot(ray.direction, geometricNormal) > 0.0f)
 			geometricNormal = -geometricNormal;
 		
-		Math::Frame shadingFrame = GetShadingFrame(triangle, material.normal.Sample(uv.x, uv.y), b0, b1, b2);
+		float3 normalSample = make_float3(material.normal.Sample(uv.x, uv.y));
+		Math::Frame shadingFrame = GetShadingFrame(triangle, normalSample, b0, b1, b2);
 		float3 baseColor = make_float3(material.color.Sample(uv.x, uv.y));
-		float4 rma = material.rma.Sample(uv.x, uv.y);
+		float3 rma = make_float3(material.rma.Sample(uv.x, uv.y));
 
 		float alpha = rma.x * rma.x;
 		alpha = fmaxf(alpha, 0.001f); // in the future we should treat alpha=0 as a special case - effectively smooth surface
@@ -572,13 +581,10 @@ namespace Core::Graphics::Cuda::Kernels
 		ray.direction = worldWi;
 		ray.tMin = PathTracerDefaults::MinT;
 		ray.tMax = PathTracerDefaults::MaxT;
-		Contribution contribution = pathPool.contributions.At(path.index);
-		contribution.throughput *= make_float4((diffuseBsdf + ggxBsdf) * (cosThetaI / pdf), 1.0f);
-		
+		ray.throughput *= (diffuseBsdf + ggxBsdf) * (cosThetaI / pdf);
 		ray.depth++;
-		bool pathTerminated = ray.depth >= pathDepthLimit || ApplyRussianRoulette(ray.depth, contribution, rrSample);
-		pathPool.contributions.At(path.index) = contribution;
 
+		bool pathTerminated = ray.depth >= pathDepthLimit || ApplyRussianRoulette(ray, rrSample);
 		if (pathTerminated)
 		{
 			regenQueue.Push(path);
@@ -602,6 +608,7 @@ namespace Core::Graphics::Cuda::Kernels
 		if (queueIndex >= materialEvalQueue.GetSize()) return;
 		
 		Path path = materialEvalQueue.GetPath(queueIndex);
+		const float3 throughput = materialEvalQueue.GetThroughput(queueIndex);
 		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
 		const Material material = materials.At(hitData.material);
 		Triangle triangle = triangles.At(hitData.triangle);
@@ -614,10 +621,9 @@ namespace Core::Graphics::Cuda::Kernels
 			b1 * triangle.vertices[1].uv +
 			b2 * triangle.vertices[2].uv;
 		
-		const float4 emission = material.emission.Sample(uv.x, uv.y);
+		const float3 emission = make_float3(material.emission.Sample(uv.x, uv.y));
 		const uint32_t pixelIndex = pathPool.pixels.At(path.index).index;
-		Contribution contribution = pathPool.contributions.At(path.index);
-		const float4 radiance = contribution.throughput * emission;
+		const float3 radiance = throughput * emission;
 
 		atomicAdd(&accumulationBuffer.At(pixelIndex).x, radiance.x);
 		atomicAdd(&accumulationBuffer.At(pixelIndex).y, radiance.y);

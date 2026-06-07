@@ -124,11 +124,16 @@ namespace Core::Graphics::Cuda::Math
 	
 	__host__ __device__ __forceinline__ Frame BuildFrame(float3 normal, float3 tangent, float tangentSign = 1.0f)
 	{
-		tangent = normalize(tangent - normal * dot(normal, tangent));
-		// base tangent being parallel to normal can cause bitangent to be zero - for safer version this case should be handled (should not happen in used assets though)
-		float3 bitangent = normalize(cross(normal, tangent)) * tangentSign;
+		// maybe normal and tangent should be expected to be normalized and so the caller should be responsible for normalization (safe normalization if needed)
+		// base tangent being parallel to normal can cause bitangent to be zero -> need to ensure normal is not parallel to tangent
+		normal = SafeNormalize(normal, make_float3(0.0f, 0.0f, 1.0f));
 
-		return Frame{ tangent, bitangent, normal };
+		Math::Frame fallback = BuildFrame(normal);
+		tangent = tangent - normal * dot(normal, tangent);
+		tangent = SafeNormalize(tangent, fallback.tangent);
+
+		float3 bitangent = cross(normal, tangent) * tangentSign;
+		return Math::Frame{ tangent, bitangent, normal };
 	}
 
 	struct Complex 

@@ -1,5 +1,6 @@
 #include <Core/Graphics/Cuda/PathTracing/Kernels/LaunchUtils.cuh>
 #include <Core/Graphics/Cuda/PathTracing/Kernels.hpp>
+#include <assert.h>
 
 namespace Core::Graphics::Cuda::Kernels
 {
@@ -10,6 +11,13 @@ namespace Core::Graphics::Cuda::Kernels
 
 		framebuffer.At(pixelIndex) = color;
 	}
+
+	__device__ __forceinline__ bool IsValidAccumulatedRadiance(const float4& radiance)
+    {
+        return isfinite(radiance.x) != 0 && radiance.x >= 0.0f &&
+               isfinite(radiance.y) != 0 && radiance.y >= 0.0f &&
+               isfinite(radiance.z) != 0 && radiance.z >= 0.0f;
+    }
     
 	__device__ __forceinline__ float4 TonemapReinhard(const float4& color)
 	{
@@ -30,8 +38,13 @@ namespace Core::Graphics::Cuda::Kernels
 		uint32_t pixelIndex = blockIdx.x * blockDim.x + threadIdx.x;
 		if (pixelIndex >= framebuffer.GetSize()) return;
 
-		const float4 hdrColor = accumulationBuffer.At(pixelIndex) * invSpp;
+		const float4 accumulatedRadiance = accumulationBuffer.At(pixelIndex);
+
+		assert(IsValidAccumulatedRadiance(accumulatedRadiance));
+
+		const float4 hdrColor = accumulatedRadiance * invSpp;
 		const float4 ldrColor = LinearToSrgb(TonemapReinhard(hdrColor), 2.2f);
+
 		framebuffer.At(pixelIndex) = make_uchar4(
 			static_cast<unsigned char>(clamp(ldrColor.x * 255.0f, 0.0f, 255.0f)),
 			static_cast<unsigned char>(clamp(ldrColor.y * 255.0f, 0.0f, 255.0f)),

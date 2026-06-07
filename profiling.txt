@@ -1,6 +1,13 @@
-test-spheres, 1024spp, 30 depth, partial soa, with full sync, tailored kernel grid, only needed kernels scheduled
+test-spheres
+1024spp, 30 depth, partial soa, with full sync, tailored kernel grid, only needed kernels scheduled
 [2026-06-01 16:25:05.639] [info] Rendered frame 0 in 118.63 seconds
 [2026-06-01 16:27:05.272] [info] Rendered frame 1 in 119.63 seconds
+1024spp, 30 depth, partial soa, iter sync, full capacity kernel grid, only needed kernels scheduled
+[2026-06-01 21:54:26.317] [info] Rendered frame 0 in 119.73 seconds
+[2026-06-01 21:56:26.523] [info] Rendered frame 1 in 120.21 seconds
+1024spp, 30 depth, partial soa, with no sync (sync after the entire frame), full capacity kernel grid, upper limit kernels scheduled
+[2026-06-02 02:20:23.292] [info] Rendered frame 0 in 122.42 seconds
+[2026-06-02 02:22:25.130] [info] Rendered frame 1 in 121.84 seconds
 
 cornell-box-extended
 1024 - full sync
@@ -67,16 +74,29 @@ the same depth moved to soa queues
 [2026-06-07 01:41:19.387] [info] Section: Postprocess, Runs: 1, Total Time: 0.243 ms, Average Time: 0.243 ms, Max Time: 0.243 ms, Percentage of Total Time: 0.00%
 [2026-06-07 01:41:19.387] [info] Rendered frame 0 in 71.16 seconds
 
+the same throughput moved to soa queues
+[2026-06-07 02:35:12.001] [info] Profile: Path tracing one frame, Total Time: 68187.227 ms
+[2026-06-07 02:35:12.001] [info] Section: Prepare iteration, Runs: 1262, Total Time: 46.555 ms, Average Time: 0.037 ms, Max Time: 0.113 ms, Percentage of Total Time: 0.07%
+[2026-06-07 02:35:12.001] [info] Section: Initialize paths, Runs: 1, Total Time: 1.309 ms, Average Time: 1.309 ms, Max Time: 1.309 ms, Percentage of Total Time: 0.00%
+[2026-06-07 02:35:12.001] [info] Section: Intersect, Runs: 1261, Total Time: 61323.352 ms, Average Time: 48.631 ms, Max Time: 88.074 ms, Percentage of Total Time: 89.93%
+[2026-06-07 02:35:12.002] [info] Section: Evaluate materials, Runs: 1261, Total Time: 5049.931 ms, Average Time: 4.005 ms, Max Time: 5.118 ms, Percentage of Total Time: 7.41%
+[2026-06-07 02:35:12.002] [info] Section: Sync counters, Runs: 1261, Total Time: 103.014 ms, Average Time: 0.082 ms, Max Time: 0.154 ms, Percentage of Total Time: 0.15%
+[2026-06-07 02:35:12.002] [info] Section: Regenerate paths, Runs: 1261, Total Time: 1621.048 ms, Average Time: 1.286 ms, Max Time: 2.058 ms, Percentage of Total Time: 2.38%
+[2026-06-07 02:35:12.002] [info] Section: Copy frame to host, Runs: 1, Total Time: 0.599 ms, Average Time: 0.599 ms, Max Time: 0.599 ms, Percentage of Total Time: 0.00%
+[2026-06-07 02:35:12.002] [info] Section: Postprocess, Runs: 1, Total Time: 0.134 ms, Average Time: 0.134 ms, Max Time: 0.134 ms, Percentage of Total Time: 0.00%
 
-test-spheres, 1024spp, 30 depth, partial soa, iter sync, full capacity kernel grid, only needed kernels scheduled
-[2026-06-01 21:54:26.317] [info] Rendered frame 0 in 119.73 seconds
-[2026-06-01 21:56:26.523] [info] Rendered frame 1 in 120.21 seconds
+safe frame building, tangent correction (cpu side) - didnt expect it being faster (should be investigated later)
+[2026-06-07 04:34:30.400] [info] Profile: Path tracing one frame, Total Time: 60858.301 ms
+[2026-06-07 04:34:30.400] [info] Section: Prepare iteration, Runs: 1262, Total Time: 46.042 ms, Average Time: 0.036 ms, Max Time: 0.127 ms, Percentage of Total Time: 0.08%
+[2026-06-07 04:34:30.401] [info] Section: Initialize paths, Runs: 1, Total Time: 4.982 ms, Average Time: 4.982 ms, Max Time: 4.982 ms, Percentage of Total Time: 0.01%
+[2026-06-07 04:34:30.401] [info] Section: Intersect, Runs: 1261, Total Time: 53819.504 ms, Average Time: 42.680 ms, Max Time: 75.342 ms, Percentage of Total Time: 88.43%
+[2026-06-07 04:34:30.401] [info] Section: Evaluate materials, Runs: 1261, Total Time: 5187.436 ms, Average Time: 4.114 ms, Max Time: 5.205 ms, Percentage of Total Time: 8.52%
+[2026-06-07 04:34:30.401] [info] Section: Sync counters, Runs: 1261, Total Time: 105.636 ms, Average Time: 0.084 ms, Max Time: 0.303 ms, Percentage of Total Time: 0.17%
+[2026-06-07 04:34:30.401] [info] Section: Regenerate paths, Runs: 1261, Total Time: 1631.987 ms, Average Time: 1.294 ms, Max Time: 2.509 ms, Percentage of Total Time: 2.68%
+[2026-06-07 04:34:30.402] [info] Section: Copy frame to host, Runs: 1, Total Time: 0.585 ms, Average Time: 0.585 ms, Max Time: 0.585 ms, Percentage of Total Time: 0.00%
+[2026-06-07 04:34:30.402] [info] Section: Postprocess, Runs: 1, Total Time: 0.266 ms, Average Time: 0.266 ms, Max Time: 0.266 ms, Percentage of Total Time: 0.00%
 
-1024spp, 30 depth, partial soa, with no sync (sync after the entire frame), full capacity kernel grid, upper limit kernels scheduled
-test-spheres
-[2026-06-02 02:20:23.292] [info] Rendered frame 0 in 122.42 seconds
-[2026-06-02 02:22:25.130] [info] Rendered frame 1 in 121.84 seconds
-cornell-box
+cornell-box-basic
 [2026-06-02 10:59:21.991] [info] Rendered frame 0 in 88.53 seconds
 backpack
 [2026-06-02 11:03:04.170] [info] Rendered frame 0 in 112.89 seconds

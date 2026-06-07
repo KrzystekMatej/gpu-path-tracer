@@ -44,5 +44,6 @@ vec3 postprocess(vec3 color)
 
 void main()
 {
-    fragment_color = vec4(postprocess(get_normal() * 0.5 + 0.5), 1.0);
+    // normal() can be used if we want shading normal (in this case visual normals are maybe better for debug purposes)
+    fragment_color = vec4(postprocess(world_normal * 0.5 + 0.5), 1.0);
 }
