@@ -21,6 +21,7 @@ namespace Core::Graphics::Cuda
             CORE_TRY_DISCARD(m_TMins.Allocate(capacity, sizeof(float), stream));
             CORE_TRY_DISCARD(m_TMaxs.Allocate(capacity, sizeof(float), stream));
             CORE_TRY_DISCARD(m_Iors.Allocate(capacity, sizeof(float), stream));
+            CORE_TRY_DISCARD(m_Depths.Allocate(capacity, sizeof(uint32_t), stream));
 
             CORE_TRY_DISCARD(m_Triangles.Allocate(capacity, sizeof(uint32_t), stream));
             CORE_TRY_DISCARD(m_Materials.Allocate(capacity, sizeof(uint32_t), stream));
@@ -54,7 +55,8 @@ namespace Core::Graphics::Cuda
         auto tMinResult = m_TMins.Free(stream);
         auto tMaxResult = m_TMaxs.Free(stream);
         auto iorResult = m_Iors.Free(stream);
-
+        auto depthResult = m_Depths.Free(stream);
+        
         auto triangleResult = m_Triangles.Free(stream);
         auto materialResult = m_Materials.Free(stream);
         auto uResult = m_Us.Free(stream);
@@ -92,6 +94,9 @@ namespace Core::Graphics::Cuda
 
         if (!iorResult)
             return std::unexpected(iorResult.error());
+
+        if (!depthResult)
+            return std::unexpected(depthResult.error());
 
         if (!triangleResult)
             return std::unexpected(triangleResult.error());

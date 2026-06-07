@@ -55,6 +55,18 @@ the same as before with tuned tpb - again better
 [2026-06-04 12:05:24.539] [info] Section: Copy frame to host, Runs: 1, Total Time: 0.588 ms, Average Time: 0.588 ms, Max Time: 0.588 ms, Percentage of Total Time: 0.00%
 [2026-06-04 12:05:24.539] [info] Section: Postprocess, Runs: 1, Total Time: 0.239 ms, Average Time: 0.239 ms, Max Time: 0.239 ms, Percentage of Total Time: 0.00%
 
+the same depth moved to soa queues
+[2026-06-07 01:41:19.386] [info] Total Time: 71139.234 ms
+[2026-06-07 01:41:19.386] [info] Section: Prepare iteration, Runs: 1262, Total Time: 46.212 ms, Average Time: 0.037 ms, Max Time: 0.131 ms, Percentage of Total Time: 0.06%
+[2026-06-07 01:41:19.386] [info] Section: Initialize paths, Runs: 1, Total Time: 22.948 ms, Average Time: 22.948 ms, Max Time: 22.948 ms, Percentage of Total Time: 0.03%
+[2026-06-07 01:41:19.386] [info] Section: Intersect, Runs: 1261, Total Time: 60854.199 ms, Average Time: 48.259 ms, Max Time: 124.929 ms, Percentage of Total Time: 85.54%
+[2026-06-07 01:41:19.386] [info] Section: Evaluate materials, Runs: 1261, Total Time: 7760.215 ms, Average Time: 6.154 ms, Max Time: 16.850 ms, Percentage of Total Time: 10.91%
+[2026-06-07 01:41:19.386] [info] Section: Sync counters, Runs: 1261, Total Time: 103.391 ms, Average Time: 0.082 ms, Max Time: 0.325 ms, Percentage of Total Time: 0.15%
+[2026-06-07 01:41:19.387] [info] Section: Regenerate paths, Runs: 1261, Total Time: 2307.857 ms, Average Time: 1.830 ms, Max Time: 18.788 ms, Percentage of Total Time: 3.24%
+[2026-06-07 01:41:19.387] [info] Section: Copy frame to host, Runs: 1, Total Time: 0.606 ms, Average Time: 0.606 ms, Max Time: 0.606 ms, Percentage of Total Time: 0.00%
+[2026-06-07 01:41:19.387] [info] Section: Postprocess, Runs: 1, Total Time: 0.243 ms, Average Time: 0.243 ms, Max Time: 0.243 ms, Percentage of Total Time: 0.00%
+[2026-06-07 01:41:19.387] [info] Rendered frame 0 in 71.16 seconds
+
 
 test-spheres, 1024spp, 30 depth, partial soa, iter sync, full capacity kernel grid, only needed kernels scheduled
 [2026-06-01 21:54:26.317] [info] Rendered frame 0 in 119.73 seconds

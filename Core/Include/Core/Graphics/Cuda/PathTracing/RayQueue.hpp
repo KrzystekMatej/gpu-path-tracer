@@ -55,7 +55,8 @@ namespace Core::Graphics::Cuda
                 reinterpret_cast<float*>(m_DirectionZs.GetData()),
                 reinterpret_cast<float*>(m_TMins.GetData()),
                 reinterpret_cast<float*>(m_TMaxs.GetData()),
-                reinterpret_cast<float*>(m_Iors.GetData()));
+                reinterpret_cast<float*>(m_Iors.GetData()),
+                reinterpret_cast<uint32_t*>(m_Depths.GetData()));
         }
 
     private:
@@ -71,5 +72,6 @@ namespace Core::Graphics::Cuda
         Runtime::DeviceBuffer1D m_TMins;
         Runtime::DeviceBuffer1D m_TMaxs;
         Runtime::DeviceBuffer1D m_Iors;
+        Runtime::DeviceBuffer1D m_Depths;
     };
 }

@@ -245,9 +245,8 @@ namespace Core::Graphics::Cuda::Kernels
 		Contribution contribution = pathPool.contributions.At(path.index);
 		contribution.throughput *= albedo;
 		
-		PathFlags& pathFlags = pathPool.pathFlags.At(path.index);
-		pathFlags.depth++;
-		bool pathTerminated = pathFlags.depth >= pathDepthLimit || ApplyRussianRoulette(pathFlags.depth, contribution, rrSample);
+		ray.depth++;
+		bool pathTerminated = ray.depth >= pathDepthLimit || ApplyRussianRoulette(ray.depth, contribution, rrSample);
 		pathPool.contributions.At(path.index) = contribution;
 
 		if (pathTerminated)
@@ -306,9 +305,8 @@ namespace Core::Graphics::Cuda::Kernels
 		Contribution contribution = pathPool.contributions.At(path.index);
 		contribution.throughput *= reflectance;
 		
-		PathFlags& pathFlags = pathPool.pathFlags.At(path.index);
-		pathFlags.depth++;
-		bool pathTerminated = pathFlags.depth >= pathDepthLimit || ApplyRussianRoulette(pathFlags.depth, contribution, rrSample);
+		ray.depth++;
+		bool pathTerminated = ray.depth >= pathDepthLimit || ApplyRussianRoulette(ray.depth, contribution, rrSample);
 		pathPool.contributions.At(path.index) = contribution;
 
 		if (pathTerminated)
@@ -426,9 +424,8 @@ namespace Core::Graphics::Cuda::Kernels
 		Contribution contribution = pathPool.contributions.At(path.index);
 		contribution.throughput *= (diffuseBrdf + specularBrdf) * (cosThetaI / pdf);
 		
-		PathFlags& pathFlags = pathPool.pathFlags.At(path.index);
-		pathFlags.depth++;
-		bool pathTerminated = pathFlags.depth >= pathDepthLimit || ApplyRussianRoulette(pathFlags.depth, contribution, rrSample);
+		ray.depth++;
+		bool pathTerminated = ray.depth >= pathDepthLimit || ApplyRussianRoulette(ray.depth, contribution, rrSample);
 		pathPool.contributions.At(path.index) = contribution;
 
 		if (pathTerminated)
@@ -578,9 +575,8 @@ namespace Core::Graphics::Cuda::Kernels
 		Contribution contribution = pathPool.contributions.At(path.index);
 		contribution.throughput *= make_float4((diffuseBsdf + ggxBsdf) * (cosThetaI / pdf), 1.0f);
 		
-		PathFlags& pathFlags = pathPool.pathFlags.At(path.index);
-		pathFlags.depth++;
-		bool pathTerminated = pathFlags.depth >= pathDepthLimit || ApplyRussianRoulette(pathFlags.depth, contribution, rrSample);
+		ray.depth++;
+		bool pathTerminated = ray.depth >= pathDepthLimit || ApplyRussianRoulette(ray.depth, contribution, rrSample);
 		pathPool.contributions.At(path.index) = contribution;
 
 		if (pathTerminated)

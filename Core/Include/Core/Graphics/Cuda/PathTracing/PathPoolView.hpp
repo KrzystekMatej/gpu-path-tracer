@@ -9,6 +9,5 @@ namespace Core::Graphics::Cuda
 		Runtime::DeviceBuffer1DView<Pixel> pixels;
 		Runtime::DeviceBuffer1DView<Contribution> contributions;
 		Runtime::DeviceBuffer1DView<Random> randoms;
-		Runtime::DeviceBuffer1DView<PathFlags> pathFlags;
 	};
 }

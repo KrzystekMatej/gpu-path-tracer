@@ -368,9 +368,6 @@ namespace Core::Graphics::Cuda
 
         for (uint32_t frameIndex = startFrame; frameIndex < m_TotalFrames; frameIndex++)
         {
-            Core::Utils::Timer timer;
-            timer.Start();
-            
             DeviceCamera camera = MakeDeviceCamera(m_Camera, aspect, m_CameraMotionStates[frameIndex]);
             auto result = RenderFrame(stopToken, camera, generateCount);
             if (!result)
@@ -383,9 +380,6 @@ namespace Core::Graphics::Cuda
             }
             if (stopToken.stop_requested()) { break; }
 			m_DoneFrames.fetch_add(1, std::memory_order_relaxed);
-
-            timer.Stop();
-            spdlog::info("Rendered frame {} in {:.2f} seconds", frameIndex, timer.GetElapsedSeconds());
         }
 
         m_IsRendering.store(false, std::memory_order_relaxed);
@@ -396,8 +390,8 @@ namespace Core::Graphics::Cuda
         DeviceCamera camera,
         uint32_t generateCount)
     {
-        CUDA_PROFILE_CREATE(profiler);
-        CUDA_PROFILE_START(profiler, m_RenderStream);
+        CORE_TRY(profiler, Core::Graphics::Cuda::Runtime::Profiler::Create("Path tracing one frame"));
+        CORE_TRY_DISCARD(profiler.StartProfiling(m_RenderStream));
         
         m_DoneSamples.store(0, std::memory_order_relaxed);
 
@@ -544,8 +538,8 @@ namespace Core::Graphics::Cuda
             CORE_TRY_DISCARD(m_RenderStream.Synchronize());
         });
 
-        CUDA_PROFILE_STOP(profiler, m_RenderStream);
-        CUDA_PROFILE_LOG(profiler);
+        CORE_TRY_DISCARD(profiler.StopProfiling(m_RenderStream));
+        profiler.LogResults();
 
         m_DoneSamples.store(m_TotalSamples, std::memory_order_relaxed);
         return {};

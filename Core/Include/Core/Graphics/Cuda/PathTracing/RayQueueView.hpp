@@ -24,19 +24,21 @@ namespace Core::Graphics::Cuda
             float* directionZs,
             float* tMins,
             float* tMaxs,
-            float* iors)
-            : m_Size(size)
-            , m_Capacity(capacity)
-            , m_Paths(paths)
-            , m_OriginXs(originXs)
-            , m_OriginYs(originYs)
-            , m_OriginZs(originZs)
-            , m_DirectionXs(directionXs)
-            , m_DirectionYs(directionYs)
-            , m_DirectionZs(directionZs)
-            , m_TMins(tMins)
-            , m_TMaxs(tMaxs)
-            , m_Iors(iors)
+            float* iors,
+            uint32_t* depths)
+            : m_Size(size),
+              m_Capacity(capacity),
+              m_Paths(paths),
+              m_OriginXs(originXs),
+              m_OriginYs(originYs),
+              m_OriginZs(originZs),
+              m_DirectionXs(directionXs),
+              m_DirectionYs(directionYs),
+              m_DirectionZs(directionZs),
+              m_TMins(tMins),
+              m_TMaxs(tMaxs),
+              m_Iors(iors),
+              m_Depths(depths)
         {
         }
 
@@ -83,6 +85,7 @@ namespace Core::Graphics::Cuda
             ray.tMin = m_TMins[index];
             ray.tMax = m_TMaxs[index];
             ray.ior = m_Iors[index];
+            ray.depth = m_Depths[index];
             return ray;
         }   
 
@@ -117,6 +120,7 @@ namespace Core::Graphics::Cuda
             m_TMins[index] = ray.tMin;
             m_TMaxs[index] = ray.tMax;
             m_Iors[index] = ray.ior;
+            m_Depths[index] = ray.depth;
         }
 
         __device__ __forceinline__ uint32_t PushIndex() const
@@ -141,5 +145,6 @@ namespace Core::Graphics::Cuda
         float* __restrict__ m_TMins = nullptr;
         float* __restrict__ m_TMaxs = nullptr;
         float* __restrict__ m_Iors = nullptr;
+        uint32_t* __restrict__ m_Depths = nullptr;
     };
 }

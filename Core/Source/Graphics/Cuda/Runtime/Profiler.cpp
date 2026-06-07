@@ -5,9 +5,9 @@
 
 namespace Core::Graphics::Cuda::Runtime
 {
-    std::expected<Profiler, Core::Utils::Error> Profiler::Create()
+    std::expected<Profiler, Core::Utils::Error> Profiler::Create(const std::string& name)
     {
-        Profiler profiler;
+        Profiler profiler(name);
         CORE_TRY(timer, Timer::Create());
         profiler.m_Timer = std::move(timer);
         return profiler;
@@ -111,7 +111,7 @@ namespace Core::Graphics::Cuda::Runtime
     void Profiler::LogResults() const
     {
         auto result = GetProfileResult();
-        spdlog::info("Total Time: {:.3f} ms", result.totalTimeMilliseconds);
+        spdlog::info("Profile: {}, Total Time: {:.3f} ms", m_Name, result.totalTimeMilliseconds);
         for (const auto& section : result.sections)
         {
             spdlog::info("Section: {}, Runs: {}, Total Time: {:.3f} ms, Average Time: {:.3f} ms, Max Time: {:.3f} ms, Percentage of Total Time: {:.2f}%",

@@ -22,6 +22,7 @@ namespace Core::Graphics::Cuda
 		float tMin;
 		float tMax;
 		float ior;
+		uint32_t depth;
 	};
 
 	struct Contribution
@@ -65,11 +66,6 @@ namespace Core::Graphics::Cuda
 		}
 	private:
 		curandStatePhilox4_32_10_t m_State;
-	};
-
-	struct PathFlags
-	{
-		uint32_t depth;
 	};
 
 	struct HitData

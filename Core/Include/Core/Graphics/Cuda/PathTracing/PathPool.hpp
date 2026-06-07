@@ -26,7 +26,6 @@ namespace Core::Graphics::Cuda
 				m_Samples.GetView<Pixel>(),
 				m_Contributions.GetView<Contribution>(),
 				m_RandomStates.GetView<Random>(),
-				m_PathFlags.GetView<PathFlags>()
 			};
 		}
 
@@ -35,6 +34,5 @@ namespace Core::Graphics::Cuda
 		Runtime::DeviceBuffer1D m_Samples;
 		Runtime::DeviceBuffer1D m_Contributions;
 		Runtime::DeviceBuffer1D m_RandomStates;
-		Runtime::DeviceBuffer1D m_PathFlags;
 	};
 }

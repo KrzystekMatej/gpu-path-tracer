@@ -42,7 +42,6 @@ namespace Core::Graphics::Cuda::Kernels
         pathPool.pixels.At(sampleIndex).index = pixelIndex;
         pathPool.contributions.At(sampleIndex).throughput = make_float4(1.0f);
         pathPool.randoms.At(sampleIndex) = random;
-        pathPool.pathFlags.At(sampleIndex).depth = 0;
 
 		Path path{ sampleIndex };
 		Ray ray;
@@ -51,6 +50,7 @@ namespace Core::Graphics::Cuda::Kernels
 		ray.tMin = PathTracerDefaults::MinT;
 		ray.tMax = PathTracerDefaults::MaxT;
 		ray.ior = 1.0f;
+		ray.depth = 0;
 		rayQueue.Set(sampleIndex, path, ray);
 	}
     
@@ -94,7 +94,6 @@ namespace Core::Graphics::Cuda::Kernels
         pathPool.pixels.At(path.index).index = pixelIndex;
         pathPool.contributions.At(path.index).throughput = make_float4(1.0f);
         pathPool.randoms.At(path.index) = random;
-        pathPool.pathFlags.At(path.index).depth = 0;
 
 		Ray ray;
 		ray.direction = rayDirection;
@@ -102,6 +101,7 @@ namespace Core::Graphics::Cuda::Kernels
 		ray.tMin = PathTracerDefaults::MinT;
 		ray.tMax = PathTracerDefaults::MaxT;
 		ray.ior = 1.0f;
+		ray.depth = 0;
 		nextRayQueue.Set(nextRayQueue.GetSize() + queueIndex, path, ray);
 	}
     

@@ -33,7 +33,7 @@ namespace Core::Graphics::Cuda::Runtime
             std::vector<SectionResult> sections;
         };
 
-        static std::expected<Profiler, Core::Utils::Error> Create();
+        static std::expected<Profiler, Core::Utils::Error> Create(const std::string& name);
 
         std::expected<void, Core::Utils::Error> StartProfiling(const Stream& stream = Stream::Default());
         std::expected<void, Core::Utils::Error> StopProfiling(const Stream& stream = Stream::Default());
@@ -62,10 +62,11 @@ namespace Core::Graphics::Cuda::Runtime
         Result GetProfileResult() const;
         void LogResults() const;
     private:
-        Profiler() = default;
+        Profiler(const std::string& name) : m_Name(name) {}
 
         std::unordered_map<std::string, SectionData> m_Sections;
         Timer m_Timer;
+        std::string m_Name;
     };
 }
 
