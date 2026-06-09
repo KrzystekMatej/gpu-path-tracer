@@ -16,7 +16,7 @@ namespace Core::Graphics::Cuda
             static constexpr uint32_t MaxPathDepthLimit = 100;
 
             static constexpr uint32_t SampleGridSize = 10;
-            static constexpr uint32_t SamplesPerPixel = 100;
+            static constexpr uint32_t SamplesPerPixel = 1024;
             static constexpr uint32_t MinSamplesPerPixel = 1;
             static constexpr uint32_t MaxSamplesPerPixel = 10'000'000;
 

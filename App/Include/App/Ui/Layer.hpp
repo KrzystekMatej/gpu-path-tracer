@@ -6,7 +6,7 @@
 #include <App/CameraRecorder/Settings.hpp>
 #include <Core/Graphics/Gl/RenderTarget.hpp>
 #include <Core/Events/Keyboard.hpp>
-#include "imgui.h"
+#include <imgui.h>
 
 namespace App::Ui
 {

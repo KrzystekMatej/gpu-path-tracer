@@ -6,4 +6,5 @@
 namespace Core::Import
 {
     std::optional<Image> ConvertRgbToRgba(const Image& image);
+    Image FlipVertically(const Image& image);
 }

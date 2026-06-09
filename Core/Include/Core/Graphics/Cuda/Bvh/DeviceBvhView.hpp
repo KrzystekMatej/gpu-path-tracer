@@ -1,7 +1,7 @@
 #pragma once
 #include <Core/Graphics/Cuda/Bvh/Triangle.hpp>
 #include <Core/Graphics/Cuda/Bvh/DeviceBvhNode.hpp>
-#include <Core/Graphics/Cuda/Runtime/DeviceBuffer1DView.hpp>
+#include <Core/Graphics/Cuda/Runtime/Memory/DeviceBuffer1DView.hpp>
 
 namespace Core::Graphics::Cuda
 {

@@ -130,12 +130,12 @@ namespace App::PathTracer
 			m_DisplayTexture.Allocate(frameWidth, frameHeight);
 		}
 
+		const auto& assetManager = Core::Runtime::Application::AssetManager();
 		if (m_SceneBuffersDirty)
 		{
 			auto& scene = Core::Runtime::Application::Scene();
-			const auto& storage = Core::Runtime::Application::AssetManager().GetStorage();
 
-			auto sceneBufferResult = m_PathTracer.InitializeSceneBuffers(scene.GetRegistry(), storage);
+			auto sceneBufferResult = m_PathTracer.InitializeSceneBuffers(scene.GetRegistry(), assetManager.GetStorage());
 			if (!sceneBufferResult)
 				return sceneBufferResult.error().Log();
 			
@@ -147,13 +147,17 @@ namespace App::PathTracer
 		const auto& camera = registry.get<Core::Graphics::Ecs::Camera>(scene.GetActiveCamera());
 
 		// TODO: add option to resume from a specific frame (should override the settings if they are different from the current state of the path tracer)
+		
+		std::filesystem::path outputFolder = assetManager.GetRootPath() / Settings::PathTracerOutputFolder / event.settings.renderBatchName;
+
 		auto result = m_PathTracer.StartSimulation(
 			frameWidth, 
 			frameHeight,
 			camera,
 			m_CameraMotionStates, 
 			samplesPerPixel,
-			pathDepthLimit);
+			pathDepthLimit,
+			outputFolder);
 
 		if (!result)
 			return result.error().Log();

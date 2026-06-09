@@ -1,6 +1,6 @@
 
 #include <Core/Graphics/Cuda/PathTracing/Kernels/LaunchUtils.cuh>
-#include <Core/Graphics/Cuda/PathTracing/Kernels.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Kernels/Launchers.hpp>
 
 namespace Core::Graphics::Cuda::Kernels
 {

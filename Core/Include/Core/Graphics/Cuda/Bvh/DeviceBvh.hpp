@@ -1,5 +1,5 @@
 #pragma once
-#include <Core/Graphics/Cuda/Runtime/DeviceBuffer1D.hpp>
+#include <Core/Graphics/Cuda/Runtime/Memory/DeviceBuffer1D.hpp>
 #include <Core/Graphics/Cuda/Bvh/DeviceBvhView.hpp>
 #include <Core/Graphics/Cuda/Bvh/HostBvh.hpp>
 

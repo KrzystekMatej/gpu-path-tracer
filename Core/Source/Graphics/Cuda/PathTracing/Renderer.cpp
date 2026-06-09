@@ -1,5 +1,5 @@
 #include <Core/Graphics/Cuda/PathTracing/Renderer.hpp>
-#include <Core/Graphics/Cuda/PathTracing/Kernels.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Kernels/Launchers.hpp>
 #include <Core/Ecs/Transform.hpp>
 #include <Core/Graphics/Ecs/Assets.hpp>
 #include <Core/Graphics/Ecs/Camera.hpp>
@@ -14,9 +14,12 @@
 #include <cmath>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
 #include <Core/Utils/Time.hpp>
-#include <Core/Graphics/Cuda/PathTracing/MaterialEvalQueueViewsProvider.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Memory/MaterialEvalQueueViewsProvider.hpp>
 #include <Core/Graphics/Cuda/Runtime/Global.hpp>
-#include <Core/Graphics/Cuda/Runtime/Profiler.hpp>
+#include <Core/Graphics/Cuda/Runtime/Sync/Profiler.hpp>
+#include <Core/Import/ImageIO.hpp>
+#include <Core/Import/ImageUtils.hpp>
+#include <Core/Utils/Path.hpp>
 
 namespace Core::Graphics::Cuda
 {
@@ -130,11 +133,9 @@ namespace Core::Graphics::Cuda
             tangentLengthSquared = glm::dot(worldTangent, worldTangent);
 
             if (tangentLengthSquared > 1e-16f)
-                worldTangent *= glm::inversesqrt(tangentLengthSquared);
-            else
-                worldTangent = makeFallbackTangent(worldNormal);
+                return worldTangent * glm::inversesqrt(tangentLengthSquared);
             
-            return worldTangent;
+            return makeFallbackTangent(worldNormal);
         }
 
         std::vector<Triangle> BuildTriangleList(
@@ -287,13 +288,15 @@ namespace Core::Graphics::Cuda
         const Graphics::Ecs::Camera& camera,
 		std::vector<Capture::MotionState> cameraMotionStates,
 		uint32_t samplesPerPixel,
-		uint32_t pathDepthLimit)
+		uint32_t pathDepthLimit,
+        const std::filesystem::path& outputFolder)
     {
         width = std::min(std::max(width, PathTracerDefaults::MinFrameWidth), PathTracerDefaults::MaxFrameWidth);
         height = std::min(std::max(height, PathTracerDefaults::MinFrameHeight), PathTracerDefaults::MaxFrameHeight);
 
         samplesPerPixel = std::min(std::max(samplesPerPixel, PathTracerDefaults::MinSamplesPerPixel), PathTracerDefaults::MaxSamplesPerPixel);
         pathDepthLimit = std::min(std::max(pathDepthLimit, PathTracerDefaults::MinPathDepthLimit), PathTracerDefaults::MaxPathDepthLimit);
+        m_OutputFolder = outputFolder;
 
         if (m_IsRendering.load(std::memory_order_relaxed))
             return std::unexpected(Core::Utils::Error("Renderer is already rendering"));
@@ -327,7 +330,7 @@ namespace Core::Graphics::Cuda
 		m_TotalSamples = static_cast<uint64_t>(m_SamplesPerPixel) * static_cast<uint64_t>(width) * static_cast<uint64_t>(height);
         
         m_IsRendering.store(true, std::memory_order_relaxed);
-        // SimulationLoop(std::stop_token{}, startFrame);
+        // SimulationLoop(std::stop_token{}, startFrame); // single-threaded version for debugging
         
         CORE_TRY(memoryInfo, Runtime::GetMemoryInfo());
         size_t usedBytes = memoryInfo.totalBytes - memoryInfo.freeBytes;
@@ -401,7 +404,7 @@ namespace Core::Graphics::Cuda
             auto result = RenderFrame(stopToken, camera, generateCount);
             if (!result)
             {
-                Runtime::SynchronizeDevice(); // better would be to reset device state entirely
+                (void)Runtime::SynchronizeDevice();
                 std::scoped_lock lock(m_ErrorMutex);
                 m_LastError = result.error();
                 m_DoneSamples.store(0, std::memory_order_relaxed);
@@ -414,12 +417,9 @@ namespace Core::Graphics::Cuda
         m_IsRendering.store(false, std::memory_order_relaxed);
     }
 
-    std::expected<void, Core::Utils::Error> Renderer::RenderFrame(
-        std::stop_token stopToken, 
-        DeviceCamera camera,
-        uint32_t generateCount)
+    std::expected<void, Core::Utils::Error> Renderer::RenderFrame(std::stop_token stopToken, DeviceCamera camera, uint32_t generateCount)
     {
-        CORE_TRY(profiler, Core::Graphics::Cuda::Runtime::Profiler::Create("Path tracing one frame"));
+        CORE_TRY(profiler, Core::Graphics::Cuda::Runtime::Profiler::Create("Path traced frame"));
         CORE_TRY_DISCARD(profiler.StartProfiling(m_RenderStream));
         
         m_DoneSamples.store(0, std::memory_order_relaxed);
@@ -570,7 +570,37 @@ namespace Core::Graphics::Cuda
         CORE_TRY_DISCARD(profiler.StopProfiling(m_RenderStream));
         profiler.LogResults();
 
+        CORE_TRY_DISCARD(SaveRenderedFrame(m_OutputFolder / std::format("{}.png", m_DoneFrames.load())));
+
         m_DoneSamples.store(m_TotalSamples, std::memory_order_relaxed);
+        return {};
+    }
+
+    std::expected<void, Core::Utils::Error> Renderer::SaveRenderedFrame(const std::filesystem::path& path)
+    {
+        CORE_TRY_DISCARD(Core::Utils::Path::EnsureDirectoryExists(path.parent_path()));
+
+        uint8_t* frameDataHostBegin = reinterpret_cast<uint8_t*>(m_Framebuffer.GetHostData());
+        std::vector<uint8_t> frameData;
+
+        {
+            std::scoped_lock lock(m_FrameMutex);
+            frameData.assign(frameDataHostBegin, frameDataHostBegin + m_Framebuffer.GetSize() * m_Framebuffer.GetElementSize());
+        }
+        
+        Import::Image image{
+            .width = m_Width,
+            .height = m_Height,
+            .format = {
+                .layout = ChannelLayout::RGBA,
+                .componentType = ComponentType::UInt8,
+                .colorSpace = ColorSpace::SRGB
+            },
+            .data = std::move(frameData)
+        };
+
+        CORE_TRY_DISCARD_CONTEXT(Import::SaveImage(path, Import::FlipVertically(image)), "Failed to save rendered image");
+        spdlog::info("Saved rendered frame {} to '{}'", m_DoneFrames.load(), path.string());
         return {};
     }
 

@@ -1,8 +1,8 @@
 #include <Core/Graphics/Cuda/PathTracing/Kernels/LaunchUtils.cuh>
-#include <Core/Graphics/Cuda/PathTracing/Kernels.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Kernels/Launchers.hpp>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
 #include <Core/Graphics/Cuda/Bvh/BvhDefaults.hpp>
-#include <Core/Graphics/Cuda/Runtime/Stack.hpp>
+#include <Core/Graphics/Cuda/Runtime/Memory/Stack.hpp>
 #include <cassert>
 
 namespace Core::Graphics::Cuda::Kernels

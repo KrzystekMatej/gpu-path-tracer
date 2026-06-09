@@ -3,7 +3,8 @@
 
 namespace Core::Graphics::Cuda::Runtime
 {
-    std::expected<void, Core::Utils::Error> SynchronizeDevice();   
+    std::expected<void, Core::Utils::Error> SynchronizeDevice();
+    std::expected<void, Core::Utils::Error> ResetDevice();   
     
     struct MemoryInfo
     {

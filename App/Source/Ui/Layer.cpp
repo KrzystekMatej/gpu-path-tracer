@@ -183,10 +183,11 @@ namespace App::Ui
 		return std::max({
 			ImGui::CalcTextSize("View Mode").x,
 			ImGui::CalcTextSize("Target FPS").x,
-			ImGui::CalcTextSize("Frame width").x,
-			ImGui::CalcTextSize("Frame height").x,
+			// ImGui::CalcTextSize("Frame width").x, // in case of width and height being inputs
+			// ImGui::CalcTextSize("Frame height").x,
 			ImGui::CalcTextSize("SPP").x,
-			ImGui::CalcTextSize("Path depth").x
+			ImGui::CalcTextSize("Path depth").x,
+			ImGui::CalcTextSize("Render name").x
 		});
 	}
 
@@ -339,9 +340,10 @@ namespace App::Ui
 				? std::initializer_list<float>{
 					textHeight, frameHeight,
 					textHeight, frameHeight,
+					textHeight, frameHeight
 				}
 				: std::initializer_list<float>{
-					frameHeight, frameHeight
+					frameHeight, frameHeight, frameHeight
 				},
 			style.ItemSpacing.y,
 			style.WindowPadding.y);
@@ -373,6 +375,7 @@ namespace App::Ui
 			ImGui::BeginChild("PathTracingSettings", ImVec2(0.0f, pathTracingSettingsHeight), true);
 			Utils::BuildResponsiveInputInt("SPP", "##SamplesPerPixel", reinterpret_cast<int*>(&pathTracerSettings.samplesPerPixel), expandInputs);
 			Utils::BuildResponsiveInputInt("Path depth", "##PathDepth", reinterpret_cast<int*>(&pathTracerSettings.pathDepthLimit), expandInputs);
+			Utils::BuildResponsiveInputString("Render name", "##RenderBatchName", pathTracerSettings.renderBatchName, expandInputs);
 			ImGui::EndChild();
 		}
 	}

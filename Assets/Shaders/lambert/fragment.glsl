@@ -50,10 +50,8 @@ vec3 lambert(vec3 albedo, vec3 normal, vec3 fragment_position)
         float distance_squared = max(dot(light_vector, light_vector), 1e-6);
         vec3 light_direction = light_vector * inversesqrt(distance_squared);
 
-
         float cos_theta = max(dot(normal, light_direction), 0.0);
         if (cos_theta <= 0.0) continue;
-
 
         float attenuation = lights[i].intensity / (4.0 * PI * distance_squared);
 

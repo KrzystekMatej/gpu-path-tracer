@@ -126,8 +126,8 @@ void main()
         vec3 radiance = lights[i].color * (lights[i].intensity * attenuation);
 
         float NDF = distribution_ggx(N, H, roughness);
-        float G   = geometry_smith(N, V, L, roughness);
-        vec3  F   = fresnel_schlick(max(dot(H, V), 0.0), F0);
+        float G = geometry_smith(N, V, L, roughness);
+        vec3  F = fresnel_schlick(max(dot(H, V), 0.0), F0);
 
         vec3 numerator = NDF * G * F;
         float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 1e-4;

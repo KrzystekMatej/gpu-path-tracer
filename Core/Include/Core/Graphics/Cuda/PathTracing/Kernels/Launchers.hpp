@@ -1,0 +1,121 @@
+#pragma once
+#include <cuda_runtime.h>
+#include <Core/Graphics/Cuda/Runtime/Memory/DeviceBuffer1DView.hpp>
+#include <Core/Graphics/Cuda/Runtime/Memory/DeviceBuffer2DView.hpp>
+#include <Core/Graphics/Cuda/PathTracing/DeviceCamera.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Memory/PathPoolView.hpp>
+#include <Core/Graphics/Cuda/Runtime/Memory/DeviceQueueView.hpp>
+#include <Core/Graphics/Cuda/Bvh/DeviceBvhView.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Material.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Memory/MaterialEvalQueueViewsProvider.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Memory/RegenQueueView.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Memory/RayQueueView.hpp>
+
+namespace Core::Graphics::Cuda::Kernels
+{
+	void Clear(
+		cudaStream_t stream, 
+		uchar4 color, 
+		Runtime::DeviceBuffer1DView<uchar4> framebuffer);
+	void InitializePaths(
+		cudaStream_t stream,
+		uint32_t generateCount,
+		DeviceCamera camera, 
+		uint32_t width, 
+		uint32_t height, 
+		uint32_t sampleGridSize, 
+		PathPoolView pathPool, 
+		RayQueueView rayQueue);
+	void PrepareIteration(
+		cudaStream_t stream,
+		RayQueueView currentRayQueue,
+		RayQueueView nextRayQueue,
+		RegenQueueView regenQueue,
+		MaterialEvalQueueViewsProvider materialQueueProvider,
+		uint32_t nextRayCount);
+	void IntersectRaysWithScene(
+		cudaStream_t stream,
+		uint32_t queueSize,
+		PathPoolView pathPool, 
+		RayQueueView rayQueue, 
+		DeviceBvhView bvh,
+		uint32_t bvhDepth,
+		MaterialEvalQueueViewsProvider materialQueueProvider,
+		RegenQueueView regenQueue);
+	void EvaluateNormalMaterial(
+		cudaStream_t stream,
+		PathPoolView pathPool,
+		MaterialEvalQueueView materialEvalQueue,
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		RegenQueueView regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		RayQueueView nextRayQueue);
+	void EvaluateDiffuseMaterial(
+		cudaStream_t stream,
+		PathPoolView pathPool,
+		MaterialEvalQueueView materialEvalQueue,
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		RegenQueueView regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		RayQueueView nextRayQueue);
+	void EvaluatePhongMaterial(
+		cudaStream_t stream,
+		PathPoolView pathPool,
+		MaterialEvalQueueView materialEvalQueue,
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		RegenQueueView regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		RayQueueView nextRayQueue);
+	void EvaluateMirrorMaterial(
+		cudaStream_t stream,
+		PathPoolView pathPool,
+		MaterialEvalQueueView materialEvalQueue,
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		RegenQueueView regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		RayQueueView nextRayQueue);
+	void EvaluateGgxMaterial(
+		cudaStream_t stream,
+		PathPoolView pathPool,
+		MaterialEvalQueueView materialEvalQueue,
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		RegenQueueView regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		RayQueueView nextRayQueue);
+	void EvaluateEmissiveMaterial(
+		cudaStream_t stream,
+		PathPoolView pathPool,
+		MaterialEvalQueueView materialEvalQueue,
+		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		RegenQueueView regenQueue,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		RayQueueView nextRayQueue);
+	void RegeneratePaths(
+		cudaStream_t stream,
+		uint32_t remainingCount,
+		RegenQueueView regenQueue,
+		uint64_t launchedSampleCount,
+		DeviceCamera camera, 
+		uint32_t width, 
+		uint32_t height, 
+		uint32_t sampleGridSize, 
+		PathPoolView pathPool,
+		RayQueueView nextRayQueue);
+	void PostprocessAccumulatedRadiance(
+		cudaStream_t stream,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
+		float invSpp,
+		Runtime::DeviceBuffer1DView<uchar4> framebuffer);
+}

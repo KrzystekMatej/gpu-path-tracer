@@ -7,6 +7,12 @@ namespace Core::Graphics::Cuda::Runtime
         CUDA_TRY("cudaDeviceSynchronize", cudaDeviceSynchronize());
         return {};
     }
+
+    std::expected<void, Core::Utils::Error> ResetDevice()
+    {
+        CUDA_TRY("cudaDeviceReset", cudaDeviceReset());
+        return {};
+    }
     
     std::expected<MemoryInfo, Core::Utils::Error> GetMemoryInfo()
     {

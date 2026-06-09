@@ -1,6 +1,7 @@
 #include <App/Ui/Utils.hpp>
 #include <cmath>
-#include "imgui.h"
+#include <imgui.h>
+#include <misc/cpp/imgui_stdlib.h>
 
 namespace App::Ui::Utils
 {
@@ -49,6 +50,20 @@ namespace App::Ui::Utils
 		else
 		{
 			ImGui::InputScalar(label, ImGuiDataType_U32, value);
+		}
+	}
+
+	void BuildResponsiveInputString(const char* label, const char* id, std::string& value, bool expandInputs)
+	{
+		if (expandInputs)
+		{
+			ImGui::TextUnformatted(label);
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+			ImGui::InputText(id, &value);
+		}
+		else
+		{
+			ImGui::InputText(label, &value);
 		}
 	}
 

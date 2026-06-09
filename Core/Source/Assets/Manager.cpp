@@ -10,7 +10,7 @@
 #include <utility>
 
 #include <Core/Import/ObjLoader.hpp>
-#include <Core/Import/ImageLoader.hpp>
+#include <Core/Import/ImageIO.hpp>
 #include <Core/Import/ShaderLoader.hpp>
 #include <Core/Graphics/Gl/Material.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Material.hpp>

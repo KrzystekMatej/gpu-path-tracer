@@ -118,4 +118,27 @@ namespace Core::Import
 
         return {};
     }
+
+    Image FlipVertically(const Image& image)
+    {
+        const size_t bytesPerPixel = image.format.GetBytesPerPixel();
+        const size_t rowSize = static_cast<size_t>(image.width) * bytesPerPixel;
+        assert(image.data.size() == rowSize * image.height);
+
+        Image result;
+        result.width = image.width;
+        result.height = image.height;
+        result.format = image.format;
+        result.data.resize(image.data.size());
+
+        for (uint32_t y = 0; y < image.height; ++y)
+        {
+            const size_t sourceOffset = static_cast<size_t>(image.height - 1 - y) * rowSize;
+            const size_t destinationOffset = static_cast<size_t>(y) * rowSize;
+
+            std::memcpy(result.data.data() + destinationOffset, image.data.data() + sourceOffset, rowSize);
+        }
+
+        return result;
+    }
 }

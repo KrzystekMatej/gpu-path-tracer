@@ -8,6 +8,7 @@ add_library(imgui STATIC
     imgui_demo.cpp
     backends/imgui_impl_glfw.cpp
     backends/imgui_impl_opengl3.cpp
+    misc/cpp/imgui_stdlib.cpp
 )
 
 add_library(imgui::imgui ALIAS imgui)

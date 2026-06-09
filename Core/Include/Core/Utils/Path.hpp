@@ -14,5 +14,6 @@ namespace Core::Utils::Path
 
 	std::expected<std::filesystem::path, Error> NormalizeRelativePath(const std::filesystem::path& path);
 	std::expected<ResolvedPath, Utils::Error> ResolvePath(const std::filesystem::path& path, const std::filesystem::path& root);
+	std::expected<void, Core::Utils::Error> EnsureDirectoryExists(const std::filesystem::path& directory);
 }
 

@@ -12,11 +12,11 @@
 #include <thread>
 #include <utility>
 
-#include <Core/Graphics/Cuda/Runtime/DeviceBuffer1D.hpp>
-#include <Core/Graphics/Cuda/Runtime/DeviceQueue.hpp>
-#include <Core/Graphics/Cuda/Runtime/SharedBuffer1D.hpp>
-#include <Core/Graphics/Cuda/Runtime/SharedCounter.hpp>
-#include <Core/Graphics/Cuda/PathTracing/PathPool.hpp>
+#include <Core/Graphics/Cuda/Runtime/Memory/DeviceBuffer1D.hpp>
+#include <Core/Graphics/Cuda/Runtime/Memory/DeviceQueue.hpp>
+#include <Core/Graphics/Cuda/Runtime/Memory/SharedBuffer1D.hpp>
+#include <Core/Graphics/Cuda/Runtime/Memory/SharedCounter.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Memory/PathPool.hpp>
 #include <Core/Assets/Storage.hpp>
 #include <Core/Ecs/Scene.hpp>
 #include <Core/Capture/Sample.hpp>
@@ -26,10 +26,10 @@
 #include <Core/Graphics/Cuda/PathTracing/DeviceCamera.hpp>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Material.hpp>
-#include <Core/Graphics/Cuda/PathTracing/RayQueue.hpp>
-#include <Core/Graphics/Cuda/PathTracing/MaterialEvalQueue.hpp>
-#include <Core/Graphics/Cuda/PathTracing/RegenQueue.hpp>
-#include <Core/Graphics/Cuda/Runtime/Stream.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Memory/RayQueue.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Memory/MaterialEvalQueue.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Memory/RegenQueue.hpp>
+#include <Core/Graphics/Cuda/Runtime/Sync/Stream.hpp>
 
 namespace Core::Graphics::Cuda
 {
@@ -122,7 +122,8 @@ namespace Core::Graphics::Cuda
             const Graphics::Ecs::Camera& camera,
             std::vector<Capture::MotionState> cameraMotionStates,
 			uint32_t samplesPerPixel,
-			uint32_t pathDepth);
+			uint32_t pathDepth,
+            const std::filesystem::path& outputFolder);
         std::expected<void, Core::Utils::Error> ResumeSimulation(uint32_t startFrame);
         std::expected<void, Core::Utils::Error> StopRendering();
 
@@ -139,6 +140,7 @@ namespace Core::Graphics::Cuda
     private:
         void SimulationLoop(std::stop_token stopToken, uint32_t startFrame);
         std::expected<void, Core::Utils::Error> RenderFrame(std::stop_token stopToken, DeviceCamera camera, uint32_t generateCount);
+        std::expected<void, Core::Utils::Error> SaveRenderedFrame(const std::filesystem::path& path);
         std::expected<void, Core::Utils::Error> RenderClear(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 
         Runtime::SharedBuffer1D m_Framebuffer;
@@ -168,6 +170,7 @@ namespace Core::Graphics::Cuda
         uint32_t m_SampleGridSize = PathTracerDefaults::SampleGridSize;
 		uint32_t m_SamplesPerPixel = PathTracerDefaults::SamplesPerPixel;
         uint32_t m_PathDepthLimit = PathTracerDefaults::PathDepthLimit;
+        std::filesystem::path m_OutputFolder;
         
         Runtime::Stream m_RenderStream;
 

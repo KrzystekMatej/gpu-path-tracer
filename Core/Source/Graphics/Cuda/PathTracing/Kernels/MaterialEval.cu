@@ -1,5 +1,5 @@
 #include <Core/Graphics/Cuda/PathTracing/Kernels/LaunchUtils.cuh>
-#include <Core/Graphics/Cuda/PathTracing/Kernels.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Kernels/Launchers.hpp>
 #include <Core/Graphics/Cuda/Utils/Math.hpp>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
 

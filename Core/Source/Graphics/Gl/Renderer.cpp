@@ -2,7 +2,7 @@
 #include <Core/Graphics/Gl/Renderer.hpp>
 #include <spdlog/spdlog.h>
 #include <Core/Graphics/Gl/Shader.hpp>
-#include <Core/Import/ImageLoader.hpp>
+#include <Core/Import/ImageIO.hpp>
 #include <Core/Import/ObjLoader.hpp>
 
 namespace Core::Graphics::Gl

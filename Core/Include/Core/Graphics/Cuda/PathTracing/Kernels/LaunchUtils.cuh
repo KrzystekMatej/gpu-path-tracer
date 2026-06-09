@@ -10,7 +10,6 @@ namespace Core::Graphics::Cuda::Kernels::LaunchUtils
     constexpr uint32_t IntersectThreadsPerBlock = 128;
     constexpr uint32_t MaterialEvalThreadsPerBlock = 128;
     constexpr uint32_t RegenerateThreadsPerBlock = 256;
-
     
 	inline uint32_t GetBlockCount(uint32_t dataSize, uint32_t blockSize)
 	{
