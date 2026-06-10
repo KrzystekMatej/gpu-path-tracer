@@ -260,4 +260,3 @@ namespace Core::Graphics::Cuda::Math
 		return sqrtf(fmaxf(0.0f, value));
 	}
 }
-
