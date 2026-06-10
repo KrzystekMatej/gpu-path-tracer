@@ -69,7 +69,6 @@ namespace Core::Graphics::Cuda
 		HitData() = default;
 
 		uint32_t triangle;
-		uint32_t material;
 		float u;
 		float v;
 	};

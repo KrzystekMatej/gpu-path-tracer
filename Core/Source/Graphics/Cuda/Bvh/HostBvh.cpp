@@ -49,8 +49,8 @@ namespace Core::Graphics::Cuda
 	}
 
 	HostBvh::HostBvh(std::vector<Triangle> triangles)
-		: m_Triangles(std::move(triangles)), 
-		m_MaxDepth(EstimateMaxDepth(m_Triangles.size())), 
+		: m_Triangles(std::move(triangles)),
+		m_MaxDepth(EstimateMaxDepth(m_Triangles.size())),
 		m_MinTriangles(EstimateMaxTrianglesPerLeaf(m_Triangles.size()))
 	{
 		m_Root = BuildRecurse(0, static_cast<uint32_t>(m_Triangles.size()), 0);
@@ -67,11 +67,10 @@ namespace Core::Graphics::Cuda
 		BoundingBox bounds = BoundingBox::Empty();
 		for (uint32_t i = first; i < first + count; i++)
 		{
-			const Triangle& triangle = m_Triangles[i];
-			for (const Vertex& vertex : triangle.vertices)
+			for (const float3& position : m_Triangles[i].positions)
 			{
-				bounds.min = min(bounds.min, vertex.position);
-				bounds.max = max(bounds.max, vertex.position);
+				bounds.min = min(bounds.min, position);
+				bounds.max = max(bounds.max, position);
 			}
 		}
 
@@ -91,8 +90,8 @@ namespace Core::Graphics::Cuda
 		std::nth_element(m_Triangles.begin() + first, m_Triangles.begin() + mid, m_Triangles.begin() + first + count,
 			[axis](const Triangle& a, const Triangle& b)
 			{
-				float3 centerA = (a.vertices[0].position + a.vertices[1].position + a.vertices[2].position) / 3.0f;
-				float3 centerB = (b.vertices[0].position + b.vertices[1].position + b.vertices[2].position) / 3.0f;
+				float3 centerA = (a.positions[0] + a.positions[1] + a.positions[2]) / 3.0f;
+				float3 centerB = (b.positions[0] + b.positions[1] + b.positions[2]) / 3.0f;
 				return Math::At(centerA, axis) < Math::At(centerB, axis);
 			});
 		node->left = BuildRecurse(first, mid - first, depth + 1);

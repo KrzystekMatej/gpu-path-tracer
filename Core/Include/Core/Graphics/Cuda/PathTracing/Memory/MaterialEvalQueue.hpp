@@ -61,7 +61,6 @@ namespace Core::Graphics::Cuda
                 reinterpret_cast<float*>(m_ThrouputYs.GetData()),
                 reinterpret_cast<float*>(m_ThrouputZs.GetData()),
                 reinterpret_cast<uint32_t*>(m_Triangles.GetData()),
-                reinterpret_cast<uint32_t*>(m_Materials.GetData()),
                 reinterpret_cast<float*>(m_Us.GetData()),
                 reinterpret_cast<float*>(m_Vs.GetData()));
         }
@@ -86,7 +85,6 @@ namespace Core::Graphics::Cuda
         Runtime::DeviceBuffer1D m_ThrouputZs;
 
         Runtime::DeviceBuffer1D m_Triangles;
-        Runtime::DeviceBuffer1D m_Materials;
         Runtime::DeviceBuffer1D m_Us;
         Runtime::DeviceBuffer1D m_Vs;
     };

@@ -21,7 +21,7 @@ namespace Core::Graphics::Cuda::Kernels
 	}
 
 	__device__ __forceinline__ bool IntersectTriangle(
-		const Triangle& triangle,
+		const TriangleIntersection& intersectionData,
 		const float3& origin,
 		const float3& direction,
 		float tMin,
@@ -30,15 +30,14 @@ namespace Core::Graphics::Cuda::Kernels
 		float& u,
 		float& v)
 	{
-		const float3 v0 = triangle.vertices[0].position;
-		const float3 v1 = triangle.vertices[1].position;
-		const float3 v2 = triangle.vertices[2].position;
+		float3 edge1 = make_float3(intersectionData.edge1);
+		float3 edge2 = make_float3(intersectionData.edge2);
+		float3 v0 = intersectionData.v0;
 
-		const float3 e1 = v1 - v0;
-		const float3 e2 = v2 - v0;
-		const float3 p = cross(direction, e2);
 
-		const float det = dot(e1, p);
+		const float3 p = cross(direction, edge2);
+
+		const float det = dot(edge1, p);
 		const float epsilon = 1e-7f;
 
 		if (fabs(det) < epsilon)
@@ -52,13 +51,13 @@ namespace Core::Graphics::Cuda::Kernels
 		if (u < 0.0f || u > 1.0f)
 			return false;
 
-		const float3 q = cross(s, e1);
+		const float3 q = cross(s, edge1);
 		v = dot(direction, q) * invDet;
 
 		if (v < 0.0f || u + v > 1.0f)
 			return false;
 
-		t = dot(e2, q) * invDet;
+		t = dot(edge2, q) * invDet;
 
 		return t >= tMin && t <= tMax;
 	}
@@ -67,7 +66,7 @@ namespace Core::Graphics::Cuda::Kernels
 	__global__ void IntersectRaysWithSceneKernel(
 		PathPoolView pathPool, 
 		RayQueueView rayQueue,
-		DeviceBvhView bvh, 
+		IntersectionBvhView bvh,
 		MaterialEvalQueueViewsProvider materialQueueProvider,
 		RegenQueueView regenQueue)
 	{
@@ -96,14 +95,13 @@ namespace Core::Graphics::Cuda::Kernels
 			{
 				for (uint32_t i = 0; i < node.count; i++)
 				{
-					const Triangle triangle = bvh.triangles.At(node.first + i);
+					const TriangleIntersection triangle = bvh.triangles.At(node.first + i);
 					float t, u, v;
 					if (IntersectTriangle(triangle, ray.origin, ray.direction, ray.tMin, closestT, t, u, v) && t < closestT)
 					{
 						closestT = t;
 						
 						closestHit.triangle = node.first + i;
-						closestHit.material = triangle.materialIndex;
 						closestHit.u = u;
 						closestHit.v = v;
 						shadingModel = triangle.shadingModel;
@@ -136,7 +134,7 @@ namespace Core::Graphics::Cuda::Kernels
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		RayQueueView rayQueue,
-		DeviceBvhView bvh,
+		IntersectionBvhView bvh,
 		MaterialEvalQueueViewsProvider materialQueueProvider,
 		RegenQueueView regenQueue)
 	{
@@ -171,7 +169,7 @@ namespace Core::Graphics::Cuda::Kernels
 		uint32_t queueSize,
 		PathPoolView pathPool, 
 		RayQueueView rayQueue, 
-		DeviceBvhView bvh,
+		IntersectionBvhView bvh,
 		uint32_t bvhDepth,
 		MaterialEvalQueueViewsProvider materialQueueProvider,
 		RegenQueueView regenQueue)

@@ -27,7 +27,6 @@ namespace Core::Graphics::Cuda
             CORE_TRY_DISCARD(m_ThrouputZs.Allocate(capacity, sizeof(float), stream));
 
             CORE_TRY_DISCARD(m_Triangles.Allocate(capacity, sizeof(uint32_t), stream));
-            CORE_TRY_DISCARD(m_Materials.Allocate(capacity, sizeof(uint32_t), stream));
             CORE_TRY_DISCARD(m_Us.Allocate(capacity, sizeof(float), stream));
             CORE_TRY_DISCARD(m_Vs.Allocate(capacity, sizeof(float), stream));
 
@@ -64,7 +63,6 @@ namespace Core::Graphics::Cuda
         auto throughputZResult = m_ThrouputZs.Free(stream);
         
         auto triangleResult = m_Triangles.Free(stream);
-        auto materialResult = m_Materials.Free(stream);
         auto uResult = m_Us.Free(stream);
         auto vResult = m_Vs.Free(stream);
 
@@ -115,9 +113,6 @@ namespace Core::Graphics::Cuda
 
         if (!triangleResult)
             return std::unexpected(triangleResult.error());
-
-        if (!materialResult)
-            return std::unexpected(materialResult.error());
 
         if (!uResult)
             return std::unexpected(uResult.error());

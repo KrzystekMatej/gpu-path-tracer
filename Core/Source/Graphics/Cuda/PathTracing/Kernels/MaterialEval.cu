@@ -5,35 +5,12 @@
 
 namespace Core::Graphics::Cuda::Kernels
 {
-	__device__ __forceinline__ float3 GetGeometricNormal(const Triangle& triangle)
-	{
-		float3 v0 = triangle.vertices[0].position;
-		float3 v1 = triangle.vertices[1].position;
-		float3 v2 = triangle.vertices[2].position;
-
-		float3 e1 = v1 - v0;
-		float3 e2 = v2 - v0;
-
-		return normalize(cross(e1, e2));
-		
-		// safe version (in case of degenerate triangles)
-		// float3 vertexNormal =
-        // triangle.vertices[0].normal +
-        // triangle.vertices[1].normal +
-        // triangle.vertices[2].normal;
-
-		// return Math::SafeNormalize(
-		// 	cross(e1, e2),
-		// 	Math::SafeNormalize(vertexNormal, make_float3(0.0f, 0.0f, 1.0f))
-		// );
-	}
-
-	inline __forceinline__ __host__ __device__ Math::Frame GetShadingFrame(const Triangle& triangle, float3 normalMapSample, float b0, float b1, float b2)
+	inline __forceinline__ __host__ __device__ Math::Frame GetShadingFrame(const TriangleShading& triangle, float3 normalMapSample, float b0, float b1, float b2)
 	{
 		float3 baseNormal = 
-			b0 * triangle.vertices[0].normal +
-			b1 * triangle.vertices[1].normal +
-			b2 * triangle.vertices[2].normal;
+			b0 * make_float3(triangle.vertices[0].normal) +
+			b1 * make_float3(triangle.vertices[1].normal) +
+			b2 * make_float3(triangle.vertices[2].normal);
 
 		float4 interpolatedTangent =
 			b0 * triangle.vertices[0].tangent +
@@ -82,7 +59,7 @@ namespace Core::Graphics::Cuda::Kernels
 	__global__ void EvaluateNormalKernel(
 		PathPoolView pathPool, 
 		MaterialEvalQueueView materialEvalQueue, 
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer)
@@ -93,9 +70,8 @@ namespace Core::Graphics::Cuda::Kernels
 		const Path path = materialEvalQueue.GetPath(queueIndex);
 		const float3 throughput = materialEvalQueue.GetThroughput(queueIndex);
 		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
-		const Material material = materials.At(hitData.material);
+		TriangleShading triangle = triangles.At(hitData.triangle);
 		
-		Triangle triangle = triangles.At(hitData.triangle);
 		float b0 = 1.0f - hitData.u - hitData.v;
 		float b1 = hitData.u;
 		float b2 = hitData.v;
@@ -104,11 +80,11 @@ namespace Core::Graphics::Cuda::Kernels
 			b1 * triangle.vertices[1].uv +
 			b2 * triangle.vertices[2].uv;
 		
-		float3 geometricNormal = GetGeometricNormal(triangle);
+		float3 geometricNormal = triangle.geometricNormal;
 		float3 visualNormal = 
-			b0 * triangle.vertices[0].normal +
-			b1 * triangle.vertices[1].normal +
-			b2 * triangle.vertices[2].normal;
+			b0 * make_float3(triangle.vertices[0].normal) +
+			b1 * make_float3(triangle.vertices[1].normal) +
+			b2 * make_float3(triangle.vertices[2].normal);
 
 		// shading normal can be used instead of visual normal to see the effect of normal mapping in the debug view
 		// float3 normalSample = make_float3(material.normal.Sample(uv.x, uv.y));
@@ -138,7 +114,7 @@ namespace Core::Graphics::Cuda::Kernels
 	__global__ void EvaluateDiffuseKernel(
 		PathPoolView pathPool, 
 		MaterialEvalQueueView materialEvalQueue, 
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		RegenQueueView regenQueue,
@@ -150,8 +126,8 @@ namespace Core::Graphics::Cuda::Kernels
 		Path path = materialEvalQueue.GetPath(queueIndex);
 		Ray ray = materialEvalQueue.GetRay(queueIndex);
 		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
-		const Material material = materials.At(hitData.material);
-		Triangle triangle = triangles.At(hitData.triangle);
+		TriangleShading triangle = triangles.At(hitData.triangle);
+		const Material material = materials.At(triangle.material);
         
         Random random = pathPool.randoms.At(path.index);
         float3 samples = random.NextFloat3();
@@ -173,7 +149,7 @@ namespace Core::Graphics::Cuda::Kernels
 		
 		float3 omegaI = shadingFrame.FromLocal(SampleCosineWeightedHemisphere(directionSample));
 																										  
-		float3 geometricNormal = GetGeometricNormal(triangle);
+		float3 geometricNormal = triangle.geometricNormal;
 		if (dot(ray.direction, geometricNormal) > 0.0f)
 			geometricNormal = -geometricNormal;
 		
@@ -198,7 +174,7 @@ namespace Core::Graphics::Cuda::Kernels
 	__global__ void EvaluateMirrorKernel(
 		PathPoolView pathPool, 
 		MaterialEvalQueueView materialEvalQueue, 
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		RegenQueueView regenQueue,
@@ -210,8 +186,8 @@ namespace Core::Graphics::Cuda::Kernels
 		Path path = materialEvalQueue.GetPath(queueIndex);
 		Ray ray = materialEvalQueue.GetRay(queueIndex);
 		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
-		const Material material = materials.At(hitData.material);
-		Triangle triangle = triangles.At(hitData.triangle);
+		TriangleShading triangle = triangles.At(hitData.triangle);
+		const Material material = materials.At(triangle.material);
 
 		Random random = pathPool.randoms.At(path.index);
 		float rrSample = random.NextFloat();
@@ -231,7 +207,7 @@ namespace Core::Graphics::Cuda::Kernels
 		float3 omegaI = reflect(ray.direction, shadingFrame.normal);
 		float3 reflectance = make_float3(material.specular.Sample(uv.x, uv.y));
 
-		float3 geometricNormal = GetGeometricNormal(triangle);
+		float3 geometricNormal = triangle.geometricNormal;
 		if (dot(ray.direction, geometricNormal) > 0.0f)
 			geometricNormal = -geometricNormal;
 
@@ -268,7 +244,7 @@ namespace Core::Graphics::Cuda::Kernels
 	__global__ void EvaluatePhongKernel(
 		PathPoolView pathPool, 
 		MaterialEvalQueueView materialEvalQueue, 
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		RegenQueueView regenQueue,
@@ -280,9 +256,9 @@ namespace Core::Graphics::Cuda::Kernels
 		Path path = materialEvalQueue.GetPath(queueIndex);
 		Ray ray = materialEvalQueue.GetRay(queueIndex);
 		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
-		const Material material = materials.At(hitData.material);
-		Triangle triangle = triangles.At(hitData.triangle);
-        
+		TriangleShading triangle = triangles.At(hitData.triangle);
+		const Material material = materials.At(triangle.material);
+
 		Random random = pathPool.randoms.At(path.index);
         float4 samples = random.NextFloat4();
 		float2 directionSample = make_float2(samples.x, samples.y);
@@ -299,7 +275,7 @@ namespace Core::Graphics::Cuda::Kernels
 			b1 * triangle.vertices[1].uv +
 			b2 * triangle.vertices[2].uv;
 
-		float3 geometricNormal = GetGeometricNormal(triangle);
+		float3 geometricNormal = triangle.geometricNormal;
 		if (dot(ray.direction, geometricNormal) > 0.0f)
 			geometricNormal = -geometricNormal;
 
@@ -450,7 +426,7 @@ namespace Core::Graphics::Cuda::Kernels
 	__global__ void EvaluateGgxKernel(
 		PathPoolView pathPool, 
 		MaterialEvalQueueView materialEvalQueue, 
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		RegenQueueView regenQueue,
@@ -462,8 +438,8 @@ namespace Core::Graphics::Cuda::Kernels
 		Path path = materialEvalQueue.GetPath(queueIndex);
 		Ray ray = materialEvalQueue.GetRay(queueIndex);
 		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
-		const Material material = materials.At(hitData.material);
-		Triangle triangle = triangles.At(hitData.triangle);
+		TriangleShading triangle = triangles.At(hitData.triangle);
+		const Material material = materials.At(triangle.material);
 
 		Random random = pathPool.randoms.At(path.index);
 		float4 samples = random.NextFloat4();
@@ -481,7 +457,7 @@ namespace Core::Graphics::Cuda::Kernels
 			b1 * triangle.vertices[1].uv +
 			b2 * triangle.vertices[2].uv;
 
-		float3 geometricNormal = GetGeometricNormal(triangle);
+		float3 geometricNormal = triangle.geometricNormal;
 		if (dot(ray.direction, geometricNormal) > 0.0f)
 			geometricNormal = -geometricNormal;
 		
@@ -599,7 +575,7 @@ namespace Core::Graphics::Cuda::Kernels
 	__global__ void EvaluateEmissiveKernel(
 		PathPoolView pathPool, 
 		MaterialEvalQueueView materialEvalQueue, 
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer)
@@ -610,8 +586,8 @@ namespace Core::Graphics::Cuda::Kernels
 		Path path = materialEvalQueue.GetPath(queueIndex);
 		const float3 throughput = materialEvalQueue.GetThroughput(queueIndex);
 		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
-		const Material material = materials.At(hitData.material);
-		Triangle triangle = triangles.At(hitData.triangle);
+		TriangleShading triangle = triangles.At(hitData.triangle);
+		const Material material = materials.At(triangle.material);
 		
 		float b0 = 1.0f - hitData.u - hitData.v;
 		float b1 = hitData.u;
@@ -635,7 +611,7 @@ namespace Core::Graphics::Cuda::Kernels
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		RegenQueueView regenQueue,
@@ -651,7 +627,7 @@ namespace Core::Graphics::Cuda::Kernels
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		RegenQueueView regenQueue,
@@ -667,7 +643,7 @@ namespace Core::Graphics::Cuda::Kernels
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		RegenQueueView regenQueue,
@@ -683,7 +659,7 @@ namespace Core::Graphics::Cuda::Kernels
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		RegenQueueView regenQueue,
@@ -700,7 +676,7 @@ namespace Core::Graphics::Cuda::Kernels
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		RegenQueueView regenQueue,
@@ -716,7 +692,7 @@ namespace Core::Graphics::Cuda::Kernels
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
-		Runtime::DeviceBuffer1DView<Triangle> triangles,
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		RegenQueueView regenQueue,

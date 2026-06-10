@@ -19,11 +19,11 @@ namespace Core::Graphics::Cuda
 		}
 	}
 
-	std::expected<void, Core::Utils::Error> DeviceBvh::Build(
+	std::expected<void, Core::Utils::Error> DeviceBvh::BuildSync(
 		const HostBvhNode& root, 
 		uint32_t depth, 
 		uint32_t nodeCount, 
-		const std::vector<Triangle>& triangles, 
+		const std::vector<Triangle>& triangles,
 		const Runtime::Stream& stream)
 	{
 		std::vector<DeviceBvhNode> nodes;
@@ -32,8 +32,21 @@ namespace Core::Graphics::Cuda
 		FlattenBvh(root, nodes);
 		CORE_TRY_DISCARD(m_Nodes.Allocate(static_cast<uint32_t>(nodes.size()), sizeof(DeviceBvhNode), stream));
 		CORE_TRY_DISCARD(m_Nodes.Upload(nodes.data(), static_cast<uint32_t>(nodes.size()), stream));
-		CORE_TRY_DISCARD(m_Triangles.Allocate(static_cast<uint32_t>(triangles.size()), sizeof(Triangle), stream));
-		CORE_TRY_DISCARD(m_Triangles.Upload(triangles.data(), static_cast<uint32_t>(triangles.size()), stream));
+		
+		std::vector<TriangleIntersection> intersections;
+		std::vector<TriangleShading> shadings;
+		intersections.reserve(triangles.size());
+		shadings.reserve(triangles.size());
+		for (const auto& triangle : triangles)
+		{
+			intersections.push_back(triangle.intersection);
+			shadings.push_back(triangle.shading);
+		}
+
+		CORE_TRY_DISCARD(m_IntersectionData.Allocate(static_cast<uint32_t>(intersections.size()), sizeof(TriangleIntersection), stream));
+		CORE_TRY_DISCARD(m_IntersectionData.Upload(intersections.data(), static_cast<uint32_t>(intersections.size()), stream));
+		CORE_TRY_DISCARD(m_ShadingData.Allocate(static_cast<uint32_t>(shadings.size()), sizeof(TriangleShading), stream));
+		CORE_TRY_DISCARD(m_ShadingData.Upload(shadings.data(), static_cast<uint32_t>(shadings.size()), stream));
 		CORE_TRY_DISCARD(stream.Synchronize());
 		return {};
 	}
@@ -41,11 +54,15 @@ namespace Core::Graphics::Cuda
 	std::expected<void, Core::Utils::Error> DeviceBvh::Free(const Runtime::Stream& stream)
 	{
 		auto nodeResult = m_Nodes.Free(stream);
-		auto triangleResult = m_Triangles.Free(stream);
+		auto intersectionResult = m_IntersectionData.Free(stream);
+		auto shadingResult = m_ShadingData.Free(stream);
+
 		if (!nodeResult)
 			return std::unexpected(std::move(nodeResult).error());
-		if (!triangleResult)
-			return std::unexpected(std::move(triangleResult).error());
+		if (!intersectionResult)
+			return std::unexpected(std::move(intersectionResult).error());
+		if (!shadingResult)
+			return std::unexpected(std::move(shadingResult).error());
 		return {};
 	}
 }

@@ -5,7 +5,7 @@
 
 namespace Core::Graphics::Cuda
 {
-	enum class GlobalShadingModel
+	enum class GlobalShadingModel : uint32_t
 	{
 		// Unlit,
 		Normal,

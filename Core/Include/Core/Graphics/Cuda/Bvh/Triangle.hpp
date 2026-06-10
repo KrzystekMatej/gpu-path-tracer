@@ -5,18 +5,33 @@
 
 namespace Core::Graphics::Cuda
 {
+	struct TriangleIntersection
+	{
+		float4 edge1;
+		float4 edge2;
+		float3 v0;
+		GlobalShadingModel shadingModel;
+	};
+	
+
 	struct Vertex
 	{
-		float3 position;
-		float3 normal;
+		float4 normal;
 		float4 tangent;
 		float2 uv;
+	};
+	
+	struct TriangleShading
+	{
+		Vertex vertices[3];
+		float3 geometricNormal;
+		uint32_t material;
 	};
 
 	struct Triangle
 	{
-		Vertex vertices[3];
-		uint32_t materialIndex;
-		GlobalShadingModel shadingModel;
+		TriangleIntersection intersection;
+		TriangleShading shading;
+		float3 positions[3];
 	};
 }

@@ -5,9 +5,9 @@
 
 namespace Core::Graphics::Cuda
 {
-	struct DeviceBvhView
+	struct IntersectionBvhView
 	{
 		Runtime::DeviceBuffer1DView<DeviceBvhNode> nodes;
-		Runtime::DeviceBuffer1DView<Triangle> triangles;
+		Runtime::DeviceBuffer1DView<TriangleIntersection> triangles;
 	};
 }

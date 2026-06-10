@@ -30,7 +30,6 @@ namespace Core::Graphics::Cuda
             float* throughputYs,
             float* throughputZs,
             uint32_t* triangles,
-            uint32_t* materials,
             float* us,
             float* vs)
             : m_Size(size),
@@ -50,7 +49,6 @@ namespace Core::Graphics::Cuda
               m_ThrouputYs(throughputYs),
               m_ThrouputZs(throughputZs),
               m_Triangles(triangles),
-              m_Materials(materials),
               m_Us(us),
               m_Vs(vs)
         {
@@ -113,7 +111,6 @@ namespace Core::Graphics::Cuda
         {
             HitData hitData{};
             hitData.triangle = m_Triangles[index];
-            hitData.material = m_Materials[index];
             hitData.u = m_Us[index];
             hitData.v = m_Vs[index];
             return hitData;
@@ -159,7 +156,6 @@ namespace Core::Graphics::Cuda
         __device__ __forceinline__ void Set(uint32_t index, const HitData& hitData) const
         {
             m_Triangles[index] = hitData.triangle;
-            m_Materials[index] = hitData.material;
             m_Us[index] = hitData.u;
             m_Vs[index] = hitData.v;
         }
@@ -193,7 +189,6 @@ namespace Core::Graphics::Cuda
         float* __restrict__ m_ThrouputZs = nullptr;
 
         uint32_t* __restrict__ m_Triangles = nullptr;
-        uint32_t* __restrict__ m_Materials = nullptr;
         float* __restrict__ m_Us = nullptr;
         float* __restrict__ m_Vs = nullptr;
     };

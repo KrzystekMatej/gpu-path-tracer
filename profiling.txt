@@ -85,7 +85,7 @@ the same throughput moved to soa queues
 [2026-06-07 02:35:12.002] [info] Section: Copy frame to host, Runs: 1, Total Time: 0.599 ms, Average Time: 0.599 ms, Max Time: 0.599 ms, Percentage of Total Time: 0.00%
 [2026-06-07 02:35:12.002] [info] Section: Postprocess, Runs: 1, Total Time: 0.134 ms, Average Time: 0.134 ms, Max Time: 0.134 ms, Percentage of Total Time: 0.00%
 
-safe frame building, tangent correction (cpu side) - didnt expect it being faster (should be investigated later)
+safe frame building, tangent correction (cpu side) - didnt expect it being faster (should be investigated later) ??
 [2026-06-07 04:34:30.400] [info] Profile: Path tracing one frame, Total Time: 60858.301 ms
 [2026-06-07 04:34:30.400] [info] Section: Prepare iteration, Runs: 1262, Total Time: 46.042 ms, Average Time: 0.036 ms, Max Time: 0.127 ms, Percentage of Total Time: 0.08%
 [2026-06-07 04:34:30.401] [info] Section: Initialize paths, Runs: 1, Total Time: 4.982 ms, Average Time: 4.982 ms, Max Time: 4.982 ms, Percentage of Total Time: 0.01%
@@ -95,6 +95,40 @@ safe frame building, tangent correction (cpu side) - didnt expect it being faste
 [2026-06-07 04:34:30.401] [info] Section: Regenerate paths, Runs: 1261, Total Time: 1631.987 ms, Average Time: 1.294 ms, Max Time: 2.509 ms, Percentage of Total Time: 2.68%
 [2026-06-07 04:34:30.402] [info] Section: Copy frame to host, Runs: 1, Total Time: 0.585 ms, Average Time: 0.585 ms, Max Time: 0.585 ms, Percentage of Total Time: 0.00%
 [2026-06-07 04:34:30.402] [info] Section: Postprocess, Runs: 1, Total Time: 0.266 ms, Average Time: 0.266 ms, Max Time: 0.266 ms, Percentage of Total Time: 0.00%
+
+triangle split
+[2026-06-10 01:20:31.080] [info] Profile: Path traced frame, Total Time: 60803.965 ms
+[2026-06-10 01:20:31.080] [info] Section: Prepare iteration, Runs: 1262, Total Time: 44.088 ms, Average Time: 0.035 ms, Max Time: 0.108 ms, Percentage of Total Time: 0.07%
+[2026-06-10 01:20:31.081] [info] Section: Initialize paths, Runs: 1, Total Time: 1.310 ms, Average Time: 1.310 ms, Max Time: 1.310 ms, Percentage of Total Time: 0.00%
+[2026-06-10 01:20:31.081] [info] Section: Intersect, Runs: 1261, Total Time: 53559.816 ms, Average Time: 42.474 ms, Max Time: 74.832 ms, Percentage of Total Time: 88.09%
+[2026-06-10 01:20:31.081] [info] Section: Evaluate materials, Runs: 1261, Total Time: 5409.265 ms, Average Time: 4.290 ms, Max Time: 5.452 ms, Percentage of Total Time: 8.90%
+[2026-06-10 01:20:31.081] [info] Section: Sync counters, Runs: 1261, Total Time: 107.375 ms, Average Time: 0.085 ms, Max Time: 0.289 ms, Percentage of Total Time: 0.18%
+[2026-06-10 01:20:31.081] [info] Section: Regenerate paths, Runs: 1261, Total Time: 1625.493 ms, Average Time: 1.289 ms, Max Time: 2.052 ms, Percentage of Total Time: 2.67%
+[2026-06-10 01:20:31.081] [info] Section: Copy frame to host, Runs: 1, Total Time: 0.600 ms, Average Time: 0.600 ms, Max Time: 0.600 ms, Percentage of Total Time: 0.00%
+[2026-06-10 01:20:31.082] [info] Section: Postprocess, Runs: 1, Total Time: 0.134 ms, Average Time: 0.134 ms, Max Time: 0.134 ms, Percentage of Total Time: 0.00%
+
+material moved to ShadingData (not in queue or intersection data)
+[2026-06-10 01:28:59.641] [info] Profile: Path traced frame, Total Time: 60415.941 ms
+[2026-06-10 01:28:59.641] [info] Section: Prepare iteration, Runs: 1262, Total Time: 45.718 ms, Average Time: 0.036 ms, Max Time: 0.205 ms, Percentage of Total Time: 0.08%
+[2026-06-10 01:28:59.641] [info] Section: Initialize paths, Runs: 1, Total Time: 4.831 ms, Average Time: 4.831 ms, Max Time: 4.831 ms, Percentage of Total Time: 0.01%
+[2026-06-10 01:28:59.642] [info] Section: Intersect, Runs: 1261, Total Time: 53135.230 ms, Average Time: 42.137 ms, Max Time: 74.405 ms, Percentage of Total Time: 87.95%
+[2026-06-10 01:28:59.642] [info] Section: Evaluate materials, Runs: 1261, Total Time: 5450.625 ms, Average Time: 4.322 ms, Max Time: 5.413 ms, Percentage of Total Time: 9.02%
+[2026-06-10 01:28:59.642] [info] Section: Sync counters, Runs: 1261, Total Time: 107.775 ms, Average Time: 0.085 ms, Max Time: 0.257 ms, Percentage of Total Time: 0.18%
+[2026-06-10 01:28:59.642] [info] Section: Regenerate paths, Runs: 1261, Total Time: 1624.587 ms, Average Time: 1.288 ms, Max Time: 2.058 ms, Percentage of Total Time: 2.69%
+[2026-06-10 01:28:59.642] [info] Section: Copy frame to host, Runs: 1, Total Time: 0.605 ms, Average Time: 0.605 ms, Max Time: 0.605 ms, Percentage of Total Time: 0.00%
+[2026-06-10 01:28:59.642] [info] Section: Postprocess, Runs: 1, Total Time: 0.248 ms, Average Time: 0.248 ms, Max Time: 0.248 ms, Percentage of Total Time: 0.00%
+
+precomputed geometric normals + aligned Triangle structs
+[2026-06-10 03:14:26.694] [info] Profile: Path traced frame, Total Time: 59363.488 ms
+[2026-06-10 03:14:26.694] [info] Section: Prepare iteration, Runs: 1262, Total Time: 45.474 ms, Average Time: 0.036 ms, Max Time: 0.143 ms, Percentage of Total Time: 0.08%
+[2026-06-10 03:14:26.694] [info] Section: Initialize paths, Runs: 1, Total Time: 5.452 ms, Average Time: 5.452 ms, Max Time: 5.452 ms, Percentage of Total Time: 0.01%
+[2026-06-10 03:14:26.695] [info] Section: Intersect, Runs: 1261, Total Time: 51988.980 ms, Average Time: 41.228 ms, Max Time: 71.743 ms, Percentage of Total Time: 87.58%
+[2026-06-10 03:14:26.695] [info] Section: Evaluate materials, Runs: 1261, Total Time: 5543.260 ms, Average Time: 4.396 ms, Max Time: 5.521 ms, Percentage of Total Time: 9.34%
+[2026-06-10 03:14:26.695] [info] Section: Sync counters, Runs: 1261, Total Time: 106.044 ms, Average Time: 0.084 ms, Max Time: 0.206 ms, Percentage of Total Time: 0.18%
+[2026-06-10 03:14:26.695] [info] Section: Regenerate paths, Runs: 1261, Total Time: 1626.476 ms, Average Time: 1.290 ms, Max Time: 2.535 ms, Percentage of Total Time: 2.74%
+[2026-06-10 03:14:26.695] [info] Section: Copy frame to host, Runs: 1, Total Time: 0.586 ms, Average Time: 0.586 ms, Max Time: 0.586 ms, Percentage of Total Time: 0.00%
+[2026-06-10 03:14:26.695] [info] Section: Postprocess, Runs: 1, Total Time: 0.249 ms, Average Time: 0.249 ms, Max Time: 0.249 ms, Percentage of Total Time: 0.00%
+
 
 cornell-box-basic
 [2026-06-02 10:59:21.991] [info] Rendered frame 0 in 88.53 seconds

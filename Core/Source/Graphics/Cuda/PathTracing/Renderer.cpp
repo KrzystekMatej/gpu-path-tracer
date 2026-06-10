@@ -30,7 +30,7 @@ namespace Core::Graphics::Cuda
                 cudaStream_t,
                 PathPoolView,
                 MaterialEvalQueueView,
-                Runtime::DeviceBuffer1DView<Triangle>,
+                Runtime::DeviceBuffer1DView<TriangleShading>,
                 Runtime::DeviceBuffer1DView<Material>,
                 uint32_t,
                 RegenQueueView,
@@ -138,7 +138,22 @@ namespace Core::Graphics::Cuda
             return makeFallbackTangent(worldNormal);
         }
 
-        std::vector<Triangle> BuildTriangleList(
+        float3 ComputeGeometricNormal(float3 edge1, float3 edge2)
+        {
+            return normalize(cross(edge1, edge2));
+            // safer version (in case of degenerate triangles)
+            // float3 vertexNormal =
+            // triangle.vertices[0].normal +
+            // triangle.vertices[1].normal +
+            // triangle.vertices[2].normal;
+
+            // return Math::SafeNormalize(
+            // 	cross(e1, e2),
+            // 	Math::SafeNormalize(vertexNormal, make_float3(0.0f, 0.0f, 1.0f))
+            // );
+        }
+        
+        std::vector<Triangle> BuildTriangles(
             const entt::registry& sceneRegistry,
             const Assets::Storage& storage,
             const std::unordered_map<Core::Utils::Guid, uint32_t>& materialIndices)
@@ -155,13 +170,13 @@ namespace Core::Graphics::Cuda
 						const glm::mat3 normal = glm::mat3(glm::transpose(glm::inverse(model)));
                         const uint32_t materialIndex = materialIndices.at(material.handle.GetId());
                         const GlobalShadingModel shadingModel = ToGlobalShadingUnchecked(storage.Get(material.handle).value().get().surface);
-
-						triangles.reserve(triangles.size() + indices.size() / 3);
-
-
+                        
+                        triangles.reserve(triangles.size() + indices.size() / 3);
+                        
                         for (size_t i = 0; i < indices.size(); i += 3)
                         {
-                            Triangle triangle;
+                            TriangleShading shadingData;
+                            float3 positions[3];
                             for (size_t j = 0; j < 3; j++)
                             {
                                 const Graphics::Vertex& vertex = vertices[indices[i + j]];
@@ -171,26 +186,26 @@ namespace Core::Graphics::Cuda
 
                                 const glm::vec3 worldTangent = ComputeWorldTangent(model, worldNormal, vertex.tangent);
 
-                                triangle.vertices[j].position = Utils::Glm::ToFloat3(worldPosition);
-                                triangle.vertices[j].normal = Utils::Glm::ToFloat3(worldNormal);
-                                triangle.vertices[j].tangent = Utils::Glm::ToFloat4(glm::vec4(worldTangent, vertex.tangent.w));
-                                triangle.vertices[j].uv = Utils::Glm::ToFloat2(vertex.uv);
+                                positions[j] = Utils::Glm::ToFloat3(worldPosition);
+                                shadingData.vertices[j].normal = make_float4(Utils::Glm::ToFloat3(worldNormal), 0.0f);
+                                shadingData.vertices[j].tangent = Utils::Glm::ToFloat4(glm::vec4(worldTangent, vertex.tangent.w));
+                                shadingData.vertices[j].uv = Utils::Glm::ToFloat2(vertex.uv);
 							}
-							triangle.materialIndex = materialIndex;
-                            triangle.shadingModel = shadingModel;
-                            triangles.push_back(triangle);
+
+                            TriangleIntersection intersectionData;
+                            intersectionData.edge1 = make_float4(positions[1] - positions[0], 1.0f);
+                            intersectionData.edge2 = make_float4(positions[2] - positions[0], 1.0f);
+                            intersectionData.v0 = positions[0];
+                            intersectionData.shadingModel = shadingModel;
+
+                            shadingData.geometricNormal = ComputeGeometricNormal(make_float3(intersectionData.edge1), make_float3(intersectionData.edge2));
+                            shadingData.material = materialIndex;
+
+                            triangles.push_back({ intersectionData, shadingData, { positions[0], positions[1], positions[2] } });
                         }
                     });
             return triangles;
         }
-
-        std::expected<DeviceBvh, Core::Utils::Error> BuildBvh(std::vector<Triangle> triangles)
-        {
-			HostBvh bvh(std::move(triangles));
-			DeviceBvh deviceBvh;
-			CORE_TRY_DISCARD(deviceBvh.Build(bvh.GetRoot(), bvh.GetDepth(), bvh.GetNodeCount(), bvh.GetTriangles()));
-            return deviceBvh;
-		}
 
         DeviceCamera MakeDeviceCamera(const Graphics::Ecs::Camera& camera, float aspect, const Capture::MotionState& motionState)
         {
@@ -222,26 +237,26 @@ namespace Core::Graphics::Cuda
 
     std::expected<void, Core::Utils::Error> Renderer::InitializeRenderingBuffers(uint32_t width, uint32_t height)
     {
-        CORE_TRY_ASSIGN(m_RenderStream, Runtime::Stream::Create());
-		CORE_TRY_DISCARD(m_PathPool.Allocate(PathPoolSize));
+        CORE_TRY_ASSIGN_CONTEXT(m_RenderStream, Runtime::Stream::Create(), "Failed to create CUDA stream for renderer");
+		CORE_TRY_DISCARD_CONTEXT(m_PathPool.Allocate(PathPoolSize), "Failed to allocate path pool");
         for (auto& rayQueue : m_RayQueues)
         {
-            CORE_TRY_DISCARD(rayQueue.Allocate(PathPoolSize));
+            CORE_TRY_DISCARD_CONTEXT(rayQueue.Allocate(PathPoolSize), "Failed to allocate ray queue");
         }
 
         for (auto& materialQueue : m_MaterialEvalQueues)
         {
-            CORE_TRY_DISCARD(materialQueue.Allocate(PathPoolSize));
+            CORE_TRY_DISCARD_CONTEXT(materialQueue.Allocate(PathPoolSize), "Failed to allocate material evaluation queue");
         }
 
-		CORE_TRY_DISCARD(m_RegenQueue.Allocate(PathPoolSize));
-		CORE_TRY_DISCARD(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)));
-        CORE_TRY_DISCARD(m_Framebuffer.Allocate(width * height, sizeof(uchar4)));
+		CORE_TRY_DISCARD_CONTEXT(m_RegenQueue.Allocate(PathPoolSize), "Failed to allocate regen queue");
+		CORE_TRY_DISCARD_CONTEXT(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)), "Failed to allocate accumulation buffer");
+        CORE_TRY_DISCARD_CONTEXT(m_Framebuffer.Allocate(width * height, sizeof(uchar4)), "Failed to allocate framebuffer");
         m_Width = width;
         m_Height = height;
-        CORE_TRY_DISCARD(m_Framebuffer.GetDeviceBuffer().MemsetBytes(0));
-		CORE_TRY_DISCARD(m_Framebuffer.CopyDeviceToHost());
-        CORE_TRY_DISCARD(Runtime::SynchronizeDevice());
+        CORE_TRY_DISCARD_CONTEXT(m_Framebuffer.GetDeviceBuffer().MemsetBytes(0), "Failed to clear framebuffer");
+		CORE_TRY_DISCARD_CONTEXT(m_Framebuffer.CopyDeviceToHost(), "Failed to copy framebuffer to host");
+        CORE_TRY_DISCARD_CONTEXT(Runtime::SynchronizeDevice(), "Failed to synchronize device after initializing rendering buffers");
 		return {};
     }
 
@@ -249,13 +264,13 @@ namespace Core::Graphics::Cuda
     {
         std::fill(m_MaterialCounts.begin(), m_MaterialCounts.end(), 0);
         MaterialTable materialTable = BuildMaterialTable(sceneRegistry, storage, m_MaterialCounts);
-		CORE_TRY(materialBuffer, BuildMaterialBuffer(materialTable.materials));
+		CORE_TRY_CONTEXT(materialBuffer, BuildMaterialBuffer(materialTable.materials), "Failed to build material buffer");
 		m_MaterialBuffer = std::move(materialBuffer);
 
-		std::vector<Triangle> triangleList = BuildTriangleList(sceneRegistry, storage, materialTable.indices);
-		CORE_TRY(bvh, BuildBvh(std::move(triangleList)));
-		m_Bvh = std::move(bvh);
-        CORE_TRY_DISCARD(Runtime::SynchronizeDevice());
+		std::vector<Triangle> triangles = BuildTriangles(sceneRegistry, storage, materialTable.indices);
+        HostBvh bvh(std::move(triangles));
+        CORE_TRY_DISCARD_CONTEXT(m_Bvh.BuildSync(bvh.GetRoot(), bvh.GetDepth(), bvh.GetNodeCount(), bvh.GetTriangles()), "Failed to build BVH");
+        CORE_TRY_DISCARD_CONTEXT(Runtime::SynchronizeDevice(), "Failed to synchronize after scene upload");
         spdlog::info("Scene buffers initialized - Triangles: {}, BVH Nodes: {} (depth: {}), Materials: {}", m_Bvh.GetTriangleCount(), m_Bvh.GetNodeCount(), m_Bvh.GetDepth(), materialTable.materials.size());
         return {};
     }
@@ -311,9 +326,9 @@ namespace Core::Graphics::Cuda
 
         if (width != m_Width || height != m_Height)
         {
-            CORE_TRY_DISCARD(m_Framebuffer.Allocate(width * height, sizeof(uchar4)));
-            CORE_TRY_DISCARD(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)));
-            CORE_TRY_DISCARD(Runtime::SynchronizeDevice());
+            CORE_TRY_DISCARD_CONTEXT(m_Framebuffer.Allocate(width * height, sizeof(uchar4)), "Failed to allocate framebuffer");
+            CORE_TRY_DISCARD_CONTEXT(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)), "Failed to allocate accumulation buffer");
+            CORE_TRY_DISCARD_CONTEXT(Runtime::SynchronizeDevice(), "Failed to synchronize after buffer allocation");
             m_Width = width;
             m_Height = height;
 		}
@@ -419,9 +434,9 @@ namespace Core::Graphics::Cuda
 
     std::expected<void, Core::Utils::Error> Renderer::RenderFrame(std::stop_token stopToken, DeviceCamera camera, uint32_t generateCount)
     {
-        CORE_TRY(profiler, Core::Graphics::Cuda::Runtime::Profiler::Create("Path traced frame"));
-        CORE_TRY_DISCARD(profiler.StartProfiling(m_RenderStream));
-        
+        CORE_TRY_CONTEXT(profiler, Core::Graphics::Cuda::Runtime::Profiler::Create("Path traced frame"), "Failed to create profiler");
+        CORE_TRY_DISCARD_CONTEXT(profiler.StartProfiling(m_RenderStream), "Failed to start profiling");
+
         m_DoneSamples.store(0, std::memory_order_relaxed);
 
         uint32_t nextQueue = 0;
@@ -431,7 +446,7 @@ namespace Core::Graphics::Cuda
         {
             materialQueueProvider.At(i) = m_MaterialEvalQueues[i].GetView();
         }
-        CORE_TRY_DISCARD(m_AccumulationBuffer.MemsetBytes(0, m_RenderStream));
+        CORE_TRY_DISCARD_CONTEXT(m_AccumulationBuffer.MemsetBytes(0, m_RenderStream), "Failed to clear accumulation buffer");
         
         CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Initialize paths",
         {
@@ -475,13 +490,13 @@ namespace Core::Graphics::Cuda
                         rayCount,
                         m_PathPool.GetView(),
                         m_RayQueues[currentQueue].GetView(),
-                        m_Bvh.GetView(),
+                        m_Bvh.GetIntersectionView(),
                         m_Bvh.GetDepth(),
                         materialQueueProvider,
                         m_RegenQueue.GetView()));
             });
 
-            CORE_TRY_DISCARD(m_RenderStream.Synchronize());
+            CORE_TRY_DISCARD_CONTEXT(m_RenderStream.Synchronize(), "Failed to synchronize after ray-scene intersection");
             
             CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Evaluate materials",
             {
@@ -495,7 +510,7 @@ namespace Core::Graphics::Cuda
                             m_RenderStream.GetRawHandle(),
                             m_PathPool.GetView(),
                             materialQueueProvider.At(i),
-                            m_Bvh.GetView().triangles,
+                            m_Bvh.GetShadingView(),
                             m_MaterialBuffer.GetView<Material>(),
                             m_PathDepthLimit,
                             m_RegenQueue.GetView(),
@@ -523,7 +538,7 @@ namespace Core::Graphics::Cuda
 
             CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Sync counters",
             {
-                CORE_TRY(regenQueueSize, m_RegenQueue.GetCounter().SyncFromDevice(m_RenderStream));
+                CORE_TRY_CONTEXT(regenQueueSize, m_RegenQueue.GetCounter().SyncFromDevice(m_RenderStream), "Failed to synchronize regen queue counter");
                 uint32_t regenerateCount = std::min(regenQueueSize, remainingCount);
                 uint32_t nextRayCount = rayCount - regenQueueSize + regenerateCount;
 
@@ -567,10 +582,10 @@ namespace Core::Graphics::Cuda
             CORE_TRY_DISCARD(m_RenderStream.Synchronize());
         });
 
-        CORE_TRY_DISCARD(profiler.StopProfiling(m_RenderStream));
+        CORE_TRY_DISCARD_CONTEXT(profiler.StopProfiling(m_RenderStream), "Failed to stop profiling");
         profiler.LogResults();
 
-        CORE_TRY_DISCARD(SaveRenderedFrame(m_OutputFolder / std::format("{}.png", m_DoneFrames.load())));
+        CORE_TRY_DISCARD_CONTEXT(SaveRenderedFrame(m_OutputFolder / std::format("{}.png", m_DoneFrames.load())), "Failed to save rendered frame");
 
         m_DoneSamples.store(m_TotalSamples, std::memory_order_relaxed);
         return {};

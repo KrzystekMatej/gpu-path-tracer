@@ -14,7 +14,7 @@ namespace Core::Graphics::Cuda
 		uint32_t count = 0;
 		BoundingBox bounds;
 	};
-
+	
 	class HostBvh
 	{
 	public:
