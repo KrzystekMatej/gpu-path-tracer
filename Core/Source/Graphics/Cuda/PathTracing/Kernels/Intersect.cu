@@ -4,28 +4,27 @@
 #include <Core/Graphics/Cuda/Bvh/BvhDefaults.hpp>
 #include <Core/Graphics/Cuda/Runtime/Memory/Stack.hpp>
 #include <cassert>
+#include <Core/Graphics/Cuda/Utils/Math.hpp>
 
 namespace Core::Graphics::Cuda::Kernels
 {
-	__device__ __forceinline__ bool AabbIntersect(const BoundingBox& bounds, const float3& origin, const float3& invDirection, float tMin, float tMax)
+	__device__ __forceinline__ bool AabbIntersect(const BoundingBox& bounds, const Ray& ray, float3 invDirection)
 	{
-		float3 t0 = (bounds.min - origin) * invDirection;
-		float3 t1 = (bounds.max - origin) * invDirection;
+		const float3 t0 = (bounds.min - ray.origin) * invDirection;
+		const float3 t1 = (bounds.max - ray.origin) * invDirection;
 
-		float3 lo = fminf(t0, t1);
-		float3 hi = fmaxf(t0, t1);
+		const float3 lo = fminf(t0, t1);
+		const float3 hi = fmaxf(t0, t1);
 
-		tMin = fmaxf(tMin, fmaxf(lo.x, fmaxf(lo.y, lo.z)));
-		tMax = fminf(tMax, fminf(hi.x, fminf(hi.y, hi.z)));
-		return tMax >= tMin;
+		const float tNear = fmaxf(ray.tMin, Math::MaxComponent(lo));
+		const float tFar = fminf(ray.tMax, Math::MinComponent(hi));
+
+		return tNear <= tFar;
 	}
 
 	__device__ __forceinline__ bool IntersectTriangle(
 		const TriangleIntersection& intersectionData,
-		const float3& origin,
-		const float3& direction,
-		float tMin,
-		float tMax,
+		const Ray& ray,
 		float& t,
 		float& u,
 		float& v)
@@ -34,8 +33,7 @@ namespace Core::Graphics::Cuda::Kernels
 		float3 edge2 = make_float3(intersectionData.edge2);
 		float3 v0 = intersectionData.v0;
 
-
-		const float3 p = cross(direction, edge2);
+		const float3 p = cross(ray.direction, edge2);
 
 		const float det = dot(edge1, p);
 		const float epsilon = 1e-7f;
@@ -45,21 +43,21 @@ namespace Core::Graphics::Cuda::Kernels
 
 		const float invDet = 1.0f / det;
 
-		const float3 s = origin - v0;
+		const float3 s = ray.origin - v0;
 		u = dot(s, p) * invDet;
 
 		if (u < 0.0f || u > 1.0f)
 			return false;
 
 		const float3 q = cross(s, edge1);
-		v = dot(direction, q) * invDet;
+		v = dot(ray.direction, q) * invDet;
 
 		if (v < 0.0f || u + v > 1.0f)
 			return false;
 
 		t = dot(edge2, q) * invDet;
 
-		return t >= tMin && t <= tMax;
+		return t >= ray.tMin && t < ray.tMax;
 	}
     
 	template<uint32_t BvhDepthUpperBound>
@@ -74,32 +72,32 @@ namespace Core::Graphics::Cuda::Kernels
 		if (queueIndex >= rayQueue.GetSize()) return;
 		
 		const Path path = rayQueue.GetPath(queueIndex);
+		
 		Ray ray = rayQueue.GetRay(queueIndex);
-		const float3 invDirection = make_float3(1.0f) / ray.direction;
-		Runtime::Stack<uint32_t, BvhDepthUpperBound + 2> stack;
-		stack.Push(0);
-		HitData closestHit;
-		closestHit.triangle = PathTracerDefaults::InvalidIndex;
-		float closestT = ray.tMax;
+		HitData closestHit = { PathTracerDefaults::InvalidIndex, 0.0f, 0.0f };
 		GlobalShadingModel shadingModel = GlobalShadingModel::Count;
 
+		const float3 invDirection = make_float3(1.0f) / ray.direction;
+
+		Runtime::Stack<uint32_t, BvhDepthUpperBound + 2> stack;
+		stack.Push(0);
+		
 		while (!stack.IsEmpty())
 		{
-			uint32_t nodeIndex = stack.Pop();
-			const DeviceBvhNode node = bvh.nodes.At(nodeIndex);
+			const DeviceBvhNode node = bvh.GetNode(stack.Pop());
 
-			if (!AabbIntersect(node.bounds, ray.origin, invDirection, ray.tMin, closestT))
+			if (!AabbIntersect(node.bounds, ray, invDirection))
 				continue;
 
-			if (node.left == PathTracerDefaults::InvalidIndex && node.right == PathTracerDefaults::InvalidIndex)
+			if (node.IsLeaf())
 			{
 				for (uint32_t i = 0; i < node.count; i++)
 				{
-					const TriangleIntersection triangle = bvh.triangles.At(node.first + i);
+					const TriangleIntersection triangle = bvh.GetTriangle(node.first + i);
 					float t, u, v;
-					if (IntersectTriangle(triangle, ray.origin, ray.direction, ray.tMin, closestT, t, u, v) && t < closestT)
+					if (IntersectTriangle(triangle, ray, t, u, v))
 					{
-						closestT = t;
+						ray.tMax = t;
 						
 						closestHit.triangle = node.first + i;
 						closestHit.u = u;
@@ -117,7 +115,6 @@ namespace Core::Graphics::Cuda::Kernels
 		
 		if (closestHit.triangle != PathTracerDefaults::InvalidIndex)
 		{
-			ray.tMax = closestT;
 			materialQueueProvider.At(static_cast<uint32_t>(shadingModel)).Push(path, ray, closestHit);
 		}
 		else

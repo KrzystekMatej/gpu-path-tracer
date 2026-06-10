@@ -165,8 +165,8 @@ namespace App::PathTracer
 		if (event.settings.samplesPerPixel != m_PathTracer.GetSamplesPerPixel())
 		{
 			spdlog::warn(
-				"Requested {} samples per pixel, but renderer is using {} samples per pixel (sample grid size: {})",
-				event.settings.samplesPerPixel, m_PathTracer.GetSamplesPerPixel(), m_PathTracer.GetSampleGridSize());
+				"Requested {} samples per pixel, but renderer is using {} samples per pixel (sample per pixel axis: {})",
+				event.settings.samplesPerPixel, m_PathTracer.GetSamplesPerPixel(), m_PathTracer.GetSamplesPerPixelAxis());
 			auto& storedSettings = Core::Runtime::Application::Blackboard().ctx().get<Settings>();
 			storedSettings.samplesPerPixel = m_PathTracer.GetSamplesPerPixel();
 		}

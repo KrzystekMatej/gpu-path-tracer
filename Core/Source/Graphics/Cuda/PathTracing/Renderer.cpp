@@ -252,8 +252,7 @@ namespace Core::Graphics::Cuda
 		CORE_TRY_DISCARD_CONTEXT(m_RegenQueue.Allocate(PathPoolSize), "Failed to allocate regen queue");
 		CORE_TRY_DISCARD_CONTEXT(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)), "Failed to allocate accumulation buffer");
         CORE_TRY_DISCARD_CONTEXT(m_Framebuffer.Allocate(width * height, sizeof(uchar4)), "Failed to allocate framebuffer");
-        m_Width = width;
-        m_Height = height;
+        m_PixelGrid = { width, height, PathTracerDefaults::SamplesPerPixel, PathTracerDefaults::SamplesPerPixelAxis };
         CORE_TRY_DISCARD_CONTEXT(m_Framebuffer.GetDeviceBuffer().MemsetBytes(0), "Failed to clear framebuffer");
 		CORE_TRY_DISCARD_CONTEXT(m_Framebuffer.CopyDeviceToHost(), "Failed to copy framebuffer to host");
         CORE_TRY_DISCARD_CONTEXT(Runtime::SynchronizeDevice(), "Failed to synchronize device after initializing rendering buffers");
@@ -324,25 +323,25 @@ namespace Core::Graphics::Cuda
             m_LastError.reset();
         }
 
-        if (width != m_Width || height != m_Height)
+        if (width != m_PixelGrid.width || height != m_PixelGrid.height)
         {
             CORE_TRY_DISCARD_CONTEXT(m_Framebuffer.Allocate(width * height, sizeof(uchar4)), "Failed to allocate framebuffer");
             CORE_TRY_DISCARD_CONTEXT(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)), "Failed to allocate accumulation buffer");
             CORE_TRY_DISCARD_CONTEXT(Runtime::SynchronizeDevice(), "Failed to synchronize after buffer allocation");
-            m_Width = width;
-            m_Height = height;
+            m_PixelGrid.width = width;
+            m_PixelGrid.height = height;
 		}
+		m_PixelGrid.samplesPerPixelAxis = static_cast<uint32_t>(std::sqrt(samplesPerPixel));
+		m_PixelGrid.samplesPerPixel = m_PixelGrid.samplesPerPixelAxis * m_PixelGrid.samplesPerPixelAxis;
+		m_PathDepthLimit = pathDepthLimit;
 
 		m_Camera = camera;
 		m_CameraMotionStates = std::move(cameraMotionStates);
-		m_SampleGridSize = static_cast<uint32_t>(std::sqrt(samplesPerPixel));
-		m_SamplesPerPixel = m_SampleGridSize * m_SampleGridSize;
-		m_PathDepthLimit = pathDepthLimit;
 
         m_DoneFrames.store(0, std::memory_order_relaxed);
 		m_TotalFrames = static_cast<uint32_t>(m_CameraMotionStates.size());
 		m_DoneSamples.store(0, std::memory_order_relaxed);
-		m_TotalSamples = static_cast<uint64_t>(m_SamplesPerPixel) * static_cast<uint64_t>(width) * static_cast<uint64_t>(height);
+		m_TotalSamples = static_cast<uint64_t>(m_PixelGrid.samplesPerPixel) * static_cast<uint64_t>(width) * static_cast<uint64_t>(height);
         
         m_IsRendering.store(true, std::memory_order_relaxed);
         // SimulationLoop(std::stop_token{}, startFrame); // single-threaded version for debugging
@@ -410,7 +409,7 @@ namespace Core::Graphics::Cuda
 
     void Renderer::SimulationLoop(std::stop_token stopToken, uint32_t startFrame)
     {
-        float aspect = static_cast<float>(m_Width) / static_cast<float>(m_Height);
+        float aspect = static_cast<float>(m_PixelGrid.width) / static_cast<float>(m_PixelGrid.height);
         uint32_t generateCount = static_cast<uint32_t>(std::min<uint64_t>(m_TotalSamples, m_PathPool.GetPathCount()));
 
         for (uint32_t frameIndex = startFrame; frameIndex < m_TotalFrames; frameIndex++)
@@ -455,9 +454,7 @@ namespace Core::Graphics::Cuda
                     m_RenderStream.GetRawHandle(),
                     generateCount,
                     camera,
-                    m_Width,
-                    m_Height,
-                    m_SampleGridSize,
+                    m_PixelGrid,
                     m_PathPool.GetView(),
                     m_RayQueues[nextQueue].GetView()));
         });
@@ -529,9 +526,7 @@ namespace Core::Graphics::Cuda
                         m_RegenQueue.GetView(),
                         launchedSampleCount,
                         camera,
-                        m_Width,
-                        m_Height,
-                        m_SampleGridSize,
+                        m_PixelGrid,
                         m_PathPool.GetView(),
                         m_RayQueues[nextQueue].GetView()));
             });
@@ -571,7 +566,7 @@ namespace Core::Graphics::Cuda
                 Kernels::PostprocessAccumulatedRadiance(
                     m_RenderStream.GetRawHandle(),
                     m_AccumulationBuffer.GetView<float4>(),
-                    1.0f / static_cast<float>(m_SamplesPerPixel),
+                    1.0f / static_cast<float>(m_PixelGrid.samplesPerPixel),
                     m_Framebuffer.GetDeviceView<uchar4>()));
         });
         
@@ -604,8 +599,8 @@ namespace Core::Graphics::Cuda
         }
         
         Import::Image image{
-            .width = m_Width,
-            .height = m_Height,
+            .width = m_PixelGrid.width,
+            .height = m_PixelGrid.height,
             .format = {
                 .layout = ChannelLayout::RGBA,
                 .componentType = ComponentType::UInt8,

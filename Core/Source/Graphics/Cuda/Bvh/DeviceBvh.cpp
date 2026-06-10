@@ -7,7 +7,7 @@ namespace Core::Graphics::Cuda
 		uint32_t FlattenBvh(const HostBvhNode& node, std::vector<DeviceBvhNode>& nodes)
 		{
 			uint32_t nodeIndex = static_cast<uint32_t>(nodes.size());
-			nodes.emplace_back(node.bounds, DeviceBvhNode::InvalidIndex, DeviceBvhNode::InvalidIndex, node.first, node.count);
+			nodes.emplace_back(node.bounds, PathTracerDefaults::InvalidIndex, PathTracerDefaults::InvalidIndex, node.first, node.count);
 
 			if (node.left && node.right)
 			{

@@ -30,6 +30,7 @@
 #include <Core/Graphics/Cuda/PathTracing/Memory/MaterialEvalQueue.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Memory/RegenQueue.hpp>
 #include <Core/Graphics/Cuda/Runtime/Sync/Stream.hpp>
+#include <Core/Graphics/Cuda/PathTracing/PixelGrid.hpp>
 
 namespace Core::Graphics::Cuda
 {
@@ -108,8 +109,8 @@ namespace Core::Graphics::Cuda
         std::expected<void, Core::Utils::Error> InitializeRenderingBuffers(uint32_t width, uint32_t height);
 		std::expected<void, Core::Utils::Error> InitializeSceneBuffers(const entt::registry& sceneRegistry, const Assets::Storage& storage);
 
-		uint32_t GetFramebufferWidth() const { return m_Width; }
-		uint32_t GetFramebufferHeight() const { return m_Height; }
+		uint32_t GetFramebufferWidth() const { return m_PixelGrid.width; }
+		uint32_t GetFramebufferHeight() const { return m_PixelGrid.height; }
         std::optional<Core::Utils::Error> PeekLastError() const;
         std::optional<Core::Utils::Error> ConsumeLastError();
 
@@ -132,8 +133,8 @@ namespace Core::Graphics::Cuda
 		uint32_t GetTotalFrames() const { return m_TotalFrames; }
 		uint64_t GetDoneSamples() const { return m_DoneSamples.load(); }
 		uint64_t GetTotalSamples() const { return m_TotalSamples; }
-        uint32_t GetSampleGridSize() const { return m_SampleGridSize; }
-        uint32_t GetSamplesPerPixel() const { return m_SamplesPerPixel; }
+        uint32_t GetSamplesPerPixelAxis() const { return m_PixelGrid.samplesPerPixelAxis; }
+        uint32_t GetSamplesPerPixel() const { return m_PixelGrid.samplesPerPixel; }
         uint32_t GetPathDepth() const { return m_PathDepthLimit; }
 
         static constexpr size_t PathPoolSize = 2 << 19;
@@ -145,32 +146,8 @@ namespace Core::Graphics::Cuda
 
         Runtime::SharedBuffer1D m_Framebuffer;
 		Runtime::DeviceBuffer1D m_AccumulationBuffer;
-        uint32_t m_Width = PathTracerDefaults::FrameWidth;
-        uint32_t m_Height = PathTracerDefaults::FrameHeight;
-
-        mutable std::mutex m_FrameMutex;
-        mutable std::mutex m_ErrorMutex;
-
-        std::jthread m_RenderThread;
-        std::atomic<bool> m_IsRendering = false;
-
-        std::condition_variable_any m_StopCv;
-        std::mutex m_StopMutex;
-
-        std::optional<Core::Utils::Error> m_LastError;
-
-		std::atomic<uint32_t> m_DoneFrames = 0;
-		uint32_t m_TotalFrames = 0;
-		std::atomic<uint64_t> m_DoneSamples = 0;
-		uint64_t m_TotalSamples = 0;
-
-        Graphics::Ecs::Camera m_Camera;
-		std::vector<Capture::MotionState> m_CameraMotionStates;
-
-        uint32_t m_SampleGridSize = PathTracerDefaults::SampleGridSize;
-		uint32_t m_SamplesPerPixel = PathTracerDefaults::SamplesPerPixel;
+        PixelGrid m_PixelGrid;
         uint32_t m_PathDepthLimit = PathTracerDefaults::PathDepthLimit;
-        std::filesystem::path m_OutputFolder;
         
         Runtime::Stream m_RenderStream;
 
@@ -182,5 +159,26 @@ namespace Core::Graphics::Cuda
         PathPool m_PathPool;
         std::array<RayQueue, 2> m_RayQueues;
         RegenQueue m_RegenQueue;
+
+        Graphics::Ecs::Camera m_Camera;
+		std::vector<Capture::MotionState> m_CameraMotionStates;
+        
+        mutable std::mutex m_FrameMutex;
+        mutable std::mutex m_ErrorMutex;
+
+        std::jthread m_RenderThread;
+        std::atomic<bool> m_IsRendering = false;
+
+        std::condition_variable_any m_StopCv;
+        std::mutex m_StopMutex;
+
+        std::optional<Core::Utils::Error> m_LastError;
+        
+		std::atomic<uint32_t> m_DoneFrames = 0;
+		uint32_t m_TotalFrames = 0;
+		std::atomic<uint64_t> m_DoneSamples = 0;
+		uint64_t m_TotalSamples = 0;
+        
+        std::filesystem::path m_OutputFolder;
     };
 }

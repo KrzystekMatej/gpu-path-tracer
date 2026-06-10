@@ -10,6 +10,7 @@
 #include <Core/Graphics/Cuda/PathTracing/Memory/MaterialEvalQueueViewsProvider.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Memory/RegenQueueView.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Memory/RayQueueView.hpp>
+#include <Core/Graphics/Cuda/PathTracing/PixelGrid.hpp>
 
 namespace Core::Graphics::Cuda::Kernels
 {
@@ -21,9 +22,7 @@ namespace Core::Graphics::Cuda::Kernels
 		cudaStream_t stream,
 		uint32_t generateCount,
 		DeviceCamera camera, 
-		uint32_t width, 
-		uint32_t height, 
-		uint32_t sampleGridSize, 
+		PixelGrid pixelGrid,
 		PathPoolView pathPool, 
 		RayQueueView rayQueue);
 	void PrepareIteration(
@@ -108,9 +107,7 @@ namespace Core::Graphics::Cuda::Kernels
 		RegenQueueView regenQueue,
 		uint64_t launchedSampleCount,
 		DeviceCamera camera, 
-		uint32_t width, 
-		uint32_t height, 
-		uint32_t sampleGridSize, 
+		PixelGrid pixelGrid,
 		PathPoolView pathPool,
 		RayQueueView nextRayQueue);
 	void PostprocessAccumulatedRadiance(

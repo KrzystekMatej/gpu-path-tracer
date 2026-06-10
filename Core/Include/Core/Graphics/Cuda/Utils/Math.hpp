@@ -66,6 +66,16 @@ namespace Core::Graphics::Cuda::Math
 	{
 		return a > b ? a : b;
 	}
+	
+	__host__ __device__ __forceinline__ float MinComponent(float3 vector)
+	{
+		return fminf(vector.x, fminf(vector.y, vector.z));
+	}
+
+	__host__ __device__ __forceinline__ float MinComponent(float4 vector)
+	{
+		return fminf(vector.x, fminf(vector.y, fminf(vector.z, vector.w)));
+	}
 
 	__host__ __device__ __forceinline__ float MaxComponent(float3 vector)
 	{

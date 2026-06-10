@@ -26,11 +26,10 @@ namespace Core::Graphics::Cuda
 
 		IntersectionBvhView GetIntersectionView() const
 		{
-			return
-			{
+			return IntersectionBvhView(
 				m_Nodes.GetView<DeviceBvhNode>(),
-				m_IntersectionData.GetView<TriangleIntersection>(),
-			};
+				m_IntersectionData.GetView<TriangleIntersection>()
+			);
 		}
 		
 		Runtime::DeviceBuffer1DView<TriangleShading> GetShadingView() const

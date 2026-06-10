@@ -66,8 +66,6 @@ namespace Core::Graphics::Cuda
 
 	struct HitData
 	{
-		HitData() = default;
-
 		uint32_t triangle;
 		float u;
 		float v;
