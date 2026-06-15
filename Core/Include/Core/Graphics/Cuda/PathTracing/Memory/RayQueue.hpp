@@ -47,6 +47,12 @@ namespace Core::Graphics::Cuda
                 m_Counter.GetDevicePointer(),
                 GetCapacity(),
                 reinterpret_cast<uint32_t*>(m_Paths.GetData()),
+                reinterpret_cast<uint32_t*>(m_Depths.GetData()),
+                reinterpret_cast<float*>(m_ThroughputXs.GetData()),
+                reinterpret_cast<float*>(m_ThroughputYs.GetData()),
+                reinterpret_cast<float*>(m_ThroughputZs.GetData()),
+                reinterpret_cast<float*>(m_CurrentMediumIors.GetData()),
+                reinterpret_cast<bool*>(m_LastScatterDeltaFlags.GetData()),
                 reinterpret_cast<float*>(m_OriginXs.GetData()),
                 reinterpret_cast<float*>(m_OriginYs.GetData()),
                 reinterpret_cast<float*>(m_OriginZs.GetData()),
@@ -54,18 +60,20 @@ namespace Core::Graphics::Cuda
                 reinterpret_cast<float*>(m_DirectionYs.GetData()),
                 reinterpret_cast<float*>(m_DirectionZs.GetData()),
                 reinterpret_cast<float*>(m_TMins.GetData()),
-                reinterpret_cast<float*>(m_TMaxs.GetData()),
-                reinterpret_cast<float*>(m_Iors.GetData()),
-                reinterpret_cast<uint32_t*>(m_Depths.GetData()),
-                reinterpret_cast<float*>(m_ThrouputXs.GetData()),
-                reinterpret_cast<float*>(m_ThrouputYs.GetData()),
-                reinterpret_cast<float*>(m_ThrouputZs.GetData()));
+                reinterpret_cast<float*>(m_TMaxs.GetData()));
         }
 
     private:
         Runtime::SharedCounter<uint32_t> m_Counter;
 
         Runtime::DeviceBuffer1D m_Paths;
+        Runtime::DeviceBuffer1D m_Depths;
+        Runtime::DeviceBuffer1D m_ThroughputXs;
+        Runtime::DeviceBuffer1D m_ThroughputYs;
+        Runtime::DeviceBuffer1D m_ThroughputZs;
+        Runtime::DeviceBuffer1D m_CurrentMediumIors;
+        Runtime::DeviceBuffer1D m_LastScatterDeltaFlags;
+
         Runtime::DeviceBuffer1D m_OriginXs;
         Runtime::DeviceBuffer1D m_OriginYs;
         Runtime::DeviceBuffer1D m_OriginZs;
@@ -74,10 +82,5 @@ namespace Core::Graphics::Cuda
         Runtime::DeviceBuffer1D m_DirectionZs;
         Runtime::DeviceBuffer1D m_TMins;
         Runtime::DeviceBuffer1D m_TMaxs;
-        Runtime::DeviceBuffer1D m_Iors;
-        Runtime::DeviceBuffer1D m_Depths;
-        Runtime::DeviceBuffer1D m_ThrouputXs;
-        Runtime::DeviceBuffer1D m_ThrouputYs;
-        Runtime::DeviceBuffer1D m_ThrouputZs;
     };
 }

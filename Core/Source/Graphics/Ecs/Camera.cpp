@@ -7,7 +7,7 @@ namespace Core::Graphics::Ecs
 	std::expected<void, Utils::Error> CameraBuilder::Build(
 		const Core::Ecs::BuildContext& context,
 		entt::registry& registry,
-		Assets::Manager& assetManager) const
+		Assets::Manager&) const
 	{
 		if (registry.view<Camera>().size() > 0)
 			return std::unexpected(Utils::Error("Scene cannot have more than one Camera component"));

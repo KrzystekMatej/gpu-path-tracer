@@ -13,7 +13,7 @@ namespace Core::Graphics::Ecs
 	std::expected<void, Utils::Error> LightBuilder::Build(
 		const Core::Ecs::BuildContext& context,
 		entt::registry& registry,
-		Assets::Manager& assetManager) const
+		Assets::Manager&) const
 	{
 		CORE_TRY(light, Extract(context.node));
 		registry.emplace<Light>(context.entity, light.color, light.intensity);

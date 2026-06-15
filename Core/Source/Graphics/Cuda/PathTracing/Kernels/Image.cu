@@ -24,9 +24,10 @@ namespace Core::Graphics::Cuda::Kernels
 		return color / (color + make_float4(1.0f));
 	}
 
-	__device__ __forceinline__ float4 LinearToSrgb(const float4& color, float gamma)
+	template<float gamma>
+	__device__ __forceinline__ float4 LinearToSrgb(const float4& color)
 	{
-		float invGamma = 1.0f / gamma;
+		constexpr float invGamma = 1.0f / gamma;
 		return make_float4(powf(color.x, invGamma), powf(color.y, invGamma), powf(color.z, invGamma), color.w);
 	}
 
@@ -43,7 +44,7 @@ namespace Core::Graphics::Cuda::Kernels
 		assert(IsValidAccumulatedRadiance(accumulatedRadiance));
 
 		const float4 hdrColor = accumulatedRadiance * invSpp;
-		const float4 ldrColor = LinearToSrgb(TonemapReinhard(hdrColor), 2.2f);
+		const float4 ldrColor = LinearToSrgb<2.2f>(TonemapReinhard(hdrColor));
 
 		framebuffer.At(pixelIndex) = make_uchar4(
 			static_cast<unsigned char>(clamp(ldrColor.x * 255.0f, 0.0f, 255.0f)),

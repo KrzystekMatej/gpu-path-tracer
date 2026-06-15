@@ -9,6 +9,7 @@ namespace Core::Graphics::Cuda::Math
 	inline constexpr float InvPi = 1.0f / CUDART_PI_F;
 	inline constexpr float TwoPi = 2.0f * CUDART_PI_F;
 	inline constexpr float InvTwoPi = 1.0f / TwoPi;
+	static constexpr float OneMinusEpsilon = 0x1.fffffep-1;
 
 	__host__ __device__ __forceinline__ float At(float2 number, int index)
 	{
@@ -268,5 +269,23 @@ namespace Core::Graphics::Cuda::Math
 	__host__ __device__ __forceinline__ float SafeSqrt(float value)
 	{
 		return sqrtf(fmaxf(0.0f, value));
+	}
+	
+	template<typename T>
+	struct DivisionResult
+	{
+		T quotient;
+		T remainder;
+	};
+
+	template<typename T>
+	__host__ __device__ __forceinline__ DivisionResult<T> DivideWithRemainder(T dividend, T divisor)
+	{
+		const T quotient = dividend / divisor;
+
+		return {
+			quotient,
+			dividend - quotient * divisor
+		};
 	}
 }

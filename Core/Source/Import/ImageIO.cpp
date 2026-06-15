@@ -21,6 +21,7 @@ namespace Core::Import
 					return OIIO::TypeDesc::FLOAT;
 			}
 
+			assert(false && "Unsupported component type");
 			return OIIO::TypeDesc::UNKNOWN;
 		}
 
@@ -34,8 +35,50 @@ namespace Core::Import
 					return "sRGB";
 			}
 
+			assert(false && "Unsupported color space");
 			return "Unknown";
 		}
+
+		std::expected<Graphics::PixelFormat, Utils::Error> GetPixelFormatFromImageSpec(const OIIO::ImageSpec& spec, Graphics::ColorSpace colorSpace)
+		{
+			Graphics::PixelFormat format;
+			format.colorSpace = colorSpace;
+
+			switch (spec.nchannels)
+			{
+				case 1:
+					format.layout = Graphics::ChannelLayout::R;
+					break;
+				case 3:
+					format.layout = Graphics::ChannelLayout::RGB;
+					break;
+				case 4:
+					format.layout = Graphics::ChannelLayout::RGBA;
+					break;
+				default:
+					return std::unexpected(Utils::Error("Unsupported number of channels: {}, file path: {}", spec.nchannels, spec.get_string_attribute("oiio:filename", "")));
+			}
+
+			switch (spec.format.basetype)
+			{
+				case OIIO::TypeDesc::UINT8:
+				case OIIO::TypeDesc::UINT16:
+					format.componentType = Graphics::ComponentType::UInt8;
+					break;
+				case OIIO::TypeDesc::HALF:
+					format.componentType = Graphics::ComponentType::Float16;
+					break;
+				case OIIO::TypeDesc::FLOAT:
+					format.componentType = Graphics::ComponentType::Float32;
+					break;
+				default:
+					return std::unexpected(Utils::Error("Unsupported pixel type: {}, file path: {}", spec.format.c_str(), spec.get_string_attribute("oiio:filename", "")));
+			}
+
+			return format;
+		}
+		
+
 	}
 
 	std::expected<Image, Utils::Error> LoadImage(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
@@ -52,44 +95,10 @@ namespace Core::Import
 		uint32_t width = static_cast<uint32_t>(spec.width);
 		uint32_t height = static_cast<uint32_t>(spec.height);
 		uint8_t channels = static_cast<uint8_t>(spec.nchannels);
-		Graphics::PixelFormat format;
+		CORE_TRY_CONTEXT(format, GetPixelFormatFromImageSpec(spec, colorSpace), "Failed to determine pixel format, file path: {}", path.string());
 		format.colorSpace = colorSpace;
 
-		switch (channels)
-		{
-			case 1:
-				format.layout = Graphics::ChannelLayout::R;
-				break;
-			case 3:
-				format.layout = Graphics::ChannelLayout::RGB;
-				break;
-			case 4:
-				format.layout = Graphics::ChannelLayout::RGBA;
-				break;
-			default:
-				return std::unexpected(Utils::Error("Unsupported number of channels: {}, file path: {}", spec.nchannels, path.string()));
-		}
-
-		OIIO::TypeDesc readFormat;
-
-		switch (spec.format.basetype)
-		{
-			case OIIO::TypeDesc::UINT8:
-			case OIIO::TypeDesc::UINT16:
-				format.componentType = Graphics::ComponentType::UInt8;
-				readFormat = OIIO::TypeDesc::UINT8;
-				break;
-			case OIIO::TypeDesc::HALF:
-				format.componentType = Graphics::ComponentType::Float16;
-				readFormat = OIIO::TypeDesc::HALF;
-				break;
-			case OIIO::TypeDesc::FLOAT:
-				format.componentType = Graphics::ComponentType::Float32;
-				readFormat = OIIO::TypeDesc::FLOAT;
-				break;
-			default:
-				return std::unexpected(Utils::Error("Unsupported pixel type: {}, file path: {}", spec.format.c_str(), path.string()));
-		}
+		OIIO::TypeDesc readFormat = GetOiioTypeDesc(format.componentType);
 
 		std::vector<uint8_t> pixels(static_cast<size_t>(width) * height * channels * readFormat.size());
 
@@ -127,15 +136,6 @@ namespace Core::Import
 		assert(image.data.size() == image.width * image.height * image.format.GetBytesPerPixel());
 
 		const OIIO::TypeDesc outputType = GetOiioTypeDesc(image.format.componentType);
-
-		if (outputType == OIIO::TypeDesc::UNKNOWN)
-		{
-			return std::unexpected(Utils::Error(
-				"Failed to save image, unsupported component type {}, file path: {}",
-				Graphics::ToString(image.format.componentType),
-				path.string()));
-		}
-
 		std::unique_ptr<OIIO::ImageOutput> imageOutput = OIIO::ImageOutput::create(path.string());
 
 		if (!imageOutput)

@@ -52,20 +52,20 @@ namespace Core::Graphics::Cuda
             *m_Size = 0;
         }
         
-        __device__ __forceinline__ Path GetPath(uint32_t index) const
+        __device__ __forceinline__ uint32_t GetPathIndex(uint32_t index) const
         {
-            return Path{ m_Paths[index] };
+            return m_Paths[index];
         }
 
-        __device__ __forceinline__ void Set(uint32_t index, Path path) const
+        __device__ __forceinline__ void Set(uint32_t index, uint32_t pathIndex) const
         {
-            m_Paths[index] = path.index;
+            m_Paths[index] = pathIndex;
         }
 
-        __device__ __forceinline__ uint32_t Push(Path path) const
+        __device__ __forceinline__ uint32_t Push(uint32_t pathIndex) const
         {
             const uint32_t index = PushIndex();
-            Set(index, path);
+            Set(index, pathIndex);
             return index;
         }
     private:

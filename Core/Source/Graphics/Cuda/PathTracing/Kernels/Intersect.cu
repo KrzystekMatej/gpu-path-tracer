@@ -10,16 +10,16 @@ namespace Core::Graphics::Cuda::Kernels
 {
 	__device__ __forceinline__ bool AabbIntersect(const BoundingBox& bounds, const Ray& ray, float3 invDirection)
 	{
-		const float3 t0 = (bounds.min - ray.origin) * invDirection;
-		const float3 t1 = (bounds.max - ray.origin) * invDirection;
+		const float3 tNear = (bounds.min - ray.origin) * invDirection;
+		const float3 tFar = (bounds.max - ray.origin) * invDirection;
 
-		const float3 lo = fminf(t0, t1);
-		const float3 hi = fmaxf(t0, t1);
+		const float3 low = fminf(tNear, tFar);
+		const float3 high = fmaxf(tNear, tFar);
 
-		const float tNear = fmaxf(ray.tMin, Math::MaxComponent(lo));
-		const float tFar = fminf(ray.tMax, Math::MinComponent(hi));
+		const float t0 = fmaxf(ray.tMin, Math::MaxComponent(low));
+		const float t1 = fminf(ray.tMax, Math::MinComponent(high));
 
-		return tNear <= tFar;
+		return t0 <= t1;
 	}
 
 	__device__ __forceinline__ bool IntersectTriangle(
@@ -119,7 +119,7 @@ namespace Core::Graphics::Cuda::Kernels
 		}
 		else
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
 		}
 	}
     

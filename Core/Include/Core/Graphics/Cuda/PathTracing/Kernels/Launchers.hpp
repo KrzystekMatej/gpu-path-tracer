@@ -7,6 +7,7 @@
 #include <Core/Graphics/Cuda/Runtime/Memory/DeviceQueueView.hpp>
 #include <Core/Graphics/Cuda/Bvh/DeviceBvhView.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Material.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Memory/LightSamplerView.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Memory/MaterialEvalQueueViewsProvider.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Memory/RegenQueueView.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Memory/RayQueueView.hpp>
@@ -42,62 +43,74 @@ namespace Core::Graphics::Cuda::Kernels
 		MaterialEvalQueueViewsProvider materialQueueProvider,
 		RegenQueueView regenQueue);
 	void EvaluateNormalMaterial(
+		bool useNextEventEstimation,
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
 		Runtime::DeviceBuffer1DView<TriangleShading> shadingData,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue);
 	void EvaluateDiffuseMaterial(
+		bool useNextEventEstimation,
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
 		Runtime::DeviceBuffer1DView<TriangleShading> shadingData,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue);
 	void EvaluatePhongMaterial(
+		bool useNextEventEstimation,
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
 		Runtime::DeviceBuffer1DView<TriangleShading> shadingData,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue);
 	void EvaluateMirrorMaterial(
+		bool useNextEventEstimation,
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
 		Runtime::DeviceBuffer1DView<TriangleShading> shadingData,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue);
 	void EvaluateGgxMaterial(
+		bool useNextEventEstimation,
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
 		Runtime::DeviceBuffer1DView<TriangleShading> shadingData,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue);
 	void EvaluateEmissiveMaterial(
+		bool useNextEventEstimation,
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
 		Runtime::DeviceBuffer1DView<TriangleShading> shadingData,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue);

@@ -19,7 +19,7 @@ namespace Core::Graphics::Cuda
 		}
 	}
 
-	std::expected<void, Core::Utils::Error> DeviceBvh::BuildSync(
+	std::expected<void, Core::Utils::Error> DeviceBvh::BuildFlattenSync(
 		const HostBvhNode& root, 
 		uint32_t depth, 
 		uint32_t nodeCount, 

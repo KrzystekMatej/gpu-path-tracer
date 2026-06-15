@@ -6,6 +6,8 @@ namespace Core::Graphics::Cuda
     class PathTracerDefaults
     {
         public:
+            static constexpr size_t PathPoolSize = 2 << 19;
+            
             static constexpr uint32_t RussianRouletteStartDepth = 3;
             static constexpr uint32_t InvalidIndex = 0xFFFFFFFF;
             static constexpr float MinT = 1e-4f;
@@ -14,6 +16,8 @@ namespace Core::Graphics::Cuda
             static constexpr uint32_t PathDepthLimit = 20;
             static constexpr uint32_t MinPathDepthLimit = 1;
             static constexpr uint32_t MaxPathDepthLimit = 100;
+            
+            static constexpr bool UseNextEventEstimation = true;
 
             static constexpr uint32_t SamplesPerPixelAxis = 32;
             static constexpr uint32_t SamplesPerPixel = SamplesPerPixelAxis * SamplesPerPixelAxis;

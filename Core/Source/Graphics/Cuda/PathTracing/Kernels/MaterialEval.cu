@@ -7,16 +7,18 @@ namespace Core::Graphics::Cuda::Kernels
 {
 	struct PartiallyResolvedHit
 	{
-		TriangleShading triangle;
+		uint32_t material;
 		float2 uv;
 	};
 
 	struct ResolvedHit
 	{
-		TriangleShading triangle;
+		uint32_t material;
+		float3 geometricNormal;
 		float2 uv;
 		float3 normal;
 		float4 tangent;
+		float area;
 	};
 	
 	__device__ __forceinline__ float3 FixGeometricNormal(float3 geometricNormal, float3 rayDirection)
@@ -31,56 +33,60 @@ namespace Core::Graphics::Cuda::Kernels
 		uint32_t queueIndex, 
 		Runtime::DeviceBuffer1DView<TriangleShading> triangles)
 	{
-		PartiallyResolvedHit hit;
 		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
-		hit.triangle = triangles.At(hitData.triangle);
+		const TriangleShading triangle = triangles.At(hitData.triangle);
 
 		float b0 = 1.0f - hitData.u - hitData.v;
 		float b1 = hitData.u;
 		float b2 = hitData.v;
 
+		PartiallyResolvedHit hit;
+		hit.material = triangle.material;
 		hit.uv =
-			b0 * hit.triangle.vertices[0].uv +
-			b1 * hit.triangle.vertices[1].uv +
-			b2 * hit.triangle.vertices[2].uv;
+			b0 * triangle.uvs[0] +
+			b1 * triangle.uvs[1] +
+			b2 * triangle.uvs[2];
 
 		return hit;
 	}
 	
 	__device__ __forceinline__ ResolvedHit LoadResolvedHit(
+		float3 rayDirection,
 		MaterialEvalQueueView materialEvalQueue, 
 		uint32_t queueIndex, 
 		Runtime::DeviceBuffer1DView<TriangleShading> triangles)
 	{
-		ResolvedHit hit;
 		const HitData hitData = materialEvalQueue.GetHitData(queueIndex);
-		hit.triangle = triangles.At(hitData.triangle);
+		const TriangleShading triangle = triangles.At(hitData.triangle);
 
 		float b0 = 1.0f - hitData.u - hitData.v;
 		float b1 = hitData.u;
 		float b2 = hitData.v;
 
+		ResolvedHit hit;
+		hit.material = triangle.material;
+		hit.geometricNormal = FixGeometricNormal(triangle.geometricNormal, rayDirection);
 		hit.uv =
-			b0 * hit.triangle.vertices[0].uv +
-			b1 * hit.triangle.vertices[1].uv +
-			b2 * hit.triangle.vertices[2].uv;
+			b0 * triangle.uvs[0] +
+			b1 * triangle.uvs[1] +
+			b2 * triangle.uvs[2];
 
 		hit.normal =
-			b0 * make_float3(hit.triangle.vertices[0].normal) +
-			b1 * make_float3(hit.triangle.vertices[1].normal) +
-			b2 * make_float3(hit.triangle.vertices[2].normal);
+			b0 * make_float3(triangle.normals[0]) +
+			b1 * make_float3(triangle.normals[1]) +
+			b2 * make_float3(triangle.normals[2]);
 
 		hit.tangent =
-			b0 * hit.triangle.vertices[0].tangent +
-			b1 * hit.triangle.vertices[1].tangent +
-			b2 * hit.triangle.vertices[2].tangent;
+			b0 * triangle.tangents[0] +
+			b1 * triangle.tangents[1] +
+			b2 * triangle.tangents[2];
 
 		return hit;
 	}
 
 	__device__ __forceinline__ float3 LoadTangentSpaceNormal(TextureView<float4> normalMap, float2 uv)
 	{
-		float3 normalMapSample = make_float3(normalMap.Sample(uv.x, uv.y));
+		float3 normalMapSample = make_float3(normalMap.Sample(uv));
 		return normalize(normalMapSample * 2.0f - 1.0f);
 	}
 	
@@ -118,13 +124,13 @@ namespace Core::Graphics::Cuda::Kernels
 		float3 throughput;
 	};
 
-	__device__ __forceinline__ PathContinuation ComputePathContinuation(const Ray& ray, uint32_t pathDepthLimit, float3 scatterWeight, float rrSample)
+	__device__ __forceinline__ PathContinuation ComputePathContinuation(const Path& path, uint32_t pathDepthLimit, float3 scatterWeight, float rrSample)
 	{
-		uint32_t nextDepth = ray.depth + 1;
+		uint32_t nextDepth = path.depth + 1;
 		if (nextDepth >= pathDepthLimit)
 			return { true, nextDepth, make_float3(0.0f) };
 
-		float3 nextThroughput = ray.throughput * scatterWeight;
+		float3 nextThroughput = path.throughput * scatterWeight;
 		
 		if (nextDepth < PathTracerDefaults::RussianRouletteStartDepth)
 			return { false, nextDepth, nextThroughput };
@@ -137,27 +143,26 @@ namespace Core::Graphics::Cuda::Kernels
 		return { false, nextDepth, nextThroughput / survivalProbability };
 	}
 
-	__device__ __forceinline__ Ray SpawnScatteredRay(const Ray& ray, float3 nextDirection, float3 geometricNormal, const PathContinuation& continuation)
+	__device__ __forceinline__ Ray SpawnScatteredRay(const Ray& ray, float3 nextDirection, float3 geometricNormal)
 	{
 		Ray spawnedRay;
 		spawnedRay.origin = ray.origin + ray.direction * ray.tMax + geometricNormal * 1e-4f;
 		spawnedRay.direction = nextDirection;
 		spawnedRay.tMin = PathTracerDefaults::MinT;
 		spawnedRay.tMax = PathTracerDefaults::MaxT;
-		spawnedRay.throughput = continuation.throughput;
-		spawnedRay.depth = continuation.depth;
 		return spawnedRay;
 	}
 	
-	__device__ __forceinline__ void AddRadiance(PathPoolView pathPool, Path path, float3 radiance, Runtime::DeviceBuffer1DView<float4> accumulationBuffer)
+	__device__ __forceinline__ void AddRadiance(PathPoolView pathPool, PathContribution path, float3 emission, Runtime::DeviceBuffer1DView<float4> accumulationBuffer)
 	{
 		const Pixel pixel = pathPool.pixels.At(path.index);
+		const float3 radiance = path.throughput * emission;
 		atomicAdd(&accumulationBuffer.At(pixel.index).x, radiance.x);
 		atomicAdd(&accumulationBuffer.At(pixel.index).y, radiance.y);
 		atomicAdd(&accumulationBuffer.At(pixel.index).z, radiance.z);
 	}
 	
-
+	template<bool UseNextEventEstimation>
 	__global__ void EvaluateNormalKernel(
 		PathPoolView pathPool, 
 		MaterialEvalQueueView materialEvalQueue, 
@@ -169,16 +174,21 @@ namespace Core::Graphics::Cuda::Kernels
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
 		if (queueIndex >= materialEvalQueue.GetSize()) return;
 		
-		const Path path = materialEvalQueue.GetPath(queueIndex);
-		const float3 throughput = materialEvalQueue.GetThroughput(queueIndex);
-		const ResolvedHit hit = LoadResolvedHit(materialEvalQueue, queueIndex, triangles);
+		const PathContribution path = materialEvalQueue.GetPathContribution(queueIndex);
+		const float3 rayDirection = materialEvalQueue.GetRayDirection(queueIndex);
+		const ResolvedHit hit = LoadResolvedHit(rayDirection, materialEvalQueue, queueIndex, triangles);
 		
-		// shading normal can be used instead of visual normal to see the effect of normal mapping in the debug view
+		// geometric normal can be used to see the orientation of triangle surfaces
+		// float3 normal = hit.geometricNormal;
+
+		// shading normal can be used to see the effect of normal mapping
 		// const Material material = materials.At(hit.triangle.material);
 		// float3 normal = GetShadingFrame(hit, material.normal).normal;
+
+		// visual normal
 		float3 normal = hit.normal;
-		AddRadiance(pathPool, path, throughput * (normal * 0.5f + 0.5f), accumulationBuffer);
-		regenQueue.Push(path);
+		AddRadiance(pathPool, path, normal * 0.5f + 0.5f, accumulationBuffer);
+		regenQueue.Push(path.index);
 	}
 	
 	__device__ __forceinline__ float3 SampleCosineWeightedHemisphere(float2 u)
@@ -190,49 +200,64 @@ namespace Core::Graphics::Cuda::Kernels
 		return make_float3(sinTheta * cosf(phi), sinTheta * sinf(phi), cosTheta);
 	}
 
+	__device__ void EvaluateDiffuseIndirect(
+		Path path, 
+		const Ray& ray,
+		uint32_t pathDepthLimit,
+		float3 geometricNormal,
+		const Math::Frame& shadingFrame, 
+		float3 randomSamples,
+		float3 albedo,
+		RegenQueueView regenQueue,
+		RayQueueView nextRayQueue)
+	{
+        const float2 directionSample = make_float2(randomSamples.x, randomSamples.y);
+		const float rrSample = randomSamples.z; 
+		
+		const float3 omegaI = shadingFrame.FromLocal(SampleCosineWeightedHemisphere(directionSample));
+		
+		const PathContinuation continuation = ComputePathContinuation(path, pathDepthLimit, albedo, rrSample);
 
+		if (continuation.terminated)
+		{
+			regenQueue.Push(path.index);
+			return;
+		}
+		
+		const Ray scatteredRay = SpawnScatteredRay(ray, omegaI, geometricNormal);
+		path.depth = continuation.depth;
+		path.throughput = continuation.throughput;
+		path.lastScatterWasDelta = false;
+		nextRayQueue.Push(path, scatteredRay);
+	}
+
+	template<bool UseNextEventEstimation>
 	__global__ void EvaluateDiffuseKernel(
 		PathPoolView pathPool, 
 		MaterialEvalQueueView materialEvalQueue, 
 		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		RayQueueView nextRayQueue)
 	{
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
 		if (queueIndex >= materialEvalQueue.GetSize()) return;
 		
-		const Path path = materialEvalQueue.GetPath(queueIndex);
+		Path path = materialEvalQueue.GetPath(queueIndex);
 		const Ray ray = materialEvalQueue.GetRay(queueIndex);
-		const ResolvedHit hit = LoadResolvedHit(materialEvalQueue, queueIndex, triangles);
+		const ResolvedHit hit = LoadResolvedHit(ray.direction, materialEvalQueue, queueIndex, triangles);
 
-		const Material material = materials.At(hit.triangle.material);
-		const float3 albedo = make_float3(material.color.Sample(hit.uv.x, hit.uv.y));
+		const Material material = materials.At(hit.material);
+		const float3 albedo = make_float3(material.color.Sample(hit.uv));
 		
-		const float3 geometricNormal = FixGeometricNormal(hit.triangle.geometricNormal, ray.direction);
 		const Math::Frame shadingFrame = GetShadingFrame(hit, material.normal);
         
         Random random = pathPool.randoms.At(path.index);
         const float3 samples = random.NextFloat3();
-        const float2 directionSample = make_float2(samples.x, samples.y);
-		const float rrSample = samples.z; 
 		pathPool.randoms.At(path.index) = random;
-
-		
-		const float3 omegaI = shadingFrame.FromLocal(SampleCosineWeightedHemisphere(directionSample));
-		
-		const PathContinuation continuation = ComputePathContinuation(ray, pathDepthLimit, albedo, rrSample);
-
-		if (continuation.terminated)
-		{
-			regenQueue.Push(path);
-		}
-		else
-		{
-			const Ray scatteredRay = SpawnScatteredRay(ray, omegaI, geometricNormal, continuation);
-			nextRayQueue.Push(path, scatteredRay);
-		}
+		EvaluateDiffuseIndirect(path, ray, pathDepthLimit, hit.geometricNormal, shadingFrame, samples, albedo, regenQueue, nextRayQueue);
 	}
 	
 	__global__ void EvaluateMirrorKernel(
@@ -247,14 +272,13 @@ namespace Core::Graphics::Cuda::Kernels
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
 		if (queueIndex >= materialEvalQueue.GetSize()) return;
 		
-		const Path path = materialEvalQueue.GetPath(queueIndex);
+		Path path = materialEvalQueue.GetPath(queueIndex);
 		const Ray ray = materialEvalQueue.GetRay(queueIndex);
-		const ResolvedHit hit = LoadResolvedHit(materialEvalQueue, queueIndex, triangles);
+		const ResolvedHit hit = LoadResolvedHit(ray.direction, materialEvalQueue, queueIndex, triangles);
 
-		const Material material = materials.At(hit.triangle.material);
-		const float3 reflectance = make_float3(material.specular.Sample(hit.uv.x, hit.uv.y));
+		const Material material = materials.At(hit.material);
+		const float3 reflectance = make_float3(material.specular.Sample(hit.uv));
 
-		const float3 geometricNormal = FixGeometricNormal(hit.triangle.geometricNormal, ray.direction);
 		const Math::Frame shadingFrame = GetShadingFrame(hit, material.normal);
 		
 		Random random = pathPool.randoms.At(path.index);
@@ -263,17 +287,19 @@ namespace Core::Graphics::Cuda::Kernels
 
 		const float3 omegaI = reflect(ray.direction, shadingFrame.normal);
 
-		const PathContinuation continuation = ComputePathContinuation(ray, pathDepthLimit, reflectance, rrSample);
+		const PathContinuation continuation = ComputePathContinuation(path, pathDepthLimit, reflectance, rrSample);
 
 		if (continuation.terminated)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
+			return;
 		}
-		else
-		{
-			const Ray scatteredRay = SpawnScatteredRay(ray, omegaI, geometricNormal, continuation);
-			nextRayQueue.Push(path, scatteredRay);
-		}
+		
+		const Ray scatteredRay = SpawnScatteredRay(ray, omegaI, hit.geometricNormal);
+		path.depth = continuation.depth;
+		path.throughput = continuation.throughput;
+		path.lastScatterWasDelta = true;
+		nextRayQueue.Push(path, scatteredRay);
 	}
 	
 	__device__ __forceinline__ float3 SamplePhongLobe(float3 reflected, float exponent, float2 u)
@@ -292,44 +318,30 @@ namespace Core::Graphics::Cuda::Kernels
 		return shininessMap.Sample(uv.x, uv.y) * (MaterialDefaults::MaxShininess - MaterialDefaults::MinShininess) + MaterialDefaults::MinShininess;
 	}
 
-	__global__ void EvaluatePhongKernel(
-		PathPoolView pathPool, 
-		MaterialEvalQueueView materialEvalQueue, 
-		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
-		Runtime::DeviceBuffer1DView<Material> materials,
+	__device__ void EvaluatePhongIndirect(
+		Path path,
+		const Ray& ray,
 		uint32_t pathDepthLimit,
+		float3 geometricNormal,
+		const Math::Frame& shadingFrame,
+		float4 randomSamples,
+		float3 albedo,
+		float3 specular,
+		float shininess,
 		RegenQueueView regenQueue,
 		RayQueueView nextRayQueue)
 	{
-		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= materialEvalQueue.GetSize()) return;
+		const float2 directionSample = make_float2(randomSamples.x, randomSamples.y);
+		const float lobeSample = randomSamples.z;
+		const float rrSample = randomSamples.w;
 		
-		const Path path = materialEvalQueue.GetPath(queueIndex);
-		const Ray ray = materialEvalQueue.GetRay(queueIndex);
-		const ResolvedHit hit = LoadResolvedHit(materialEvalQueue, queueIndex, triangles);
-
-		const Material material = materials.At(hit.triangle.material);
-		const float3 albedo = make_float3(material.color.Sample(hit.uv.x, hit.uv.y));
-		const float3 specular = make_float3(material.specular.Sample(hit.uv.x, hit.uv.y));
-		const float shininess = LoadShininess(material.shininess, hit.uv);
-
-		const float3 geometricNormal = FixGeometricNormal(hit.triangle.geometricNormal, ray.direction);
-		const Math::Frame shadingFrame = GetShadingFrame(hit, material.normal);
-
-		Random random = pathPool.randoms.At(path.index);
-        const float4 samples = random.NextFloat4();
-		const float2 directionSample = make_float2(samples.x, samples.y);
-		const float lobeSample = samples.z;
-		const float rrSample = samples.w;
-		pathPool.randoms.At(path.index) = random;
-
 		float diffuseWeight = Luminance(albedo);
 		float specularWeight = Luminance(specular);
 		float weightSum = diffuseWeight + specularWeight;
 
 		if (weightSum <= 0.0f)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
 			return;
 		}
 
@@ -354,7 +366,7 @@ namespace Core::Graphics::Cuda::Kernels
 
 		if (cosThetaI <= 0.0f || geometricCosThetaI <= 0.0f)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
 			return;
 		}
 
@@ -370,24 +382,58 @@ namespace Core::Graphics::Cuda::Kernels
 
 		if (pdf <= 0.0f)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
 			return;
 		}
 
 		float3 diffuseBrdf = albedo * Math::InvPi;
 		float3 specularBrdf = specular * (shininess + 2.0f) * phongLobeOverTwoPi;
 
-		const PathContinuation continuation = ComputePathContinuation(ray, pathDepthLimit, (diffuseBrdf + specularBrdf) * (cosThetaI / pdf), rrSample);
+		const PathContinuation continuation = ComputePathContinuation(path, pathDepthLimit, (diffuseBrdf + specularBrdf) * (cosThetaI / pdf), rrSample);
 
 		if (continuation.terminated)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
+			return;
 		}
-		else
-		{
-			const Ray scatteredRay = SpawnScatteredRay(ray, omegaI, geometricNormal, continuation);
-			nextRayQueue.Push(path, scatteredRay);
-		}
+		
+		const Ray scatteredRay = SpawnScatteredRay(ray, omegaI, geometricNormal);
+		path.depth = continuation.depth;
+		path.throughput = continuation.throughput;
+		path.lastScatterWasDelta = false;
+		nextRayQueue.Push(path, scatteredRay);
+	}
+
+	template<bool UseNextEventEstimation>
+	__global__ void EvaluatePhongKernel(
+		PathPoolView pathPool, 
+		MaterialEvalQueueView materialEvalQueue, 
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
+		RegenQueueView regenQueue,
+		RayQueueView nextRayQueue)
+	{
+		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		if (queueIndex >= materialEvalQueue.GetSize()) return;
+		
+		Path path = materialEvalQueue.GetPath(queueIndex);
+		const Ray ray = materialEvalQueue.GetRay(queueIndex);
+		const ResolvedHit hit = LoadResolvedHit(ray.direction, materialEvalQueue, queueIndex, triangles);
+
+		const Material material = materials.At(hit.material);
+		const float3 albedo = make_float3(material.color.Sample(hit.uv));
+		const float3 specular = make_float3(material.specular.Sample(hit.uv));
+		const float shininess = LoadShininess(material.shininess, hit.uv);
+
+		const Math::Frame shadingFrame = GetShadingFrame(hit, material.normal);
+
+		Random random = pathPool.randoms.At(path.index);
+        const float4 samples = random.NextFloat4();
+		pathPool.randoms.At(path.index) = random;
+
+		EvaluatePhongIndirect(path, ray, pathDepthLimit, hit.geometricNormal, shadingFrame, samples, albedo, specular, shininess, regenQueue, nextRayQueue);
 	}
 	
 	__device__ __forceinline__ float2 SampleUniformDiskPolar(float2 u)
@@ -455,50 +501,37 @@ namespace Core::Graphics::Cuda::Kernels
 		return f0 + (1.0f - f0) * powf(1.0f - cosThetaH, 5.0f);
 	}
 
-	__global__ void EvaluateGgxKernel(
-		PathPoolView pathPool, 
-		MaterialEvalQueueView materialEvalQueue, 
-		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
-		Runtime::DeviceBuffer1DView<Material> materials,
+	__device__ void EvaluateGgxIndirect(
+		Path path, 
+		const Ray& ray,
 		uint32_t pathDepthLimit,
+		float3 geometricNormal,
+		const Math::Frame& shadingFrame, 
+		float4 randomSamples,
+		float3 baseColor, 
+		float alpha, 
+		float metallic,
+		float ior,
 		RegenQueueView regenQueue,
 		RayQueueView nextRayQueue)
 	{
-		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
-		if (queueIndex >= materialEvalQueue.GetSize()) return;
+		const float2 directionSample = make_float2(randomSamples.x, randomSamples.y);
+		const float lobeSample = randomSamples.z;
+		const float rrSample = randomSamples.w;
 		
-		const Path path = materialEvalQueue.GetPath(queueIndex);
-		const Ray ray = materialEvalQueue.GetRay(queueIndex);
-		const ResolvedHit hit = LoadResolvedHit(materialEvalQueue, queueIndex, triangles);
-
-		const Material material = materials.At(hit.triangle.material);
-		const float3 baseColor = make_float3(material.color.Sample(hit.uv.x, hit.uv.y));
-		const float3 rma = make_float3(material.rma.Sample(hit.uv.x, hit.uv.y));
-
-		const float3 geometricNormal = FixGeometricNormal(hit.triangle.geometricNormal, ray.direction);
-		const Math::Frame shadingFrame = GetShadingFrame(hit, material.normal);
-
-		Random random = pathPool.randoms.At(path.index);
-		const float4 samples = random.NextFloat4();
-		const float2 directionSample = make_float2(samples.x, samples.y);
-		const float lobeSample = samples.z;
-		const float rrSample = samples.w;
-		pathPool.randoms.At(path.index) = random;
-
-		float alpha = rma.x * rma.x;
 		alpha = fmaxf(alpha, 0.001f); // in the future we should treat alpha=0 as a special case - effectively smooth surface
 		float3 wo = shadingFrame.ToLocal(make_float3(0.0f) - ray.direction);
 
 		if (wo.z <= 0.0f)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
 			return;
 		}
 
-		float dielectricF0 = Math::Sqr((ray.ior - material.ior) / (ray.ior + material.ior));
-		float3 f0 = lerp(make_float3(dielectricF0), baseColor, rma.y);
+		float dielectricF0 = Math::Sqr((path.currentMediumIor - ior) / (path.currentMediumIor + ior));
+		float3 f0 = lerp(make_float3(dielectricF0), baseColor, metallic);
 
-		float3 diffuseColor = baseColor * (1.0f - rma.y);
+		float3 diffuseColor = baseColor * (1.0f - metallic);
 
 		float diffuseWeight = Luminance(diffuseColor);
 		float specularWeight = Luminance(f0);
@@ -506,7 +539,7 @@ namespace Core::Graphics::Cuda::Kernels
 		float weightSum = diffuseWeight + specularWeight;
 		if (weightSum <= 1e-6f)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
 			return;
 		}
 
@@ -527,7 +560,7 @@ namespace Core::Graphics::Cuda::Kernels
 
 		if (wi.z <= 0.0f)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
 			return;
 		}
 		
@@ -535,7 +568,7 @@ namespace Core::Graphics::Cuda::Kernels
 		
 		if (wm.z <= 0.0f)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
 			return;
 		}
 
@@ -543,7 +576,7 @@ namespace Core::Graphics::Cuda::Kernels
 		
 		if (woDotWm <= 1e-6f)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
 			return;
 		}
 
@@ -561,31 +594,66 @@ namespace Core::Graphics::Cuda::Kernels
 		
 		if (pdf <= 1e-8f)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
 			return;
 		}
 		
 		float3 worldWi = shadingFrame.FromLocal(wi);
 		if (dot(worldWi, geometricNormal) <= 0.0f)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
 			return;
 		}
 		
-		const PathContinuation continuation = ComputePathContinuation(ray, pathDepthLimit, (diffuseBsdf + ggxBsdf) * (cosThetaI / pdf), rrSample);
+		const PathContinuation continuation = ComputePathContinuation(path, pathDepthLimit, (diffuseBsdf + ggxBsdf) * (cosThetaI / pdf), rrSample);
 		
 		if (continuation.terminated)
 		{
-			regenQueue.Push(path);
+			regenQueue.Push(path.index);
+			return;
 		}
-		else
-		{
-			const Ray scatteredRay = SpawnScatteredRay(ray, worldWi, geometricNormal, continuation);
-			nextRayQueue.Push(path, scatteredRay);
-		}
+		
+		const Ray scatteredRay = SpawnScatteredRay(ray, worldWi, geometricNormal);
+		path.depth = continuation.depth;
+		path.throughput = continuation.throughput;
+		path.lastScatterWasDelta = false;
+		nextRayQueue.Push(path, scatteredRay);
 	}
 
+	template<bool UseNextEventEstimation>
+	__global__ void EvaluateGgxKernel(
+		PathPoolView pathPool, 
+		MaterialEvalQueueView materialEvalQueue, 
+		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
+		Runtime::DeviceBuffer1DView<Material> materials,
+		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
+		RegenQueueView regenQueue,
+		RayQueueView nextRayQueue)
+	{
+		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		if (queueIndex >= materialEvalQueue.GetSize()) return;
+		
+		const Path path = materialEvalQueue.GetPath(queueIndex);
+		const Ray ray = materialEvalQueue.GetRay(queueIndex);
+		const ResolvedHit hit = LoadResolvedHit(ray.direction, materialEvalQueue, queueIndex, triangles);
 
+		const Material material = materials.At(hit.material);
+		const float3 baseColor = make_float3(material.color.Sample(hit.uv));
+		const float3 rma = make_float3(material.rma.Sample(hit.uv));
+		float alpha = rma.x * rma.x;
+		float metallic = rma.y;
+
+		const Math::Frame shadingFrame = GetShadingFrame(hit, material.normal);
+
+		Random random = pathPool.randoms.At(path.index);
+		const float4 samples = random.NextFloat4();
+		pathPool.randoms.At(path.index) = random;
+
+		EvaluateGgxIndirect(path, ray, pathDepthLimit, hit.geometricNormal, shadingFrame, samples, baseColor, alpha, metallic, material.ior, regenQueue, nextRayQueue);
+	}
+
+	template<bool UseNextEventEstimation>
 	__global__ void EvaluateEmissiveKernel(
 		PathPoolView pathPool, 
 		MaterialEvalQueueView materialEvalQueue, 
@@ -597,110 +665,142 @@ namespace Core::Graphics::Cuda::Kernels
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
 		if (queueIndex >= materialEvalQueue.GetSize()) return;
 		
-		const Path path = materialEvalQueue.GetPath(queueIndex);
-		const float3 throughput = materialEvalQueue.GetThroughput(queueIndex);
+		const PathContribution path = materialEvalQueue.GetPathContribution(queueIndex);
 		const PartiallyResolvedHit hit = LoadPartiallyResolvedHit(materialEvalQueue, queueIndex, triangles);
-		const Material material = materials.At(hit.triangle.material);
+		const Material material = materials.At(hit.material);
 		
-		const float3 emission = make_float3(material.emission.Sample(hit.uv.x, hit.uv.y));
-		AddRadiance(pathPool, path, throughput * emission, accumulationBuffer);
-		regenQueue.Push(path);
+		const float3 emission = make_float3(material.emission.Sample(hit.uv));
+		AddRadiance(pathPool, path, emission, accumulationBuffer);
+		regenQueue.Push(path.index);
 	}
 
 	void EvaluateNormalMaterial(
+		bool useNextEventEstimation,
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
 		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue)
 	{
 		dim3 block(LaunchUtils::MaterialEvalThreadsPerBlock);
 		dim3 grid(LaunchUtils::GetBlockCount(materialEvalQueue.GetCapacity(), block.x));
-		EvaluateNormalKernel<<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, regenQueue, accumulationBuffer);
+		
+		if (useNextEventEstimation)
+			EvaluateNormalKernel<true><<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, regenQueue, accumulationBuffer);
+		else
+			EvaluateNormalKernel<false><<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, regenQueue, accumulationBuffer);
 	}
 
 	void EvaluateDiffuseMaterial(
+		bool useNextEventEstimation,
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
 		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue)
 	{
 		dim3 block(LaunchUtils::MaterialEvalThreadsPerBlock);
 		dim3 grid(LaunchUtils::GetBlockCount(materialEvalQueue.GetCapacity(), block.x));
-		EvaluateDiffuseKernel<<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
+
+		if (useNextEventEstimation)
+			EvaluateDiffuseKernel<true><<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, lightSampler, regenQueue, nextRayQueue);
+		else
+			EvaluateDiffuseKernel<false><<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, lightSampler, regenQueue, nextRayQueue);
 	}
 
 	void EvaluatePhongMaterial(
+		bool useNextEventEstimation,
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
 		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue)
 	{
 		dim3 block(LaunchUtils::MaterialEvalThreadsPerBlock);
 		dim3 grid(LaunchUtils::GetBlockCount(materialEvalQueue.GetCapacity(), block.x));
-		EvaluatePhongKernel<<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
+
+		if (useNextEventEstimation)
+			EvaluatePhongKernel<true><<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, lightSampler, regenQueue, nextRayQueue);
+		else
+			EvaluatePhongKernel<false><<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, lightSampler, regenQueue, nextRayQueue);
 	}
 	
 	void EvaluateMirrorMaterial(
+		bool useNextEventEstimation,
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
 		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue)
 	{
 		dim3 block(LaunchUtils::MaterialEvalThreadsPerBlock);
 		dim3 grid(LaunchUtils::GetBlockCount(materialEvalQueue.GetCapacity(), block.x));
+		
 		EvaluateMirrorKernel<<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
 	}
 	
 
 	void EvaluateGgxMaterial(
+		bool useNextEventEstimation,
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
 		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue)
 	{
 		dim3 block(LaunchUtils::MaterialEvalThreadsPerBlock);
 		dim3 grid(LaunchUtils::GetBlockCount(materialEvalQueue.GetCapacity(), block.x));
-		EvaluateGgxKernel<<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, regenQueue, nextRayQueue);
+		
+		if (useNextEventEstimation)
+			EvaluateGgxKernel<true><<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, lightSampler, regenQueue, nextRayQueue);
+		else
+			EvaluateGgxKernel<false><<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, pathDepthLimit, lightSampler, regenQueue, nextRayQueue);
 	}
 	
 	void EvaluateEmissiveMaterial(
+		bool useNextEventEstimation,
 		cudaStream_t stream,
 		PathPoolView pathPool,
 		MaterialEvalQueueView materialEvalQueue,
 		Runtime::DeviceBuffer1DView<TriangleShading> triangles,
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
+		LightSamplerView lightSampler,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue)
 	{
 		dim3 block(LaunchUtils::MaterialEvalThreadsPerBlock);
 		dim3 grid(LaunchUtils::GetBlockCount(materialEvalQueue.GetCapacity(), block.x));
-		EvaluateEmissiveKernel<<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, regenQueue, accumulationBuffer);
+		
+		if (useNextEventEstimation)
+			EvaluateEmissiveKernel<true><<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, regenQueue, accumulationBuffer);
+		else
+			EvaluateEmissiveKernel<false><<<grid, block, 0, stream>>>(pathPool, materialEvalQueue, triangles, materials, regenQueue, accumulationBuffer);
 	}
 }

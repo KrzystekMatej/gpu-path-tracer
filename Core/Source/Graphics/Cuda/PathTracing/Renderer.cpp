@@ -27,12 +27,14 @@ namespace Core::Graphics::Cuda
     {
         using MaterialEvaluator =
             void (*)(
+                bool,
                 cudaStream_t,
                 PathPoolView,
                 MaterialEvalQueueView,
                 Runtime::DeviceBuffer1DView<TriangleShading>,
                 Runtime::DeviceBuffer1DView<Material>,
                 uint32_t,
+                LightSamplerView,
                 RegenQueueView,
                 Runtime::DeviceBuffer1DView<float4>,
                 RayQueueView);
@@ -187,9 +189,9 @@ namespace Core::Graphics::Cuda
                                 const glm::vec3 worldTangent = ComputeWorldTangent(model, worldNormal, vertex.tangent);
 
                                 positions[j] = Utils::Glm::ToFloat3(worldPosition);
-                                shadingData.vertices[j].normal = make_float4(Utils::Glm::ToFloat3(worldNormal), 0.0f);
-                                shadingData.vertices[j].tangent = Utils::Glm::ToFloat4(glm::vec4(worldTangent, vertex.tangent.w));
-                                shadingData.vertices[j].uv = Utils::Glm::ToFloat2(vertex.uv);
+                                shadingData.normals[j] = make_float4(Utils::Glm::ToFloat3(worldNormal), 0.0f);
+                                shadingData.tangents[j] = Utils::Glm::ToFloat4(glm::vec4(worldTangent, vertex.tangent.w));
+                                shadingData.uvs[j] = Utils::Glm::ToFloat2(vertex.uv);
 							}
 
                             TriangleIntersection intersectionData;
@@ -198,13 +200,35 @@ namespace Core::Graphics::Cuda
                             intersectionData.v0 = positions[0];
                             intersectionData.shadingModel = shadingModel;
 
-                            shadingData.geometricNormal = ComputeGeometricNormal(make_float3(intersectionData.edge1), make_float3(intersectionData.edge2));
                             shadingData.material = materialIndex;
+                            shadingData.geometricNormal = ComputeGeometricNormal(make_float3(intersectionData.edge1), make_float3(intersectionData.edge2));
 
                             triangles.push_back({ intersectionData, shadingData, { positions[0], positions[1], positions[2] } });
                         }
                     });
             return triangles;
+        }
+        
+        std::expected<AliasTable<uint32_t>, Core::Utils::Error> BuildLightSampler(const std::vector<Triangle>& triangles, const Runtime::Stream& stream)
+        {
+            std::vector<float> lightWeights;
+            std::vector<uint32_t> triangleIndices;
+
+            for (size_t i = 0; i < triangles.size(); i++)
+            {
+                if (triangles[i].intersection.shadingModel != GlobalShadingModel::Emissive && triangles[i].intersection.shadingModel != GlobalShadingModel::Normal)
+                    continue;
+                
+                // TODO: Instead of using the area as weight of the emissive triangle, we could use the total emitted power of the triangle
+                // power = (pi * area * integral over the emission texture)
+                float area = 0.5f * length(cross(make_float3(triangles[i].intersection.edge1), make_float3(triangles[i].intersection.edge2)));
+                lightWeights.push_back(area);
+                triangleIndices.push_back(static_cast<uint32_t>(i));
+            }
+            
+            AliasTable<uint32_t> lightSampler;
+            CORE_TRY_DISCARD_CONTEXT(lightSampler.BuildSync(lightWeights, triangleIndices, stream), "Failed to build light table");
+            return lightSampler;
         }
 
         DeviceCamera MakeDeviceCamera(const Graphics::Ecs::Camera& camera, float aspect, const Capture::MotionState& motionState)
@@ -238,18 +262,18 @@ namespace Core::Graphics::Cuda
     std::expected<void, Core::Utils::Error> Renderer::InitializeRenderingBuffers(uint32_t width, uint32_t height)
     {
         CORE_TRY_ASSIGN_CONTEXT(m_RenderStream, Runtime::Stream::Create(), "Failed to create CUDA stream for renderer");
-		CORE_TRY_DISCARD_CONTEXT(m_PathPool.Allocate(PathPoolSize), "Failed to allocate path pool");
+		CORE_TRY_DISCARD_CONTEXT(m_PathPool.Allocate(PathTracerDefaults::PathPoolSize), "Failed to allocate path pool");
         for (auto& rayQueue : m_RayQueues)
         {
-            CORE_TRY_DISCARD_CONTEXT(rayQueue.Allocate(PathPoolSize), "Failed to allocate ray queue");
+            CORE_TRY_DISCARD_CONTEXT(rayQueue.Allocate(PathTracerDefaults::PathPoolSize), "Failed to allocate ray queue");
         }
 
         for (auto& materialQueue : m_MaterialEvalQueues)
         {
-            CORE_TRY_DISCARD_CONTEXT(materialQueue.Allocate(PathPoolSize), "Failed to allocate material evaluation queue");
+            CORE_TRY_DISCARD_CONTEXT(materialQueue.Allocate(PathTracerDefaults::PathPoolSize), "Failed to allocate material evaluation queue");
         }
 
-		CORE_TRY_DISCARD_CONTEXT(m_RegenQueue.Allocate(PathPoolSize), "Failed to allocate regen queue");
+		CORE_TRY_DISCARD_CONTEXT(m_RegenQueue.Allocate(PathTracerDefaults::PathPoolSize), "Failed to allocate regen queue");
 		CORE_TRY_DISCARD_CONTEXT(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)), "Failed to allocate accumulation buffer");
         CORE_TRY_DISCARD_CONTEXT(m_Framebuffer.Allocate(width * height, sizeof(uchar4)), "Failed to allocate framebuffer");
         m_PixelGrid = { width, height, PathTracerDefaults::SamplesPerPixel, PathTracerDefaults::SamplesPerPixelAxis };
@@ -267,8 +291,9 @@ namespace Core::Graphics::Cuda
 		m_MaterialBuffer = std::move(materialBuffer);
 
 		std::vector<Triangle> triangles = BuildTriangles(sceneRegistry, storage, materialTable.indices);
+        CORE_TRY_DISCARD_CONTEXT(m_LightSampler.BuildSync(triangles, materialTable.materials, m_RenderStream), "Failed to build light sampler");
         HostBvh bvh(std::move(triangles));
-        CORE_TRY_DISCARD_CONTEXT(m_Bvh.BuildSync(bvh.GetRoot(), bvh.GetDepth(), bvh.GetNodeCount(), bvh.GetTriangles()), "Failed to build BVH");
+        CORE_TRY_DISCARD_CONTEXT(m_Bvh.BuildFlattenSync(bvh.GetRoot(), bvh.GetDepth(), bvh.GetNodeCount(), bvh.GetTriangles()), "Failed to build BVH");
         CORE_TRY_DISCARD_CONTEXT(Runtime::SynchronizeDevice(), "Failed to synchronize after scene upload");
         spdlog::info("Scene buffers initialized - Triangles: {}, BVH Nodes: {} (depth: {}), Materials: {}", m_Bvh.GetTriangleCount(), m_Bvh.GetNodeCount(), m_Bvh.GetDepth(), materialTable.materials.size());
         return {};
@@ -303,7 +328,8 @@ namespace Core::Graphics::Cuda
 		std::vector<Capture::MotionState> cameraMotionStates,
 		uint32_t samplesPerPixel,
 		uint32_t pathDepthLimit,
-        const std::filesystem::path& outputFolder)
+        const std::filesystem::path& outputFolder,
+        bool useNextEventEstimation)
     {
         width = std::min(std::max(width, PathTracerDefaults::MinFrameWidth), PathTracerDefaults::MaxFrameWidth);
         height = std::min(std::max(height, PathTracerDefaults::MinFrameHeight), PathTracerDefaults::MaxFrameHeight);
@@ -334,7 +360,7 @@ namespace Core::Graphics::Cuda
 		m_PixelGrid.samplesPerPixelAxis = static_cast<uint32_t>(std::sqrt(samplesPerPixel));
 		m_PixelGrid.samplesPerPixel = m_PixelGrid.samplesPerPixelAxis * m_PixelGrid.samplesPerPixelAxis;
 		m_PathDepthLimit = pathDepthLimit;
-
+		m_UseNextEventEstimation = useNextEventEstimation;
 		m_Camera = camera;
 		m_CameraMotionStates = std::move(cameraMotionStates);
 
@@ -473,11 +499,13 @@ namespace Core::Graphics::Cuda
         
         currentQueue = nextQueue;
         nextQueue = currentQueue ^ 1;
-        
+
         uint32_t rayCount = generateCount;
         uint64_t launchedSampleCount = generateCount;
 
-        while (rayCount > 0)
+        bool frameCompleted = false;
+
+        while (!frameCompleted)
         {
             CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Intersect",
             {
@@ -504,12 +532,14 @@ namespace Core::Graphics::Cuda
 
                     CUDA_TRY_KERNEL_DEBUG("EvaluateMaterial", 
                         evaluator(
+                            m_UseNextEventEstimation,
                             m_RenderStream.GetRawHandle(),
                             m_PathPool.GetView(),
                             materialQueueProvider.At(i),
                             m_Bvh.GetShadingView(),
                             m_MaterialBuffer.GetView<Material>(),
                             m_PathDepthLimit,
+                            m_LightSampler.GetView(),
                             m_RegenQueue.GetView(),
                             m_AccumulationBuffer.GetView<float4>(),
                             m_RayQueues[nextQueue].GetView()));   
@@ -536,6 +566,13 @@ namespace Core::Graphics::Cuda
                 CORE_TRY_CONTEXT(regenQueueSize, m_RegenQueue.GetCounter().SyncFromDevice(m_RenderStream), "Failed to synchronize regen queue counter");
                 uint32_t regenerateCount = std::min(regenQueueSize, remainingCount);
                 uint32_t nextRayCount = rayCount - regenQueueSize + regenerateCount;
+
+                if (nextRayCount == 0)
+                {
+                    frameCompleted = true;
+                    m_DoneSamples.store(m_TotalSamples, std::memory_order_relaxed);
+                    break;
+                }
 
                 if (stopToken.stop_requested()) return {};
 
@@ -581,8 +618,6 @@ namespace Core::Graphics::Cuda
         profiler.LogResults();
 
         CORE_TRY_DISCARD_CONTEXT(SaveRenderedFrame(m_OutputFolder / std::format("{}.png", m_DoneFrames.load())), "Failed to save rendered frame");
-
-        m_DoneSamples.store(m_TotalSamples, std::memory_order_relaxed);
         return {};
     }
 

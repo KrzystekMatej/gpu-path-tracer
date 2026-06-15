@@ -10,7 +10,7 @@ namespace Core::Capture
 	std::expected<void, Utils::Error> MotionRecorderBuilder::Build(
 		const Ecs::BuildContext& context,
 		entt::registry& registry,
-		Assets::Manager& assetManager) const
+		Assets::Manager&) const
 	{
 		registry.emplace<MotionRecorder>(context.entity);
 		return {};

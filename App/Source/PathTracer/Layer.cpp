@@ -125,7 +125,7 @@ namespace App::PathTracer
 				event.settings.pathDepthLimit, pathDepthLimit);
 		}
 
-		if (frameWidth != m_PathTracer.GetFramebufferWidth() || frameHeight != m_PathTracer.GetFramebufferHeight())
+		if (frameWidth != m_PathTracer.GetPixelGridWidth() || frameHeight != m_PathTracer.GetPixelGridHeight())
 		{
 			m_DisplayTexture.Allocate(frameWidth, frameHeight);
 		}

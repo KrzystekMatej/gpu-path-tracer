@@ -12,21 +12,23 @@ namespace Core::Graphics::Cuda
 		float3 v0;
 		GlobalShadingModel shadingModel;
 	};
-	
 
-	struct Vertex
-	{
-		float4 normal;
-		float4 tangent;
-		float2 uv;
-	};
+	static_assert(alignof(TriangleIntersection) == 16);
+	static_assert(sizeof(TriangleIntersection) == 48);
 	
-	struct TriangleShading
+	struct __align__(16) TriangleShading
 	{
-		Vertex vertices[3];
+		float4 normals[3];
+		float4 tangents[3];
+
 		float3 geometricNormal;
 		uint32_t material;
+
+		float2 uvs[3];
 	};
+
+	static_assert(alignof(TriangleShading) == 16);
+	static_assert(sizeof(TriangleShading) == 144);
 
 	struct Triangle
 	{
@@ -34,4 +36,23 @@ namespace Core::Graphics::Cuda
 		TriangleShading shading;
 		float3 positions[3];
 	};
+
+	struct LightTriangle
+	{
+		float4 v0;
+		float4 edge1;
+		float4 edge2;
+
+		float3 geometricNormal;
+		float area;
+
+		float2 uv0;
+		float2 uvEdge1;
+		float2 uvEdge2;
+
+		TextureView<float4> emission;
+	};
+	
+	static_assert(alignof(LightTriangle) == 16);
+	static_assert(sizeof(LightTriangle) == 96);
 }

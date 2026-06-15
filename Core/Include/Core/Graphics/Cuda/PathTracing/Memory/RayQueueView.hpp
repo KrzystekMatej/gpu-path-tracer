@@ -16,6 +16,12 @@ namespace Core::Graphics::Cuda
             uint32_t* size,
             uint32_t capacity,
             uint32_t* paths,
+            uint32_t* depths,
+            float* throughputXs,
+            float* throughputYs,
+            float* throughputZs,
+            float* currentMediumIors,
+            bool* lastScatterDeltaFlags,
             float* originXs,
             float* originYs,
             float* originZs,
@@ -23,15 +29,16 @@ namespace Core::Graphics::Cuda
             float* directionYs,
             float* directionZs,
             float* tMins,
-            float* tMaxs,
-            float* iors,
-            uint32_t* depths,
-            float* throughputXs,
-            float* throughputYs,
-            float* throughputZs)
+            float* tMaxs)
             : m_Size(size),
               m_Capacity(capacity),
               m_Paths(paths),
+              m_Depths(depths),
+              m_ThroughputXs(throughputXs),
+              m_ThroughputYs(throughputYs),
+              m_ThroughputZs(throughputZs),
+              m_CurrentMediumIors(currentMediumIors),
+              m_LastScatterDeltaFlags(lastScatterDeltaFlags),
               m_OriginXs(originXs),
               m_OriginYs(originYs),
               m_OriginZs(originZs),
@@ -39,12 +46,7 @@ namespace Core::Graphics::Cuda
               m_DirectionYs(directionYs),
               m_DirectionZs(directionZs),
               m_TMins(tMins),
-              m_TMaxs(tMaxs),
-              m_Iors(iors),
-              m_Depths(depths),
-              m_ThrouputXs(throughputXs),
-              m_ThrouputYs(throughputYs),
-              m_ThrouputZs(throughputZs)
+              m_TMaxs(tMaxs)
         {
         }
 
@@ -80,7 +82,13 @@ namespace Core::Graphics::Cuda
         
         __device__ __forceinline__ Path GetPath(uint32_t index) const
         {
-            return Path{ m_Paths[index] };
+            Path path{};
+            path.index = m_Paths[index];
+            path.depth = m_Depths[index];
+            path.throughput = make_float3(m_ThroughputXs[index], m_ThroughputYs[index], m_ThroughputZs[index]);
+            path.currentMediumIor = m_CurrentMediumIors[index];
+            path.lastScatterWasDelta = m_LastScatterDeltaFlags[index];
+            return path;
         }
         
         __device__ __forceinline__ Ray GetRay(uint32_t index) const
@@ -90,9 +98,6 @@ namespace Core::Graphics::Cuda
             ray.direction = make_float3(m_DirectionXs[index], m_DirectionYs[index], m_DirectionZs[index]);
             ray.tMin = m_TMins[index];
             ray.tMax = m_TMaxs[index];
-            ray.ior = m_Iors[index];
-            ray.depth = m_Depths[index];
-            ray.throughput = make_float3(m_ThrouputXs[index], m_ThrouputYs[index], m_ThrouputZs[index]);
             return ray;
         }   
 
@@ -110,10 +115,15 @@ namespace Core::Graphics::Cuda
         }
 
     private:
-        
         __device__ __forceinline__ void Set(uint32_t index, Path path) const
         {
             m_Paths[index] = path.index;
+            m_Depths[index] = path.depth;
+            m_ThroughputXs[index] = path.throughput.x;
+            m_ThroughputYs[index] = path.throughput.y;
+            m_ThroughputZs[index] = path.throughput.z;
+            m_CurrentMediumIors[index] = path.currentMediumIor;
+            m_LastScatterDeltaFlags[index] = path.lastScatterWasDelta;
         }
 
         __device__ __forceinline__ void Set(uint32_t index, const Ray& ray) const
@@ -126,11 +136,6 @@ namespace Core::Graphics::Cuda
             m_DirectionZs[index] = ray.direction.z;
             m_TMins[index] = ray.tMin;
             m_TMaxs[index] = ray.tMax;
-            m_Iors[index] = ray.ior;
-            m_Depths[index] = ray.depth;
-            m_ThrouputXs[index] = ray.throughput.x;
-            m_ThrouputYs[index] = ray.throughput.y;
-            m_ThrouputZs[index] = ray.throughput.z;
         }
 
         __device__ __forceinline__ uint32_t PushIndex() const
@@ -146,6 +151,13 @@ namespace Core::Graphics::Cuda
         uint32_t m_Capacity = 0;
 
         uint32_t* __restrict__ m_Paths = nullptr;
+        uint32_t* __restrict__ m_Depths = nullptr;
+        float* __restrict__ m_ThroughputXs = nullptr;
+        float* __restrict__ m_ThroughputYs = nullptr;
+        float* __restrict__ m_ThroughputZs = nullptr;
+        float* __restrict__ m_CurrentMediumIors = nullptr;
+        bool* __restrict__ m_LastScatterDeltaFlags = nullptr;
+
         float* __restrict__ m_OriginXs = nullptr;
         float* __restrict__ m_OriginYs = nullptr;
         float* __restrict__ m_OriginZs = nullptr;
@@ -154,10 +166,5 @@ namespace Core::Graphics::Cuda
         float* __restrict__ m_DirectionZs = nullptr;
         float* __restrict__ m_TMins = nullptr;
         float* __restrict__ m_TMaxs = nullptr;
-        float* __restrict__ m_Iors = nullptr;
-        uint32_t* __restrict__ m_Depths = nullptr;
-        float* __restrict__ m_ThrouputXs = nullptr;
-        float* __restrict__ m_ThrouputYs = nullptr;
-        float* __restrict__ m_ThrouputZs = nullptr;
     };
 }

@@ -38,6 +38,7 @@ target_sources(core PRIVATE
 
     "Source/Graphics/Cuda/Bvh/DeviceBvh.cpp"
     "Source/Graphics/Cuda/Bvh/HostBvh.cpp"
+    "Source/Graphics/Cuda/PathTracing/Memory/LightSampler.cpp"
     "Source/Graphics/Cuda/PathTracing/Memory/MaterialEvalQueue.cpp"
 	"Source/Graphics/Cuda/PathTracing/Memory/PathPool.cpp"
 	"Source/Graphics/Cuda/PathTracing/Memory/RayQueue.cpp"

@@ -7,8 +7,19 @@ namespace Core::Graphics::Cuda
 {
 	struct Path
     {
-        uint32_t index = 0;
+        uint32_t index;
+		uint32_t depth;
+		float3 throughput;
+		float currentMediumIor;
+		bool lastScatterWasDelta;
     };
+	
+	struct PathContribution
+	{
+		uint32_t index;
+		float3 throughput;
+		bool lastScatterWasDelta;
+	};
 
 	struct Pixel
 	{
@@ -21,9 +32,6 @@ namespace Core::Graphics::Cuda
 		float3 direction;
 		float tMin;
 		float tMax;
-		float ior;
-		uint32_t depth;
-		float3 throughput;
 	};
 
 	struct Random

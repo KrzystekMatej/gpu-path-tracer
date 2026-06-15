@@ -5,8 +5,6 @@ namespace Core::Graphics::Cuda
 {
     std::expected<void, Core::Utils::Error> RegenQueue::Allocate(uint32_t capacity, const Runtime::Stream& stream)
     {
-        CORE_TRY_DISCARD(Free(stream));
-
         auto counterResult = m_Counter.Allocate(stream);
         if (!counterResult)
         {

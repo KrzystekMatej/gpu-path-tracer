@@ -78,7 +78,11 @@ namespace Core::Graphics::Cuda
 		TextureView<float4> rma;
 		TextureView<float4> emission;
 		TextureView<float4> normal;
+		
 		float ior;
 		float transmission;
 	};
+
+	static_assert(sizeof(Material) == 56);
+	static_assert(alignof(Material) == 8);
 }

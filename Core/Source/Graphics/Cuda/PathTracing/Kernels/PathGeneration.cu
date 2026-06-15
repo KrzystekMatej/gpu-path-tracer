@@ -14,14 +14,17 @@ namespace Core::Graphics::Cuda::Kernels
 	
 	__device__ __forceinline__ PixelSample ComputePathSample(const PixelGrid& grid, uint64_t sampleIndex, float2 jitter)
 	{
-		const uint32_t pixelIndex = static_cast<uint32_t>(sampleIndex / grid.samplesPerPixel);
-		const uint32_t sampleGridIndex = static_cast<uint32_t>(sampleIndex % grid.samplesPerPixel);
+		Math::DivisionResult<uint64_t> sampleDiv = Math::DivideWithRemainder(sampleIndex, static_cast<uint64_t>(grid.samplesPerPixel));
+		const uint32_t pixelIndex = static_cast<uint32_t>(sampleDiv.quotient);
+		const uint32_t sampleGridIndex = static_cast<uint32_t>(sampleDiv.remainder);
 
-		const uint32_t x = pixelIndex % grid.width;
-		const uint32_t y = pixelIndex / grid.width;
+		Math::DivisionResult<uint32_t> pixelDiv = Math::DivideWithRemainder(pixelIndex, grid.width);
+		const uint32_t x = pixelDiv.remainder;
+		const uint32_t y = pixelDiv.quotient;
 
-		const uint32_t sampleGridX = sampleGridIndex % grid.samplesPerPixelAxis;
-		const uint32_t sampleGridY = sampleGridIndex / grid.samplesPerPixelAxis;
+		Math::DivisionResult<uint32_t> sampleGridDiv = Math::DivideWithRemainder(sampleGridIndex, grid.samplesPerPixelAxis);
+		const uint32_t sampleGridX = sampleGridDiv.remainder;
+		const uint32_t sampleGridY = sampleGridDiv.quotient;
 
 		const float u = (x + (sampleGridX + jitter.x) / grid.samplesPerPixelAxis) / grid.width;
 		const float v = (y + (sampleGridY + jitter.y) / grid.samplesPerPixelAxis) / grid.height;
@@ -36,10 +39,18 @@ namespace Core::Graphics::Cuda::Kernels
 		ray.origin = camera.origin;
 		ray.tMin = PathTracerDefaults::MinT;
 		ray.tMax = PathTracerDefaults::MaxT;
-		ray.ior = 1.0f;
-		ray.depth = 0;
-		ray.throughput = make_float3(1.0f);
 		return ray;
+	}
+	
+	__device__ __forceinline__ Path GeneratePath(uint32_t index)
+	{
+		Path path{};
+		path.index = index;
+		path.depth = 0;
+		path.throughput = make_float3(1.0f, 1.0f, 1.0f);
+		path.currentMediumIor = MaterialDefaults::DefaultIor;
+		path.lastScatterWasDelta = false;
+		return path;
 	}
 
 	__global__ void InitializePathsKernel(
@@ -61,7 +72,7 @@ namespace Core::Graphics::Cuda::Kernels
         pathPool.pixels.At(sampleIndex) = Pixel{ sample.pixel };
         pathPool.randoms.At(sampleIndex) = random;
 
-		rayQueue.Set(sampleIndex, { sampleIndex }, GenerateCameraRay(camera, sample.uv));
+		rayQueue.Set(sampleIndex, GeneratePath(sampleIndex), GenerateCameraRay(camera, sample.uv));
 	}
     
 	__global__ void RegeneratePathsKernel(
@@ -76,7 +87,7 @@ namespace Core::Graphics::Cuda::Kernels
 		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
 		if (queueIndex >= Math::Min(remainingCount, regenQueue.GetSize())) return;
 		
-		Path path = regenQueue.GetPath(queueIndex);
+		uint32_t pathIndex = regenQueue.GetPathIndex(queueIndex);
 		const uint64_t sampleIndex = launchedSampleCount + queueIndex;
 
         Random random(PathTracerDefaults::RandomSeed, sampleIndex);
@@ -84,10 +95,10 @@ namespace Core::Graphics::Cuda::Kernels
 
 		const PixelSample sample = ComputePathSample(pixelGrid, sampleIndex, jitter);
 
-        pathPool.pixels.At(path.index) = Pixel{ sample.pixel };
-        pathPool.randoms.At(path.index) = random;
+        pathPool.pixels.At(pathIndex) = Pixel{ sample.pixel };
+        pathPool.randoms.At(pathIndex) = random;
 
-		nextRayQueue.Set(nextRayQueue.GetSize() + queueIndex, path, GenerateCameraRay(camera, sample.uv));
+		nextRayQueue.Set(nextRayQueue.GetSize() + queueIndex, GeneratePath(pathIndex), GenerateCameraRay(camera, sample.uv));
 	}
     
 	void InitializePaths(

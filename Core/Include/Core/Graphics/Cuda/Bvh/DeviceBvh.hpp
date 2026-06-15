@@ -15,7 +15,7 @@ namespace Core::Graphics::Cuda
 		DeviceBvh(const DeviceBvh&) = delete;
 		DeviceBvh& operator=(const DeviceBvh&) = delete;
 		
-		std::expected<void, Core::Utils::Error> BuildSync(
+		std::expected<void, Core::Utils::Error> BuildFlattenSync(
 			const HostBvhNode& root, 
 			uint32_t depth, 
 			uint32_t nodeCount, 
