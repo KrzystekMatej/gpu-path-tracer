@@ -26,6 +26,7 @@
 #include <Core/Graphics/Cuda/PathTracing/Memory/PathPool.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Memory/RayQueue.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Memory/RegenQueue.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Memory/ShadowRayQueue.hpp>
 #include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
 #include <Core/Graphics/Cuda/PathTracing/PixelGrid.hpp>
 #include <Core/Graphics/Cuda/Runtime/Memory/DeviceBuffer1D.hpp>
@@ -143,7 +144,7 @@ namespace Core::Graphics::Cuda
     private:
         std::expected<void, Core::Utils::Error> RenderClear(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
         void SimulationLoop(std::stop_token stopToken, uint32_t startFrame);
-        std::expected<void, Core::Utils::Error> RenderFrame(std::stop_token stopToken, DeviceCamera camera, uint32_t generateCount);
+        std::expected<void, Core::Utils::Error> RenderFrame(std::stop_token stopToken, DeviceCamera camera, uint32_t generateCount, std::string frameFileName);
         std::expected<void, Core::Utils::Error> SaveRenderedFrame(const std::filesystem::path& path);
     private:
 
@@ -154,13 +155,14 @@ namespace Core::Graphics::Cuda
         bool m_UseNextEventEstimation = PathTracerDefaults::UseNextEventEstimation;
 
         Runtime::DeviceBuffer1D m_MaterialBuffer;
-        std::array<MaterialEvalQueue, static_cast<size_t>(GlobalShadingModel::Count)> m_MaterialEvalQueues;
         std::array<uint32_t, static_cast<size_t>(GlobalShadingModel::Count)> m_MaterialCounts;
 		DeviceBvh m_Bvh;
         LightSampler m_LightSampler;
 
         PathPool m_PathPool;
         std::array<RayQueue, 2> m_RayQueues;
+        std::array<MaterialEvalQueue, static_cast<size_t>(GlobalShadingModel::Count)> m_MaterialEvalQueues;
+        ShadowRayQueue m_ShadowRayQueue;
         RegenQueue m_RegenQueue;
 
         Graphics::Ecs::Camera m_Camera;

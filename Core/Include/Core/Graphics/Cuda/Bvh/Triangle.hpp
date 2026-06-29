@@ -39,9 +39,10 @@ namespace Core::Graphics::Cuda
 
 	struct LightTriangle
 	{
-		float4 v0;
 		float4 edge1;
 		float4 edge2;
+		float3 v0;
+		uint32_t index;
 
 		float3 geometricNormal;
 		float area;

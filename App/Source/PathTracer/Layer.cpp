@@ -157,7 +157,8 @@ namespace App::PathTracer
 			m_CameraMotionStates, 
 			samplesPerPixel,
 			pathDepthLimit,
-			outputFolder);
+			outputFolder,
+			event.settings.useNextEventEstimation);
 
 		if (!result)
 			return result.error().Log();

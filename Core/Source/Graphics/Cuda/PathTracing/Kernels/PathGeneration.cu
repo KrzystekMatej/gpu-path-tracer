@@ -49,7 +49,7 @@ namespace Core::Graphics::Cuda::Kernels
 		path.depth = 0;
 		path.throughput = make_float3(1.0f, 1.0f, 1.0f);
 		path.currentMediumIor = MaterialDefaults::DefaultIor;
-		path.lastScatterWasDelta = false;
+		path.lastScatterWasDelta = true; // if the first bounce is emissive, we want to allow contribution
 		return path;
 	}
 

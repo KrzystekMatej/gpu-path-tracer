@@ -62,7 +62,6 @@ namespace Core::Graphics::Cuda::Kernels
     
 	template<uint32_t BvhDepthUpperBound>
 	__global__ void IntersectRaysWithSceneKernel(
-		PathPoolView pathPool, 
 		RayQueueView rayQueue,
 		IntersectionBvhView bvh,
 		MaterialEvalQueueViewsProvider materialQueueProvider,
@@ -122,6 +121,62 @@ namespace Core::Graphics::Cuda::Kernels
 			regenQueue.Push(path.index);
 		}
 	}
+	
+	__device__ __forceinline__ float3 ClampRadiance(float3 radiance, float maxLength)
+	{
+		float lengthSquared = dot(radiance, radiance);
+		float maxLengthSquared = maxLength * maxLength;
+
+		if (lengthSquared > maxLengthSquared)
+			radiance *= maxLength * rsqrtf(lengthSquared);
+
+		return radiance;
+	}
+	
+	template<uint32_t BvhDepthUpperBound>
+	__global__ void IntersectShadowRaysWithSceneKernel(
+		ShadowRayQueueView shadowRayQueue,
+		IntersectionBvhView bvh,
+		PathPoolView pathPool,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer)
+	{
+		const uint32_t queueIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		if (queueIndex >= shadowRayQueue.GetSize()) return;
+		
+		Ray ray = shadowRayQueue.GetRay(queueIndex);
+		const float3 invDirection = make_float3(1.0f) / ray.direction;
+
+		Runtime::Stack<uint32_t, BvhDepthUpperBound + 2> stack;
+		stack.Push(0);
+
+		while (!stack.IsEmpty())
+		{
+			const DeviceBvhNode node = bvh.GetNode(stack.Pop());
+
+			if (!AabbIntersect(node.bounds, ray, invDirection))
+				continue;
+
+			if (node.IsLeaf())
+			{
+				for (uint32_t i = 0; i < node.count; i++)
+				{
+					const TriangleIntersection triangle = bvh.GetTriangle(node.first + i);
+					float t, u, v;
+					if (IntersectTriangle(triangle, ray, t, u, v))
+						return;
+				}
+			}
+			else
+			{
+				stack.Push(node.left);
+				stack.Push(node.right);
+			}
+		}
+		
+		float3 radiance = shadowRayQueue.GetRadiance(queueIndex);
+		uint32_t pathIndex = shadowRayQueue.GetPathIndex(queueIndex);
+		AddRadiance(pathPool, pathIndex, ClampRadiance(radiance, 20.0f), accumulationBuffer);
+	}
     
 	template <int Depth, int... RemainingDepths>
 	void LaunchIntersectKernel(
@@ -129,7 +184,6 @@ namespace Core::Graphics::Cuda::Kernels
 		dim3 grid,
 		dim3 block,
 		cudaStream_t stream,
-		PathPoolView pathPool,
 		RayQueueView rayQueue,
 		IntersectionBvhView bvh,
 		MaterialEvalQueueViewsProvider materialQueueProvider,
@@ -138,7 +192,6 @@ namespace Core::Graphics::Cuda::Kernels
 		if (bvhDepth <= Depth)
 		{
 			IntersectRaysWithSceneKernel<Depth><<<grid, block, 0, stream>>>(
-				pathPool,
 				rayQueue,
 				bvh,
 				materialQueueProvider,
@@ -153,7 +206,6 @@ namespace Core::Graphics::Cuda::Kernels
 				grid,
 				block,
 				stream,
-				pathPool,
 				rayQueue,
 				bvh,
 				materialQueueProvider,
@@ -164,7 +216,6 @@ namespace Core::Graphics::Cuda::Kernels
 	void IntersectRaysWithScene(
 		cudaStream_t stream,
 		uint32_t queueSize,
-		PathPoolView pathPool, 
 		RayQueueView rayQueue, 
 		IntersectionBvhView bvh,
 		uint32_t bvhDepth,
@@ -180,10 +231,66 @@ namespace Core::Graphics::Cuda::Kernels
 			grid,
 			block,
 			stream,
-			pathPool,
 			rayQueue,
 			bvh,
 			materialQueueProvider,
 			regenQueue);
+	}
+	
+	template <int Depth, int... RemainingDepths>
+	void LaunchShadowRayIntersectKernel(
+		int bvhDepth,
+		dim3 grid,
+		dim3 block,
+		cudaStream_t stream,
+		ShadowRayQueueView shadowRayQueue,
+		IntersectionBvhView bvh,
+		PathPoolView pathPool,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer)
+	{
+		if (bvhDepth <= Depth)
+		{
+			IntersectShadowRaysWithSceneKernel<Depth><<<grid, block, 0, stream>>>(
+				shadowRayQueue,
+				bvh,
+				pathPool,
+				accumulationBuffer);
+			return;
+		}
+
+		if constexpr (sizeof...(RemainingDepths) > 0)
+		{
+			LaunchShadowRayIntersectKernel<RemainingDepths...>(
+				bvhDepth,
+				grid,
+				block,
+				stream,
+				shadowRayQueue,
+				bvh,
+				pathPool,
+				accumulationBuffer);
+		}
+	}
+
+	void IntersectShadowRaysWithScene(
+		cudaStream_t stream,
+		ShadowRayQueueView shadowRayQueue,
+		IntersectionBvhView bvh,
+		uint32_t bvhDepth,
+		PathPoolView pathPool,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer)
+	{
+		dim3 block(LaunchUtils::IntersectThreadsPerBlock);
+		dim3 grid(LaunchUtils::GetBlockCount(shadowRayQueue.GetCapacity(), block.x));
+
+		LaunchShadowRayIntersectKernel<2, 4, 8, 12, 16, 24, 32, 40, 48, 56, BvhDefaults::MaxDepth>(
+			bvhDepth,
+			grid,
+			block,
+			stream,
+			shadowRayQueue,
+			bvh,
+			pathPool,
+			accumulationBuffer);
 	}
 }

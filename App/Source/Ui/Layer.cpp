@@ -340,10 +340,11 @@ namespace App::Ui
 				? std::initializer_list<float>{
 					textHeight, frameHeight,
 					textHeight, frameHeight,
+					frameHeight,
 					textHeight, frameHeight
 				}
 				: std::initializer_list<float>{
-					frameHeight, frameHeight, frameHeight
+					frameHeight, frameHeight, frameHeight, frameHeight
 				},
 			style.ItemSpacing.y,
 			style.WindowPadding.y);
@@ -375,6 +376,7 @@ namespace App::Ui
 			ImGui::BeginChild("PathTracingSettings", ImVec2(0.0f, pathTracingSettingsHeight), true);
 			Utils::BuildResponsiveInputInt("SPP", "##SamplesPerPixel", reinterpret_cast<int*>(&pathTracerSettings.samplesPerPixel), expandInputs);
 			Utils::BuildResponsiveInputInt("Path depth", "##PathDepth", reinterpret_cast<int*>(&pathTracerSettings.pathDepthLimit), expandInputs);
+			ImGui::Checkbox("Next event estimation", &pathTracerSettings.useNextEventEstimation);
 			Utils::BuildResponsiveInputString("Render name", "##RenderBatchName", pathTracerSettings.renderBatchName, expandInputs);
 			ImGui::EndChild();
 		}

@@ -38,6 +38,8 @@ namespace Core::Import
 		std::optional<std::string> rmaTexture;
 		std::optional<std::string> emissionTexture;
 		std::optional<std::string> normalTexture;
+		
+		bool flipTextures = false;
 	};
 
 	struct ParsedModel

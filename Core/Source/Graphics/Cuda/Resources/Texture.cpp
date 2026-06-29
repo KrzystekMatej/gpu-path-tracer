@@ -33,9 +33,11 @@ namespace Core::Graphics::Cuda
                     switch (image.format.layout)
                     {
                         case ChannelLayout::R:
-                            return cudaCreateChannelDesc<ushort1>();
+                            return cudaCreateChannelDescHalf();
+
                         case ChannelLayout::RGBA:
-                            return cudaCreateChannelDesc<ushort4>();
+                            return cudaCreateChannelDescHalf4();
+
                         case ChannelLayout::RGB:
                             break;
                     }

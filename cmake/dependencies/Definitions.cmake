@@ -5,6 +5,7 @@ set(CORE_DEPENDENCIES
     ENTT
     XXHASH
     TINYOBJLOADER
+    ASSIMP
     OPENGL
     GLAD
     GLFW
@@ -47,9 +48,21 @@ set(DEP_TINYOBJLOADER_FIND_PACKAGE_NAME tinyobjloader)
 set(DEP_TINYOBJLOADER_TARGET tinyobjloader::tinyobjloader)
 set(DEP_TINYOBJLOADER_GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git)
 set(DEP_TINYOBJLOADER_GIT_TAG v2.0.0rc13)
-set(DEP_TINYOBJLOADER_INCLUDE_DIR
-    "${PROJECT_SOURCE_DIR}/External/tinyobjloader"
-)
+set(DEP_TINYOBJLOADER_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/External/tinyobjloader")
+
+# ---- Assimp ----
+set(DEP_ASSIMP_NAME assimp)
+set(DEP_ASSIMP_FIND_PACKAGE_NAME assimp)
+set(DEP_ASSIMP_GIT_REPOSITORY https://github.com/assimp/assimp.git)
+set(DEP_ASSIMP_GIT_TAG v6.0.5)
+set(DEP_ASSIMP_TARGET assimp::assimp)
+set(DEP_ASSIMP_PKG_CONFIG_NAME assimp)
+
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
 
 # ---- entt ----
 set(DEP_ENTT_NAME entt)

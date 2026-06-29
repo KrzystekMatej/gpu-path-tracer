@@ -8,7 +8,7 @@ namespace Core::Graphics::Cuda
     struct LightSample
     {
         LightTriangle light;
-        float pmf;
+        float selectionProbability;
     };
 
     class LightSamplerView

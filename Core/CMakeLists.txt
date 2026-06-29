@@ -43,6 +43,7 @@ target_sources(core PRIVATE
 	"Source/Graphics/Cuda/PathTracing/Memory/PathPool.cpp"
 	"Source/Graphics/Cuda/PathTracing/Memory/RayQueue.cpp"
 	"Source/Graphics/Cuda/PathTracing/Memory/RegenQueue.cpp"
+	"Source/Graphics/Cuda/PathTracing/Memory/ShadowRayQueue.cpp"
     "Source/Graphics/Cuda/PathTracing/Renderer.cpp"
     "Source/Graphics/Cuda/Resources/Texture.cpp"
     "Source/Graphics/Cuda/Runtime/Memory/DeviceBuffer1D.cpp"

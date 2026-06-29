@@ -1,5 +1,6 @@
 #pragma once
 #include <cuda_runtime.h>
+#include <Core/Graphics/Cuda/PathTracing/Kernels/Common.hpp>
 #include <Core/Graphics/Cuda/Runtime/Memory/DeviceBuffer1DView.hpp>
 #include <Core/Graphics/Cuda/Runtime/Memory/DeviceBuffer2DView.hpp>
 #include <Core/Graphics/Cuda/PathTracing/DeviceCamera.hpp>
@@ -11,6 +12,7 @@
 #include <Core/Graphics/Cuda/PathTracing/Memory/MaterialEvalQueueViewsProvider.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Memory/RegenQueueView.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Memory/RayQueueView.hpp>
+#include <Core/Graphics/Cuda/PathTracing/Memory/ShadowRayQueueView.hpp>
 #include <Core/Graphics/Cuda/PathTracing/PixelGrid.hpp>
 
 namespace Core::Graphics::Cuda::Kernels
@@ -30,18 +32,25 @@ namespace Core::Graphics::Cuda::Kernels
 		cudaStream_t stream,
 		RayQueueView currentRayQueue,
 		RayQueueView nextRayQueue,
+		ShadowRayQueueView shadowRayQueue,
 		RegenQueueView regenQueue,
 		MaterialEvalQueueViewsProvider materialQueueProvider,
 		uint32_t nextRayCount);
 	void IntersectRaysWithScene(
 		cudaStream_t stream,
 		uint32_t queueSize,
-		PathPoolView pathPool, 
 		RayQueueView rayQueue, 
 		IntersectionBvhView bvhView,
 		uint32_t bvhDepth,
 		MaterialEvalQueueViewsProvider materialQueueProvider,
 		RegenQueueView regenQueue);
+	void IntersectShadowRaysWithScene(
+		cudaStream_t stream,
+		ShadowRayQueueView shadowRayQueue,
+		IntersectionBvhView bvhView,
+		uint32_t bvhDepth,
+		PathPoolView pathPool,
+		Runtime::DeviceBuffer1DView<float4> accumulationBuffer);
 	void EvaluateNormalMaterial(
 		bool useNextEventEstimation,
 		cudaStream_t stream,
@@ -51,6 +60,7 @@ namespace Core::Graphics::Cuda::Kernels
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		LightSamplerView lightSampler,
+		ShadowRayQueueView shadowRayQueue,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue);
@@ -63,6 +73,7 @@ namespace Core::Graphics::Cuda::Kernels
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		LightSamplerView lightSampler,
+		ShadowRayQueueView shadowRayQueue,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue);
@@ -75,6 +86,7 @@ namespace Core::Graphics::Cuda::Kernels
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		LightSamplerView lightSampler,
+		ShadowRayQueueView shadowRayQueue,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue);
@@ -87,6 +99,7 @@ namespace Core::Graphics::Cuda::Kernels
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		LightSamplerView lightSampler,
+		ShadowRayQueueView shadowRayQueue,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue);
@@ -99,6 +112,7 @@ namespace Core::Graphics::Cuda::Kernels
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		LightSamplerView lightSampler,
+		ShadowRayQueueView shadowRayQueue,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue);
@@ -111,6 +125,7 @@ namespace Core::Graphics::Cuda::Kernels
 		Runtime::DeviceBuffer1DView<Material> materials,
 		uint32_t pathDepthLimit,
 		LightSamplerView lightSampler,
+		ShadowRayQueueView shadowRayQueue,
 		RegenQueueView regenQueue,
 		Runtime::DeviceBuffer1DView<float4> accumulationBuffer,
 		RayQueueView nextRayQueue);

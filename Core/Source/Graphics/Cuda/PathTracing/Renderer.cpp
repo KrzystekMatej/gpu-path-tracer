@@ -35,6 +35,7 @@ namespace Core::Graphics::Cuda
                 Runtime::DeviceBuffer1DView<Material>,
                 uint32_t,
                 LightSamplerView,
+                ShadowRayQueueView,
                 RegenQueueView,
                 Runtime::DeviceBuffer1DView<float4>,
                 RayQueueView);
@@ -168,8 +169,11 @@ namespace Core::Graphics::Cuda
 						const Cpu::Mesh& meshAsset = storage.Get(mesh.handle).value().get().cpu;
 						const std::vector<Core::Graphics::Vertex>& vertices = meshAsset.GetVertices();
 						const std::vector<uint32_t>& indices = meshAsset.GetIndices();
-						const glm::mat3 model = glm::mat3(transform.GetMatrix());
-						const glm::mat3 normal = glm::mat3(glm::transpose(glm::inverse(model)));
+
+						const glm::mat4 model = transform.GetMatrix();
+                        const glm::mat3 linear = glm::mat3(model);
+						const glm::mat3 normal = glm::mat3(glm::transpose(glm::inverse(linear)));
+
                         const uint32_t materialIndex = materialIndices.at(material.handle.GetId());
                         const GlobalShadingModel shadingModel = ToGlobalShadingUnchecked(storage.Get(material.handle).value().get().surface);
                         
@@ -185,8 +189,7 @@ namespace Core::Graphics::Cuda
 
                                 const glm::vec3 worldPosition = glm::vec3(model * glm::vec4(vertex.position, 1.0f));
                                 const glm::vec3 worldNormal = glm::normalize(normal * vertex.normal);
-
-                                const glm::vec3 worldTangent = ComputeWorldTangent(model, worldNormal, vertex.tangent);
+                                const glm::vec3 worldTangent = ComputeWorldTangent(linear, worldNormal, vertex.tangent);
 
                                 positions[j] = Utils::Glm::ToFloat3(worldPosition);
                                 shadingData.normals[j] = make_float4(Utils::Glm::ToFloat3(worldNormal), 0.0f);
@@ -262,23 +265,26 @@ namespace Core::Graphics::Cuda
     std::expected<void, Core::Utils::Error> Renderer::InitializeRenderingBuffers(uint32_t width, uint32_t height)
     {
         CORE_TRY_ASSIGN_CONTEXT(m_RenderStream, Runtime::Stream::Create(), "Failed to create CUDA stream for renderer");
+
 		CORE_TRY_DISCARD_CONTEXT(m_PathPool.Allocate(PathTracerDefaults::PathPoolSize), "Failed to allocate path pool");
+        
         for (auto& rayQueue : m_RayQueues)
         {
             CORE_TRY_DISCARD_CONTEXT(rayQueue.Allocate(PathTracerDefaults::PathPoolSize), "Failed to allocate ray queue");
         }
-
         for (auto& materialQueue : m_MaterialEvalQueues)
         {
             CORE_TRY_DISCARD_CONTEXT(materialQueue.Allocate(PathTracerDefaults::PathPoolSize), "Failed to allocate material evaluation queue");
         }
-
+        CORE_TRY_DISCARD_CONTEXT(m_ShadowRayQueue.Allocate(PathTracerDefaults::PathPoolSize, m_RenderStream), "Failed to allocate shadow ray queue");
 		CORE_TRY_DISCARD_CONTEXT(m_RegenQueue.Allocate(PathTracerDefaults::PathPoolSize), "Failed to allocate regen queue");
+
 		CORE_TRY_DISCARD_CONTEXT(m_AccumulationBuffer.Allocate(width * height, sizeof(float4)), "Failed to allocate accumulation buffer");
         CORE_TRY_DISCARD_CONTEXT(m_Framebuffer.Allocate(width * height, sizeof(uchar4)), "Failed to allocate framebuffer");
         m_PixelGrid = { width, height, PathTracerDefaults::SamplesPerPixel, PathTracerDefaults::SamplesPerPixelAxis };
         CORE_TRY_DISCARD_CONTEXT(m_Framebuffer.GetDeviceBuffer().MemsetBytes(0), "Failed to clear framebuffer");
 		CORE_TRY_DISCARD_CONTEXT(m_Framebuffer.CopyDeviceToHost(), "Failed to copy framebuffer to host");
+        
         CORE_TRY_DISCARD_CONTEXT(Runtime::SynchronizeDevice(), "Failed to synchronize device after initializing rendering buffers");
 		return {};
     }
@@ -437,11 +443,13 @@ namespace Core::Graphics::Cuda
     {
         float aspect = static_cast<float>(m_PixelGrid.width) / static_cast<float>(m_PixelGrid.height);
         uint32_t generateCount = static_cast<uint32_t>(std::min<uint64_t>(m_TotalSamples, m_PathPool.GetPathCount()));
+        const int frameDigits = static_cast<int>(std::max<std::size_t>(4, std::to_string(m_TotalFrames - 1).size()));
 
         for (uint32_t frameIndex = startFrame; frameIndex < m_TotalFrames; frameIndex++)
         {
             DeviceCamera camera = MakeDeviceCamera(m_Camera, aspect, m_CameraMotionStates[frameIndex]);
-            auto result = RenderFrame(stopToken, camera, generateCount);
+            std::string frameFileName = std::format("frame_{:0{}d}.png", m_DoneFrames.load(), frameDigits);
+            auto result = RenderFrame(stopToken, camera, generateCount, frameFileName);
             if (!result)
             {
                 (void)Runtime::SynchronizeDevice();
@@ -457,7 +465,7 @@ namespace Core::Graphics::Cuda
         m_IsRendering.store(false, std::memory_order_relaxed);
     }
 
-    std::expected<void, Core::Utils::Error> Renderer::RenderFrame(std::stop_token stopToken, DeviceCamera camera, uint32_t generateCount)
+    std::expected<void, Core::Utils::Error> Renderer::RenderFrame(std::stop_token stopToken, DeviceCamera camera, uint32_t generateCount, std::string frameFileName)
     {
         CORE_TRY_CONTEXT(profiler, Core::Graphics::Cuda::Runtime::Profiler::Create("Path traced frame"), "Failed to create profiler");
         CORE_TRY_DISCARD_CONTEXT(profiler.StartProfiling(m_RenderStream), "Failed to start profiling");
@@ -492,6 +500,7 @@ namespace Core::Graphics::Cuda
                     m_RenderStream.GetRawHandle(),
                     m_RayQueues[currentQueue].GetView(),
                     m_RayQueues[nextQueue].GetView(),
+                    m_ShadowRayQueue.GetView(),
                     m_RegenQueue.GetView(),
                     materialQueueProvider,
                     generateCount));
@@ -507,13 +516,12 @@ namespace Core::Graphics::Cuda
 
         while (!frameCompleted)
         {
-            CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Intersect",
+            CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Intersect rays",
             {
                 CUDA_TRY_KERNEL_DEBUG("IntersectRaysWithScene",
                     Kernels::IntersectRaysWithScene(
                         m_RenderStream.GetRawHandle(),
                         rayCount,
-                        m_PathPool.GetView(),
                         m_RayQueues[currentQueue].GetView(),
                         m_Bvh.GetIntersectionView(),
                         m_Bvh.GetDepth(),
@@ -540,11 +548,27 @@ namespace Core::Graphics::Cuda
                             m_MaterialBuffer.GetView<Material>(),
                             m_PathDepthLimit,
                             m_LightSampler.GetView(),
+                            m_ShadowRayQueue.GetView(),
                             m_RegenQueue.GetView(),
                             m_AccumulationBuffer.GetView<float4>(),
                             m_RayQueues[nextQueue].GetView()));   
                 }
             });
+            
+            if (m_UseNextEventEstimation)
+            {
+                CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Intersect shadow rays",
+                {
+                    CUDA_TRY_KERNEL_DEBUG("IntersectShadowRaysWithScene",
+                        Kernels::IntersectShadowRaysWithScene(
+                            m_RenderStream.GetRawHandle(),
+                            m_ShadowRayQueue.GetView(),
+                            m_Bvh.GetIntersectionView(),
+                            m_Bvh.GetDepth(),
+                            m_PathPool.GetView(),
+                            m_AccumulationBuffer.GetView<float4>()));
+                });
+            }
 
             uint32_t remainingCount = static_cast<uint32_t>(std::min<uint64_t>(m_TotalSamples - launchedSampleCount, m_PathPool.GetPathCount()));
             CUDA_PROFILE_SECTION(profiler, m_RenderStream, "Regenerate paths",
@@ -583,6 +607,7 @@ namespace Core::Graphics::Cuda
                             m_RenderStream.GetRawHandle(),
                             m_RayQueues[currentQueue].GetView(),
                             m_RayQueues[nextQueue].GetView(),
+                            m_ShadowRayQueue.GetView(),
                             m_RegenQueue.GetView(),
                             materialQueueProvider,
                             nextRayCount));
@@ -616,8 +641,8 @@ namespace Core::Graphics::Cuda
 
         CORE_TRY_DISCARD_CONTEXT(profiler.StopProfiling(m_RenderStream), "Failed to stop profiling");
         profiler.LogResults();
-
-        CORE_TRY_DISCARD_CONTEXT(SaveRenderedFrame(m_OutputFolder / std::format("{}.png", m_DoneFrames.load())), "Failed to save rendered frame");
+        
+        CORE_TRY_DISCARD_CONTEXT(SaveRenderedFrame(m_OutputFolder / frameFileName), "Failed to save rendered frame");
         return {};
     }
 

@@ -1,13 +1,15 @@
 #pragma once
+
 #include <expected>
 #include <string>
-#include <unordered_map>
+#include <map>
 #include <vector>
+#include <cstddef>
+
 #include <Core/Graphics/Cuda/Runtime/Sync/Timer.hpp>
 
 namespace Core::Graphics::Cuda::Runtime
 {
-
     class Profiler
     {
     public:
@@ -20,7 +22,7 @@ namespace Core::Graphics::Cuda::Runtime
         struct SectionResult
         {
             std::string name;
-            size_t runCount;
+            std::size_t runCount;
             float totalTimeMilliseconds;
             float averageTimeMilliseconds;
             float maxTimeMilliseconds;
@@ -44,10 +46,10 @@ namespace Core::Graphics::Cuda::Runtime
 
         float GetProfiledTimeMilliseconds() const { return m_Timer.GetElapsedMilliseconds(); }
         float GetProfiledTimeSeconds() const { return m_Timer.GetElapsedSeconds(); }
-        
+
         const std::vector<float>& GetSectionTimesMilliseconds(const std::string& name) const { return m_Sections.at(name).timesMilliseconds; }
-        size_t GetSectionRunCount(const std::string& name) const { return m_Sections.at(name).timesMilliseconds.size(); }
-        
+        std::size_t GetSectionRunCount(const std::string& name) const { return m_Sections.at(name).timesMilliseconds.size(); }
+
         float GetSectionTotalTimeMilliseconds(const std::string& name) const;
         float GetSectionTotalTimeSeconds(const std::string& name) const { return GetSectionTotalTimeMilliseconds(name) * 0.001f; }
 
@@ -61,21 +63,21 @@ namespace Core::Graphics::Cuda::Runtime
 
         Result GetProfileResult() const;
         void LogResults() const;
-    private:
-        Profiler(const std::string& name) : m_Name(name) {}
 
-        std::unordered_map<std::string, SectionData> m_Sections;
+    private:
+        explicit Profiler(const std::string& name) : m_Name(name) {}
+
+        std::map<std::string, SectionData> m_Sections;
+        std::vector<std::string> m_SectionOrder;
         Timer m_Timer;
         std::string m_Name;
     };
 }
 
-#pragma once
-
 #ifdef CORE_ENABLE_TIMING
 
 #define CUDA_PROFILE_CREATE(name) \
-    CORE_TRY(name, Core::Graphics::Cuda::Runtime::Profiler::Create())
+    CORE_TRY(name, Core::Graphics::Cuda::Runtime::Profiler::Create(#name))
 
 #define CUDA_PROFILE_START(profiler, stream) \
     CORE_TRY_DISCARD((profiler).StartProfiling(stream))

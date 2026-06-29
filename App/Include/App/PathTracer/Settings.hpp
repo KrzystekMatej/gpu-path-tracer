@@ -15,6 +15,7 @@ namespace App::PathTracer
 		uint32_t frameHeight = Defaults::FrameHeight;
 		uint32_t samplesPerPixel = Defaults::SamplesPerPixel;
 		uint32_t pathDepthLimit = Defaults::PathDepthLimit;
+		bool useNextEventEstimation = Defaults::UseNextEventEstimation;
 		std::string renderBatchName = "Render";
 	};
 }

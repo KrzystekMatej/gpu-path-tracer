@@ -49,6 +49,7 @@ namespace Core::Import
 
 		const std::string SurfaceModelKey = "surface";
 		const std::string RmaTextureKey = "map_RMA";
+		const std::string FlipTexturesKey = "flip_textures";
 
 		constexpr std::array<std::pair<std::string_view, Graphics::SurfaceModel>, 9> SurfaceModels = {
 			std::pair{ "unlit" , Graphics::SurfaceModel::Unlit},
@@ -200,6 +201,8 @@ namespace Core::Import
 			std::optional<std::string> normal = source.normal_texname.empty() ? std::nullopt : std::make_optional(source.normal_texname);
 			std::optional<std::string> bump = source.bump_texname.empty() ? std::nullopt : std::make_optional(source.bump_texname);
 			auto rmaIt = source.unknown_parameter.find(RmaTextureKey);
+			auto flipTexturesIt = source.unknown_parameter.find(FlipTexturesKey);
+			bool flipTextures = flipTexturesIt != source.unknown_parameter.end() && flipTexturesIt->second == "true";
 
 			materials.push_back(ParsedMaterial{
 				.name = source.name,
@@ -218,6 +221,7 @@ namespace Core::Import
 				.rmaTexture = rmaIt == source.unknown_parameter.end() || rmaIt->second.empty() ? std::nullopt : std::make_optional(rmaIt->second),
 				.emissionTexture = source.emissive_texname.empty() ? std::nullopt : std::make_optional(source.emissive_texname),
 				.normalTexture = normal ? normal : bump,
+				.flipTextures = flipTextures
 			});
 		}
 

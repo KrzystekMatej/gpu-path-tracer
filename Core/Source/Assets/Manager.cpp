@@ -14,6 +14,7 @@
 #include <Core/Import/ShaderLoader.hpp>
 #include <Core/Graphics/Gl/Material.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Material.hpp>
+#include <Core/Import/ImageUtils.hpp>
 
 namespace Core::Assets
 {
@@ -178,7 +179,8 @@ namespace Core::Assets
 	std::expected<Handle<Texture>, Utils::Error> Manager::ImportTexture(
 		const std::filesystem::path& path, 
 		Graphics::ColorSpace colorSpace, 
-		std::optional<std::filesystem::path> root)
+		std::optional<std::filesystem::path> root,
+		bool flipVertically)
 	{
 		std::filesystem::path actualRoot = root ? *root : m_Root;
 		CORE_TRY(resolvedPath, Utils::Path::ResolvePath(path, actualRoot));
@@ -196,16 +198,14 @@ namespace Core::Assets
 			return cached.value();
 
 		CORE_TRY(image, Import::LoadImage(resolvedPath.absolute, colorSpace));
+		if (flipVertically)
+			image = Import::FlipVertically(std::move(image));
 
 		CORE_TRY_CONTEXT(glTexture, Graphics::Gl::Texture::Create2D(image), "Failed to create GL texture, file path: {}", absoluteStr);
 		CORE_TRY_CONTEXT(cudaTexture, Graphics::Cuda::Texture::Create2D(image), "Failed to create CUDA texture, file path: {}", absoluteStr);
 		Graphics::Cpu::Texture cpuTexture = Graphics::Cpu::Texture::Create(std::move(image));
 
-		Texture asset(
-			std::move(cpuTexture),
-			std::move(glTexture),
-			std::move(cudaTexture));
-
+		Texture asset(std::move(cpuTexture), std::move(glTexture), std::move(cudaTexture));
 		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
 		return handle.value();
 	}
@@ -334,14 +334,18 @@ namespace Core::Assets
 		
 		std::optional<std::filesystem::path> root = path.absolute.parent_path();
 
-		auto fileOrPixelTexture = [&](const std::optional<std::filesystem::path>& texturePath, const Graphics::PixelFormat& defaultFormat, std::span<const uint8_t> defaultValue)
+		auto fileOrPixelTexture = [&](
+			const std::optional<std::filesystem::path>& texturePath, 
+			const Graphics::PixelFormat& defaultFormat, 
+			std::span<const uint8_t> defaultValue,
+			bool flipVertically) -> std::expected<Handle<Texture>, Utils::Error>
 		{
 			if (texturePath)
 			{
 				
-				return ImportTexture(texturePath.value(), defaultFormat.colorSpace, root).or_else([&](const Utils::Error&)
+				return ImportTexture(texturePath.value(), defaultFormat.colorSpace, root, flipVertically).or_else([&](const Utils::Error&)
 				{
-				 	return ImportTexture(texturePath.value(), defaultFormat.colorSpace);
+				 	return ImportTexture(texturePath.value(), defaultFormat.colorSpace, std::nullopt, flipVertically);
 				});
 			}
 			else
@@ -352,27 +356,27 @@ namespace Core::Assets
 
 		CORE_TRY_CONTEXT(
 			color, 
-			fileOrPixelTexture(material.colorTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB}, colorPixel),
+			fileOrPixelTexture(material.colorTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB}, colorPixel, material.flipTextures),
 			"Failed to import albedo texture");
 		CORE_TRY_CONTEXT(
 			specular, 
-			fileOrPixelTexture(material.specularTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB}, specularPixel),
+			fileOrPixelTexture(material.specularTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB}, specularPixel, material.flipTextures),
 			"Failed to import specular texture");
 		CORE_TRY_CONTEXT(
 			shininess, 
-			fileOrPixelTexture(material.shininessTexture, {Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, shininessPixel), 
+			fileOrPixelTexture(material.shininessTexture, {Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, shininessPixel, material.flipTextures), 
 			"Failed to import shininess texture");
 		CORE_TRY_CONTEXT(
 			rma, 
-			fileOrPixelTexture(material.rmaTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, { Graphics::MaterialDefaults::DefaultRma }), 
+			fileOrPixelTexture(material.rmaTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, { Graphics::MaterialDefaults::DefaultRma }, material.flipTextures), 
 			"Failed to import RMA texture");
 		CORE_TRY_CONTEXT(
 			emission, 
-			fileOrPixelTexture(material.emissionTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::Float32, Graphics::ColorSpace::Linear}, emissionPixel), 
+			fileOrPixelTexture(material.emissionTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::Float32, Graphics::ColorSpace::Linear}, emissionPixel, material.flipTextures), 
 			"Failed to import emission texture");
 		CORE_TRY_CONTEXT(
 			normal, 
-			fileOrPixelTexture(material.normalTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, Graphics::MaterialDefaults::DefaultNormal), 
+			fileOrPixelTexture(material.normalTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, Graphics::MaterialDefaults::DefaultNormal, material.flipTextures), 
 			"Failed to import normal texture");
 
 		auto localShading = Graphics::Gl::ToLocalShadingChecked(material.surface);

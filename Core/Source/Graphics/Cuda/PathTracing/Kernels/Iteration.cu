@@ -7,12 +7,14 @@ namespace Core::Graphics::Cuda::Kernels
 	__global__ void PrepareIterationKernel(
 		RayQueueView currentRayQueue,
 		RayQueueView nextRayQueue,
+		ShadowRayQueueView shadowRayQueue,
 		RegenQueueView regenQueue,
 		MaterialEvalQueueViewsProvider materialQueueProvider,
 		uint32_t nextRayCount)
 	{
 		currentRayQueue.Clear();
 		nextRayQueue.SetSize(nextRayCount);
+		shadowRayQueue.Clear();
 		regenQueue.Clear();
 		for (uint32_t i = 0; i < static_cast<uint32_t>(GlobalShadingModel::Count); i++)
 		{
@@ -24,10 +26,11 @@ namespace Core::Graphics::Cuda::Kernels
 		cudaStream_t stream,
 		RayQueueView currentRayQueue,
 		RayQueueView nextRayQueue,
+		ShadowRayQueueView shadowRayQueue,
 		RegenQueueView regenQueue,
 		MaterialEvalQueueViewsProvider materialQueueProvider,
 		uint32_t nextRayCount)
 	{
-		PrepareIterationKernel<<<1, 1, 0, stream>>>(currentRayQueue, nextRayQueue, regenQueue, materialQueueProvider, nextRayCount);
+		PrepareIterationKernel<<<1, 1, 0, stream>>>(currentRayQueue, nextRayQueue, shadowRayQueue, regenQueue, materialQueueProvider, nextRayCount);
 	}
 }

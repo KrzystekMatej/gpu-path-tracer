@@ -10,7 +10,7 @@ namespace Core::Graphics::Cuda
 
         for (size_t i = 0; i < triangles.size(); i++)
         {
-            if (triangles[i].intersection.shadingModel != GlobalShadingModel::Emissive && triangles[i].intersection.shadingModel != GlobalShadingModel::Normal)
+            if (triangles[i].intersection.shadingModel != GlobalShadingModel::Emissive /*&& triangles[i].intersection.shadingModel != GlobalShadingModel::Normal*/)
                 continue;
             
             // TODO: Instead of using the area as weight of the emissive triangle, we could use the total emitted power of the triangle
@@ -19,9 +19,10 @@ namespace Core::Graphics::Cuda
             lightWeights.push_back(area);
             lightIndices.push_back(static_cast<uint32_t>(lights.size()));
             lights.push_back(LightTriangle{ 
-                .v0 = make_float4(triangles[i].intersection.v0),
                 .edge1 = triangles[i].intersection.edge1,
                 .edge2 = triangles[i].intersection.edge2,
+                .v0 = triangles[i].intersection.v0,
+                .index = static_cast<uint32_t>(i),
                 .geometricNormal = triangles[i].shading.geometricNormal,
                 .area = area,
                 .uv0 = triangles[i].shading.uvs[0],
@@ -31,7 +32,7 @@ namespace Core::Graphics::Cuda
             });
         }
         
-        CORE_TRY_DISCARD_CONTEXT(m_LightBuffer.Allocate(lights.size(), static_cast<uint32_t>(sizeof(LightTriangle)), stream), "Failed to allocate light buffer");
+        CORE_TRY_DISCARD_CONTEXT(m_LightBuffer.Allocate(static_cast<uint32_t>(lights.size()), static_cast<uint32_t>(sizeof(LightTriangle)), stream), "Failed to allocate light buffer");
         CORE_TRY_DISCARD_CONTEXT(m_LightBuffer.Upload(lights.data(), static_cast<uint32_t>(lights.size()), stream), "Failed to upload light buffer");
         CORE_TRY_DISCARD_CONTEXT(m_AliasTable.BuildSync(lightWeights, lightIndices, stream), "Failed to build light table");
         CORE_TRY_DISCARD_CONTEXT(stream.Synchronize(), "Failed to synchronize after building light sampler");
