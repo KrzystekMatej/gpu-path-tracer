@@ -1,39 +1,9 @@
-#include <Core/Import/ImageUtils.hpp>
+#include <Core/Import/Media/ImageUtils.hpp>
 #include <cstring>
+#include <Core/Utils/NumberTypes.hpp>
 
-namespace Core::Import
+namespace Core::Import::Media
 {
-    namespace
-    {
-        uint16_t Float32ToFloat16Bits(float value)
-        {
-            uint32_t bits = 0;
-            std::memcpy(&bits, &value, sizeof(bits));
-
-            const uint32_t sign = (bits >> 31) & 0x1;
-            int32_t exponent = static_cast<int32_t>((bits >> 23) & 0xff) - 127 + 15;
-            uint32_t mantissa = bits & 0x7fffff;
-
-            if (exponent <= 0)
-            {
-                if (exponent < -10)
-                {
-                    return static_cast<uint16_t>(sign << 15);
-                }
-
-                mantissa = (mantissa | 0x800000u) >> (1 - exponent);
-                return static_cast<uint16_t>((sign << 15) | (mantissa >> 13));
-            }
-
-            if (exponent >= 31)
-            {
-                return static_cast<uint16_t>((sign << 15) | 0x7c00);
-            }
-
-            return static_cast<uint16_t>((sign << 15) | (static_cast<uint32_t>(exponent) << 10) | (mantissa >> 13));
-        }
-    }
-
     std::optional<Image> ConvertRgbToRgba(const Image& image)
     {
         using Graphics::ChannelLayout;
@@ -78,7 +48,7 @@ namespace Core::Import
 
                 const auto* source = reinterpret_cast<const uint16_t*>(image.data.data());
                 auto* destination = reinterpret_cast<uint16_t*>(result.data.data());
-                const uint16_t alpha = Float32ToFloat16Bits(1.0f);
+                const uint16_t alpha = Utils::NumberTypes::Float32ToFloat16(1.0f);
 
                 for (uint32_t i = 0; i < pixelCount; i++)
                 {

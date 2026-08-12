@@ -8,57 +8,34 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <functional>
+#include <ranges>
 
-#include <Core/Import/ObjLoader.hpp>
-#include <Core/Import/ImageIO.hpp>
+#include <Core/Utils/Hash.hpp>
+#include <Core/Import/Prefabs/GlTFLoader.hpp>
+#include <Core/Utils/Types.hpp>
+#include <Core/Import/Prefabs/ObjLoader.hpp>
+#include <Core/Import/Media/ImageIO.hpp>
 #include <Core/Import/ShaderLoader.hpp>
 #include <Core/Graphics/Gl/Material.hpp>
 #include <Core/Graphics/Cuda/PathTracing/Material.hpp>
-#include <Core/Import/ImageUtils.hpp>
+#include <Core/Import/Media/ImageUtils.hpp>
+#include <Core/Import/Media/OrmHelpers.hpp>
+#include <Core/Utils/NumberTypes.hpp>
+#include <Core/Import/Buffers/BufferUtils.hpp>
+#include <Core/Utils/Math/TangentSpace.hpp>
 
 namespace Core::Assets
 {
 	namespace
 	{
-		constexpr std::string_view DefaultMaterialSource = "default_material";
-		constexpr std::string_view BackgroundFile = "background.exr";
-		constexpr std::string_view IrradianceDir = "irradiance_map";
-		constexpr std::string_view PrefilteredDir = "prefiltered_map";
-		constexpr std::string_view SkyboxDir = "skybox";
-
-
-		std::filesystem::path ResolveRelativeToFile(const std::filesystem::path& filePath, const std::filesystem::path& maybeRelative)
-		{
-			auto resolved = Utils::Path::ResolvePath(maybeRelative, filePath.parent_path());
-
-			if (!resolved)
-				return resolved.value().absolute;
-
-			return maybeRelative.lexically_normal();
-		}
-
-		float NormalizeFloat(float x, float min, float max)
-		{
-			if (!std::isfinite(x))
-				x = min;
-			x = std::clamp(x, min, max);
-			return (x - min) / (max - min);
-		}
-
-		uint8_t NormalizedFloatToU8(float x)
-		{
-			if (!std::isfinite(x))
-				x = 0.0f;
-			x = std::clamp(x, 0.0f, 1.0f);
-			return static_cast<uint8_t>(std::lround(x * 255.0f));
-		}
 		
 		std::array<uint8_t, 3> RgbToU8(const float color[3])
 		{
 			return {
-				NormalizedFloatToU8(color[0]),
-				NormalizedFloatToU8(color[1]),
-				NormalizedFloatToU8(color[2])
+				Utils::NumberTypes::NormalizedFloatToU8(color[0]),
+				Utils::NumberTypes::NormalizedFloatToU8(color[1]),
+				Utils::NumberTypes::NormalizedFloatToU8(color[2])
 			};
 		}
 		
@@ -78,7 +55,7 @@ namespace Core::Assets
 			return static_cast<uint8_t>(std::lround(srgb * 255.0f));
 		}
 		
-		std::array<uint8_t, 3> LinearRgbToSrgbU8(const float color[3])
+		std::array<uint8_t, 3> LinearRgbToSrgbU8(std::array<float, 3> color)
 		{
 			return {
 				LinearNormalizedFloatToSrgbU8(color[0]),
@@ -87,22 +64,208 @@ namespace Core::Assets
 			};
 		}
 
-		bool IsUint8Texture(const Graphics::PixelFormat& f)
+		bool IsHdrTexture(const Graphics::PixelFormat& format)
 		{
-			return f.componentType == Graphics::ComponentType::UInt8;
+			return format.componentType == Graphics::ComponentType::Float16 || format.componentType == Graphics::ComponentType::Float32;
 		}
 
-		bool IsHdrTexture(const Graphics::PixelFormat& f)
+		Key<Texture> MakePixelTextureKey(const Graphics::PixelFormat& format, std::span<const uint8_t> value)
 		{
-			return f.componentType == Graphics::ComponentType::Float16 || f.componentType == Graphics::ComponentType::Float32;
+			KeyBuilder<Texture> builder = KeyBuilder<Texture>();
+			builder.Add(format.layout);
+			builder.Add(format.componentType);
+			builder.Add(format.colorSpace);
+			uint64_t length = value.size();
+			builder.Add(length);
+			builder.Add(value);
+			return builder.Finish("pixel_texture");
 		}
+
+		std::expected<Import::Media::Image, Utils::Error> CreateOrmTextureImage(const ResolvedMaterial& material)
+		{
+			Import::Media::Image ormImage;
+			constexpr Graphics::ColorSpace colorSpace = Graphics::ColorSpace::Linear;
+			
+			if (material.ormTexture)
+			{
+				std::filesystem::path resolvedPath = material.ormTexture.value().absolute;
+				CORE_TRY_ASSIGN_CONTEXT(ormImage, Import::Media::LoadImage(resolvedPath, colorSpace), "Failed to load ORM texture image, file path: {}", resolvedPath.string());
+			}
+			else if (material.rmoTexture)
+			{
+				std::filesystem::path resolvedPath = material.rmoTexture.value().absolute;
+				CORE_TRY_ASSIGN_CONTEXT(ormImage, Import::Media::LoadImage(resolvedPath, colorSpace), "Failed to load RMO texture image, file path: {}", resolvedPath.string());
+				CORE_TRY_DISCARD_CONTEXT(Import::Media::ConvertRmoToOrm(ormImage), "Failed to convert RMO texture to ORM texture, file path: {}", resolvedPath.string());
+			}
+			else if (material.rmTexture)
+			{
+				std::filesystem::path rmPath = material.rmTexture.value().absolute;
+				CORE_TRY_CONTEXT(rmImage, Import::Media::LoadImage(rmPath, colorSpace), "Failed to load RM texture image, file path: {}", rmPath.string());
+				std::optional<Import::Media::Image> occlusionImage;
+				if (material.occlusionTexture)
+				{
+					std::filesystem::path occlusionPath = material.occlusionTexture.value().absolute;
+					CORE_TRY_ASSIGN_CONTEXT(occlusionImage, Import::Media::LoadImage(occlusionPath, colorSpace), "Failed to load occlusion texture image, file path: {}", occlusionPath.string());
+				}
+
+				CORE_TRY_ASSIGN_CONTEXT(ormImage, Import::Media::PackOrmTexture(occlusionImage, Graphics::MaterialDefaults::Occlusion, rmImage), "Failed to pack ORM texture, file path: {}", rmPath.string());
+			}
+			else if (material.occlusionTexture || material.roughnessTexture || material.metallicTexture)
+			{
+				std::optional<Import::Media::Image> occlusionImage;
+				if (material.occlusionTexture)
+				{
+					std::filesystem::path occlusionPath = material.occlusionTexture.value().absolute;
+					CORE_TRY_ASSIGN_CONTEXT(occlusionImage, Import::Media::LoadImage(occlusionPath, colorSpace), "Failed to load occlusion texture image, file path: {}", occlusionPath.string());
+				}
+				
+				std::optional<Import::Media::Image> roughnessImage;
+				if (material.roughnessTexture)
+				{
+					std::filesystem::path roughnessPath = material.roughnessTexture.value().absolute;
+					CORE_TRY_ASSIGN_CONTEXT(roughnessImage, Import::Media::LoadImage(roughnessPath, colorSpace), "Failed to load roughness texture image, file path: {}", roughnessPath.string());
+				}
+
+				std::optional<Import::Media::Image> metallicImage;
+				if (material.metallicTexture)
+				{
+					std::filesystem::path metallicPath = material.metallicTexture.value().absolute;
+					CORE_TRY_ASSIGN_CONTEXT(metallicImage, Import::Media::LoadImage(metallicPath, colorSpace), "Failed to load metallic texture image, file path: {}", metallicPath.string());
+				}
+
+				CORE_TRY_ASSIGN_CONTEXT(
+					ormImage, 
+					Import::Media::PackOrmTexture(
+						occlusionImage,
+						Graphics::MaterialDefaults::Occlusion,
+						roughnessImage, 
+						material.roughness,
+						metallicImage, 
+						material.metallic),
+					"Failed to pack ORM texture");
+			}
+			else
+			{
+				std::array<uint8_t, 3> ormPixel = {
+					Utils::NumberTypes::NormalizedFloatToU8(Graphics::MaterialDefaults::Occlusion),
+					Utils::NumberTypes::NormalizedFloatToU8(material.roughness),
+					Utils::NumberTypes::NormalizedFloatToU8(material.metallic),
+				};
+
+				ormImage = std::move(Import::Media::Image {
+					.width = 1,
+					.height = 1,
+					.format = {
+						.layout = Graphics::ChannelLayout::RGB,
+						.componentType = Graphics::ComponentType::UInt8,
+						.colorSpace = colorSpace
+					},
+					.data = { ormPixel.begin(), ormPixel.end() }
+				});
+			}
+
+			if (material.flipTextures)
+				ormImage = std::move(Import::Media::FlipVertically(ormImage));
+
+			return ormImage;
+		}
+
+		Key<Texture> MakeOrmTextureKey(const ResolvedMaterial& material)
+		{
+			KeyBuilder<Texture> builder;
+			
+			if (material.ormTexture)
+			{
+				builder.Add(material.ormTexture.value().relative.generic_string());
+			}
+			else if (material.rmoTexture)
+			{
+				builder.Add(material.rmoTexture.value().relative.generic_string());
+			}
+			else if (material.rmTexture)
+			{
+				builder.Add(material.rmTexture.value().relative.generic_string());
+				if (material.occlusionTexture)
+					builder.Add(material.occlusionTexture.value().relative.generic_string());
+				else
+					builder.Add(Utils::NumberTypes::NormalizedFloatToU8(Graphics::MaterialDefaults::Occlusion));
+			}
+			else if (material.occlusionTexture || material.roughnessTexture || material.metallicTexture)
+			{
+				if (material.occlusionTexture)
+					builder.Add(material.occlusionTexture.value().relative.generic_string());
+				else
+					builder.Add(Utils::NumberTypes::NormalizedFloatToU8(Graphics::MaterialDefaults::Occlusion));
+
+				if (material.roughnessTexture)
+					builder.Add(material.roughnessTexture.value().relative.generic_string());
+				else
+					builder.Add(Utils::NumberTypes::NormalizedFloatToU8(material.roughness));
+
+				if (material.metallicTexture)
+					builder.Add(material.metallicTexture.value().relative.generic_string());
+				else
+					builder.Add(Utils::NumberTypes::NormalizedFloatToU8(material.metallic));
+			}
+			else
+			{
+				std::array<uint8_t, 3> ormPixel = {
+					Utils::NumberTypes::NormalizedFloatToU8(Graphics::MaterialDefaults::Occlusion),
+					Utils::NumberTypes::NormalizedFloatToU8(material.roughness),
+					Utils::NumberTypes::NormalizedFloatToU8(material.metallic),
+				};
+
+				Graphics::PixelFormat pixelFormat = {
+					.layout = Graphics::ChannelLayout::RGB,
+					.componentType = Graphics::ComponentType::UInt8,
+					.colorSpace = Graphics::ColorSpace::Linear
+				};
+				
+				return MakePixelTextureKey(pixelFormat, ormPixel);
+			}
+
+			return builder.Finish("orm_texture");
+		}
+
+		Graphics::SurfaceModel ResolveSurfaceModel(const Import::Material& material)
+		{
+			if (material.surface.has_value())
+				return material.surface.value();
+
+			if (material.roughness > 0.0f || material.metallic > 0.0f || material.ormTexture.has_value() || material.rmoTexture.has_value() 
+				|| material.rmTexture.has_value() || material.roughnessTexture.has_value() || material.metallicTexture.has_value())
+				return Graphics::SurfaceModel::Microfacet;
+			
+			if ((material.specular[0] > 0.0f || material.specular[1] > 0.0f || material.specular[2] > 0.0f || material.specularTexture.has_value()) &&
+				(material.shininess > 0.0f || material.shininessTexture.has_value()))
+				return Graphics::SurfaceModel::Phong;
+
+			if ((material.specular[0] > 0.0f || material.specular[1] > 0.0f || material.specular[2] > 0.0f || material.specularTexture.has_value()) &&
+				!(material.shininess > 0.0f || material.shininessTexture.has_value()))
+				return Graphics::SurfaceModel::Mirror;
+			
+			if (material.emission[0] > 0.0f || material.emission[1] > 0.0f || material.emission[2] > 0.0f || material.emissionTexture.has_value())
+				return Graphics::SurfaceModel::Emissive;
+
+			return Graphics::SurfaceModel::Diffuse;
+		}
+		
+		template<Asset T>
+		Key<T> MakePathSourcedKey(std::string_view path, Utils::Text::StringLiteral debugName)
+		{
+			KeyBuilder<T> builder = KeyBuilder<T>();
+			builder.Add(path);
+			return builder.Finish(debugName);
+		}
+	
+
 
 		std::expected<Core::Graphics::Gl::Texture, Utils::Error> LoadCubemapTexture(const std::filesystem::path& folder, Graphics::ColorSpace colorSpace)
 		{
-			auto mipChain = Import::LoadCubemapMipChainFromFolder(folder, colorSpace);
+			auto mipChain = Import::Media::LoadCubemapMipChainFromFolder(folder, colorSpace);
 			if (mipChain)
 				return Core::Graphics::Gl::Texture::CreateCubemapFromMipmaps(mipChain.value());
-			auto cubemap = Import::LoadCubemapFromFolder(folder, colorSpace, "");
+			auto cubemap = Import::Media::LoadCubemapFromFolder(folder, colorSpace, "");
 			if (!cubemap)
 				return std::unexpected(cubemap.error());
 
@@ -123,105 +286,131 @@ namespace Core::Assets
 		CORE_TRY_DISCARD_CONTEXT(manager.ImportDefaultMaterial(), "Failed to import default material");
 		return manager;
 	}
-
-	std::expected<Handle<Model>, Utils::Error> Manager::ImportObj(const std::filesystem::path& path)
+	
+	Handle<Material> Manager::GetDefaultMaterial() const
 	{
-		auto pathResult = Utils::Path::ResolvePath(path, m_Root);
-		if (!pathResult)
-			return std::unexpected(pathResult.error());
-		Utils::Path::ResolvedPath resolved = pathResult.value();
+		Key<Material> key = MakePathSourcedKey<Material>("default_material", DefaultMaterialSource);
+		auto cached = m_Storage.GetHandleByKey<Material>(key);
+		assert(cached.has_value() && "Default material not present in storage");
+		return cached.value();
+	}
 
-		std::string absoluteStr = resolved.absolute.generic_string();
-		std::string relativeStr = resolved.relative.generic_string();
+	std::expected<Handle<ScenePrefab>, Utils::Error> Manager::ImportScenePrefabFromFile(const std::filesystem::path& path)
+	{
+		CORE_TRY_CONTEXT(resolvedPath, ResolveFilePath(path, std::nullopt), "Failed to resolve scene prefab file path: {}", path.string());
+		std::string absoluteStr = resolvedPath.absolute.generic_string();
+		std::string relativeStr = resolvedPath.relative.generic_string();
 
-		Source source = SourcePath{ relativeStr };
-		Subkey subkey = SubkeyNone{};
-
-		auto cached = m_Storage.GetHandleByKey<Model>(source, subkey);
-		if (cached)
+		Key<ScenePrefab> key = MakePathSourcedKey<ScenePrefab>(relativeStr, "scene_prefab_from_file");
+		if (auto cached = m_Storage.GetHandleByKey<ScenePrefab>(key); cached)
 			return cached.value();
+		
+		std::string extension = resolvedPath.absolute.extension().string();
+		Import::ScenePrefab parsed;
 
-		CORE_TRY_CONTEXT(parsed, Import::LoadObj(resolved.absolute), "Failed to parse OBJ file, file path: {}", absoluteStr);
-		CORE_TRY(defaultMaterial, ImportDefaultMaterial());
+		if (extension == ".obj")
+		{
+			CORE_TRY_ASSIGN_CONTEXT(parsed, Import::LoadObj(resolvedPath.absolute), "Failed to parse OBJ file, file path: {}", absoluteStr);
+		}
+		else if (extension == ".gltf" || extension == ".glb")
+		{
+			CORE_TRY_ASSIGN_CONTEXT(parsed, Import::LoadGlTF(resolvedPath.absolute), "Failed to parse GLTF file, file path: {}", absoluteStr);
+		}
+		else
+		{
+			return std::unexpected(Utils::Error("Unsupported scene prefab file extension: {}", extension));
+		}
 
-		Model model{};
-		model.parts.reserve(parsed.meshes.size());
+		Handle<Material> defaultMaterial = GetDefaultMaterial();
+
+		ScenePrefab prefab;
+		prefab.name = resolvedPath.absolute.stem().string();
+		prefab.nodes.reserve(parsed.nodes.size());
+		prefab.models.reserve(parsed.meshes.size());
+		prefab.roots = std::move(parsed.roots);
+		
+		for (auto& node : parsed.nodes)
+		{
+			prefab.nodes.push_back(SceneNode{
+				.name = node.name,
+				.translation = glm::vec3(node.translation[0], node.translation[1], node.translation[2]),
+				.rotation = glm::quat(node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]),
+				.scale = glm::vec3(node.scale[0], node.scale[1], node.scale[2]),
+				.model = node.mesh,
+				.children = std::move(node.children)
+			});
+		}
+		
+		std::filesystem::path parentPath = resolvedPath.absolute.parent_path();
 
 		for (auto& mesh : parsed.meshes)
 		{
-			Handle<Material> materialHandle = defaultMaterial;
+			Model model;
+			model.primitives.reserve(mesh.primitives.size());
 
-			if (mesh.materialIndex)
+			for (uint32_t primitiveIndex : mesh.primitives)
 			{
-				if (*mesh.materialIndex >= parsed.materials.size())
-					return std::unexpected(Utils::Error("Invalid material index {}, file path: {}", *mesh.materialIndex, absoluteStr));
+				assert(primitiveIndex < parsed.meshPrimitivesAccessors.size());
+				auto& primitive = parsed.meshPrimitivesAccessors[primitiveIndex];
+				
+				Handle<Material> materialHandle = defaultMaterial;
 
-				CORE_TRY_CONTEXT(
-					importedMaterial, 
-					ImportMaterial(resolved, parsed.materials[*mesh.materialIndex]), 
-					"Failed to import material for mesh {}, file path: {}", mesh.index, absoluteStr);
+				if (primitive.material)
+				{
+					assert(*primitive.material < parsed.materials.size());// importer thing?
+					uint32_t materialIndex = primitive.material.value();
 
-				materialHandle = importedMaterial;
+					CORE_TRY_ASSIGN_CONTEXT(
+						materialHandle,
+						ImportMaterial(resolvedPath, parentPath, parsed.materials[materialIndex], materialIndex),  
+						"Failed to import material for mesh {}, file path: {}", 
+						primitiveIndex, 
+						absoluteStr);
+				}
+
+				CORE_TRY_CONTEXT(meshHandle, ImportMesh(resolvedPath, parentPath, parsed, primitive, primitiveIndex), "Failed to import mesh {}, file path: {}", primitiveIndex, absoluteStr);
+				model.primitives.push_back(ModelPrimitive{ .mesh = meshHandle, .material = materialHandle });
 			}
 
-			CORE_TRY_CONTEXT(meshHandle, ImportMesh(resolved, std::move(mesh), mesh.index), "Failed to import mesh {}, file path: {}", mesh.index, absoluteStr);
-
-			model.parts.push_back(ModelPart{
-				.mesh = meshHandle,
-				.material = materialHandle
-			});
+			prefab.models.push_back(std::move(model));
 		}
 
-		auto handle = m_Storage.Emplace(source, subkey, std::move(model));
-		return handle.value();
+		return m_Storage.Emplace(key, std::move(prefab)).value();
 	}
 	
 	std::expected<Handle<Texture>, Utils::Error> Manager::ImportTexture(
-		const std::filesystem::path& path, 
+		const Utils::Path::ResolvedPath& resolvedPath,
 		Graphics::ColorSpace colorSpace, 
-		std::optional<std::filesystem::path> root,
 		bool flipVertically)
 	{
-		std::filesystem::path actualRoot = root ? *root : m_Root;
-		CORE_TRY(resolvedPath, Utils::Path::ResolvePath(path, actualRoot));
-		
 		std::string absoluteStr = resolvedPath.absolute.generic_string();
 		std::string relativeStr = resolvedPath.relative.generic_string();
-		if (root)
-			relativeStr = std::filesystem::relative(resolvedPath.absolute, m_Root).generic_string();
 
-		Source source = SourcePath{ relativeStr };
-		Subkey subkey = SubkeyNone{};
-
-		auto cached = m_Storage.GetHandleByKey<Texture>(source, subkey);
-		if (cached)
+		Key<Texture> key = MakePathSourcedKey<Texture>(relativeStr, "2d_image_texture");
+		if (auto cached = m_Storage.GetHandleByKey<Texture>(key); cached)
 			return cached.value();
 
-		CORE_TRY(image, Import::LoadImage(resolvedPath.absolute, colorSpace));
+		CORE_TRY_CONTEXT(image, Import::Media::LoadImage(resolvedPath.absolute, colorSpace), "Failed to load texture image, file path: {}", absoluteStr);
 		if (flipVertically)
-			image = Import::FlipVertically(std::move(image));
+			image = Import::Media::FlipVertically(std::move(image));
 
 		CORE_TRY_CONTEXT(glTexture, Graphics::Gl::Texture::Create2D(image), "Failed to create GL texture, file path: {}", absoluteStr);
 		CORE_TRY_CONTEXT(cudaTexture, Graphics::Cuda::Texture::Create2D(image), "Failed to create CUDA texture, file path: {}", absoluteStr);
 		Graphics::Cpu::Texture cpuTexture = Graphics::Cpu::Texture::Create(std::move(image));
 
 		Texture asset(std::move(cpuTexture), std::move(glTexture), std::move(cudaTexture));
-		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		return handle.value();
+		return m_Storage.Emplace(key, std::move(asset));
 	}
 
 	std::expected<Handle<EnvironmentMap>, Utils::Error> Manager::ImportEnvironmentMap(const std::filesystem::path& path, Graphics::ColorSpace colorSpace)
 	{
-		CORE_TRY(resolvedPath, Utils::Path::ResolvePath(path, m_Root));
-
+		CORE_TRY_CONTEXT(resolvedPath, ResolveFilePath(path, std::nullopt), "Failed to resolve environment map path: {}", path.string());
 		std::string absoluteStr = resolvedPath.absolute.generic_string();
 		std::string relativeStr = resolvedPath.relative.generic_string();
 
-		Source source = SourcePath{ relativeStr };
-		Subkey subkey = SubkeyNone{};
+		Key<EnvironmentMap> key = MakePathSourcedKey<EnvironmentMap>(relativeStr, "environment_map");
 
-		auto cached = m_Storage.GetHandleByKey<EnvironmentMap>(source, subkey);
-		if (cached)
+		if (auto cached = m_Storage.GetHandleByKey<EnvironmentMap>(key); cached)
 			return cached.value();
 
 		std::filesystem::path backgroundPath = resolvedPath.absolute / std::string(BackgroundFile);
@@ -229,7 +418,7 @@ namespace Core::Assets
 		std::filesystem::path prefilteredPath = resolvedPath.absolute / std::string(PrefilteredDir);
 		std::filesystem::path skyboxPath = resolvedPath.absolute / std::string(SkyboxDir);
 
-		CORE_TRY_CONTEXT(backgroundImage, Import::LoadImage(backgroundPath, colorSpace), "Failed to load environment background, file path: {}", backgroundPath.string());
+		CORE_TRY_CONTEXT(backgroundImage, Import::Media::LoadImage(backgroundPath, colorSpace), "Failed to load environment background, file path: {}", backgroundPath.string());
 
 		if (!IsHdrTexture(backgroundImage.format))
 			return std::unexpected(Utils::Error(
@@ -246,8 +435,7 @@ namespace Core::Assets
 			Graphics::Cuda::EnvironmentMap{}
 		);
 
-		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		return handle.value();
+		return m_Storage.Emplace(key, std::move(asset));
 	}
 
 	std::expected<Handle<ShaderProgram>, Utils::Error> Manager::ImportShaderProgram(std::span<std::pair<std::filesystem::path, Graphics::Gl::ShaderType>> shaderPaths)
@@ -260,19 +448,17 @@ namespace Core::Assets
 		
 		std::vector<std::pair<Utils::Path::ResolvedPath, Graphics::Gl::ShaderType>> resolvedShaderPaths;
 		resolvedShaderPaths.reserve(shaderPaths.size());
-		std::string combinedPaths;
+		KeyBuilder<ShaderProgram> builder = KeyBuilder<ShaderProgram>();
 		
 		for (const auto& [path, shaderType] : shaderPaths)
 		{
-			CORE_TRY(resolvedPath, Utils::Path::ResolvePath(path, m_Root));
-			combinedPaths += resolvedPath.relative.generic_string() + ";";
+			CORE_TRY(resolvedPath, ResolveFilePath(path, std::nullopt));
+			builder.Add(resolvedPath.relative.generic_string());
 			resolvedShaderPaths.emplace_back(std::move(resolvedPath), shaderType);
 		}
 		
-		Source source = SourcePath{ combinedPaths };
-		Subkey subkey = SubkeyNone{};
-		auto cached = m_Storage.GetHandleByKey<ShaderProgram>(source, subkey);
-		if (cached)
+		Key<ShaderProgram> key = builder.Finish("compiled_shader_program");
+		if (auto cached = m_Storage.GetHandleByKey<ShaderProgram>(key); cached)
 			return cached.value();
 
 		std::vector<Graphics::Gl::Shader> shaders;
@@ -287,137 +473,389 @@ namespace Core::Assets
 		CORE_TRY_CONTEXT(program, Graphics::Gl::ShaderProgram::Create(shaders), "Failed to create shader program");
 
 		ShaderProgram programAsset(std::move(program));
-		return m_Storage.Emplace(source, subkey, std::move(programAsset));
+		return m_Storage.Emplace(key, std::move(programAsset)).value();
 	}
 
-	std::expected<Handle<Mesh>, Utils::Error> Manager::ImportMesh(const Utils::Path::ResolvedPath& path, Import::ParsedMesh mesh, uint32_t index)
+	std::expected<Utils::Guid, Utils::Error> Manager::MakeMeshBufferId(std::string_view path, const std::filesystem::path& parentPath, const Import::BufferAccessor& accessor, const Import::ScenePrefab& source)
 	{
-		std::string relativeStr = path.relative.generic_string();
-		Source source = SourcePath{ relativeStr };
-		Subkey subkey = SubkeyIndex{ index };
+		assert(accessor.buffer < source.buffers.size() && "Buffer accessor view references a buffer index that is out of bounds");
+		const Import::Buffer& buffer = source.buffers[accessor.buffer];
+		Utils::Hasher hasher = Utils::Hasher();
+		
+		hasher.Add(buffer.byteLength);
+		CORE_TRY_DISCARD(std::visit(Utils::Types::Overloaded{
+			[&hasher, parentPath, this](const Import::FileBuffer& fileBuffer) -> std::expected<void, Utils::Error>
+			{
+				CORE_TRY_CONTEXT(resolvedPath, this->ResolveFilePath(fileBuffer.file, parentPath), "Failed to resolve buffer file path: {}", fileBuffer.file.generic_string());
+				hasher.Add(resolvedPath.relative.generic_string());
+				hasher.Add(fileBuffer.byteOffset);
+				return {};
+			},
+			[&hasher, path, bufferIndex = accessor.buffer](const Import::MemoryBuffer&) -> std::expected<void, Utils::Error>
+			{
+				hasher.Add(path);
+				hasher.Add(bufferIndex);
+				return {};
+			}
+		}, buffer.source));
+		
 
-		auto cached = m_Storage.GetHandleByKey<Mesh>(source, subkey);
-		if (cached)
-			return cached.value();
-
-		CORE_TRY_CONTEXT(glMesh, Graphics::Gl::Mesh::Create(mesh), "Failed to create GL mesh, obj path: {}", path.absolute.generic_string());
-		Graphics::Cpu::Mesh cpuMesh = Graphics::Cpu::Mesh::Create(std::move(mesh));
-
-		Mesh asset(std::move(cpuMesh), std::move(glMesh));
-		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		return handle.value();
+		return hasher.Digest();
 	}
 	
-	std::expected<Handle<Material>, Utils::Error> Manager::ImportMaterial(const Utils::Path::ResolvedPath& path, const Import::ParsedMaterial& material)
+	void Manager::AddBufferViewToMeshKey(KeyBuilder<Mesh>& builder, const Import::BufferAccessor& accessor)
+	{
+		builder.Add(accessor.view.byteOffset);
+		builder.Add(accessor.view.byteStride);
+		builder.Add(accessor.view.count);
+		builder.Add(accessor.view.elementType);
+		builder.Add(accessor.view.componentType);
+		builder.Add(accessor.view.normalized);
+	}
+	
+	std::expected<MeshCacheAccessors, Utils::Error> Manager::MakeMeshCacheAccessors(std::string_view path, const std::filesystem::path& parentPath, const Import::MeshAccessor& accessor, const Import::ScenePrefab& source)
+	{
+		if (accessor.topology != Import::PrimitiveTopology::Triangles)
+			return std::unexpected(Utils::Error("Only triangle mesh topology is supported"));
+
+		if (accessor.indexCount % 3 != 0)
+			return std::unexpected(Utils::Error("Triangle mesh index count must be divisible by 3"));
+		
+		KeyBuilder<Mesh> builder = KeyBuilder<Mesh>();
+		builder.Add(accessor.vertexCount);
+		builder.Add(accessor.indexCount);
+		builder.Add(static_cast<uint32_t>(accessor.topology));
+		
+		std::optional<Utils::Guid> indicesId;
+		if (accessor.indices)
+		{
+			Import::BufferAccessor indices = accessor.indices.value();
+			if (indices.view.elementType != Import::ElementType::Scalar)
+				return std::unexpected(Utils::Error("Mesh indices must be scalar"));
+			if (indices.view.componentType != Import::ComponentType::UnsignedByte 
+				&& indices.view.componentType != Import::ComponentType::UnsignedShort 
+				&& indices.view.componentType != Import::ComponentType::UnsignedInt)
+				return std::unexpected(Utils::Error("Mesh indices must be unsigned integer type"));
+			CORE_TRY_ASSIGN_CONTEXT(indicesId, MakeMeshBufferId(path, parentPath, indices, source), "Failed to make mesh buffer ID for indices");
+			builder.Add(indicesId.value());
+			AddBufferViewToMeshKey(builder, indices);
+		}
+		else
+		{
+			builder.Add("generated_indices");
+		}
+
+		if (!accessor.position)
+			return std::unexpected(Utils::Error("Mesh must have positions"));
+		Import::BufferAccessor positions = accessor.position.value();
+		if (positions.view.elementType != Import::ElementType::Vec3)
+			return std::unexpected(Utils::Error("Mesh positions must be 3D vectors"));
+		if (positions.view.componentType != Import::ComponentType::Float)
+			return std::unexpected(Utils::Error("Mesh positions must be floating-point numbers"));
+		CORE_TRY_CONTEXT(positionsId, MakeMeshBufferId(path, parentPath, positions, source), "Failed to make mesh buffer ID for positions");
+		builder.Add(positionsId);
+		AddBufferViewToMeshKey(builder, positions);
+
+		std::optional<Utils::Guid> normalsId;
+		if (accessor.normal)
+		{
+			Import::BufferAccessor normals = accessor.normal.value();
+			if (normals.view.elementType != Import::ElementType::Vec3)
+				return std::unexpected(Utils::Error("Mesh normals must be 3D vectors"));
+			if (normals.view.componentType != Import::ComponentType::Float)
+				return std::unexpected(Utils::Error("Mesh normals must be floating-point numbers"));
+			CORE_TRY_ASSIGN_CONTEXT(normalsId, MakeMeshBufferId(path, parentPath, normals, source), "Failed to make mesh buffer ID for normals");
+			builder.Add(normalsId.value());
+			AddBufferViewToMeshKey(builder, normals);
+		}
+		else
+		{
+			builder.Add("generated_normals");
+		}
+
+		std::optional<Utils::Guid> tangentsId;
+		if (accessor.tangent)
+		{
+			Import::BufferAccessor tangents = accessor.tangent.value();
+			if (tangents.view.elementType != Import::ElementType::Vec4)
+				return std::unexpected(Utils::Error("Mesh tangents must be 4D vectors"));
+			if (tangents.view.componentType != Import::ComponentType::Float)
+				return std::unexpected(Utils::Error("Mesh tangents must be floating-point numbers"));
+			CORE_TRY_ASSIGN_CONTEXT(tangentsId, MakeMeshBufferId(path, parentPath, tangents, source), "Failed to make mesh buffer ID for tangents");
+			builder.Add(tangentsId.value());
+			AddBufferViewToMeshKey(builder, tangents);
+		}
+		else
+		{
+			builder.Add("generated_tangents");
+		}
+
+		std::optional<Utils::Guid> uvsId;
+		if (accessor.uv)
+		{
+			Import::BufferAccessor uvs = accessor.uv.value();
+			if (uvs.view.elementType != Import::ElementType::Vec2)
+				return std::unexpected(Utils::Error("Mesh UVs must be 2D vectors"));
+			if (uvs.view.componentType != Import::ComponentType::Float)
+				return std::unexpected(Utils::Error("Mesh UVs must be floating-point numbers"));
+			CORE_TRY_ASSIGN_CONTEXT(uvsId, MakeMeshBufferId(path, parentPath, uvs, source), "Failed to make mesh buffer ID for UVs");
+			builder.Add(uvsId.value());
+			AddBufferViewToMeshKey(builder, uvs);
+		}
+		else
+		{
+			builder.Add("generated_uvs");
+		}
+
+		return MeshCacheAccessors {
+			.mesh = builder.Finish("composed_mesh_primitive"),
+			.indicesId = indicesId,
+			.positionsId = positionsId,
+			.normalsId = normalsId,
+			.tangentsId = tangentsId,
+			.uvsId = uvsId
+		};
+	}
+	
+	std::expected<void, Utils::Error> Manager::ImportMeshBuffer(std::span<uint8_t> destinationBufferBytes, const Import::BufferView& destinationView, const Import::BufferAccessor& accessor, const Import::ScenePrefab& source, Utils::Guid bufferId)
+	{
+		std::span<uint8_t> sourceBufferBytes;
+		if (m_BufferCache.contains(bufferId))
+		{
+			sourceBufferBytes = std::span<uint8_t>{ m_BufferCache.at(bufferId) };
+		}
+		else
+		{
+			const Import::Buffer& bufferSource = source.buffers[accessor.buffer];
+			
+			CORE_TRY(loadedBuffer, std::visit(Utils::Types::Overloaded{
+				[byteLength = bufferSource.byteLength, this](const Import::FileBuffer& fileBuffer) -> std::expected<std::vector<uint8_t>, Utils::Error>
+				{
+					CORE_TRY_CONTEXT(resolvedPath, this->ResolveFilePath(fileBuffer.file, std::nullopt), "Failed to resolve buffer file path: {}", fileBuffer.file.generic_string());
+					CORE_TRY_CONTEXT(buffer, Import::ReadFileBytes(resolvedPath.absolute, byteLength, fileBuffer.byteOffset), "Failed to read buffer from file: {}", resolvedPath.absolute.generic_string());
+					return buffer;
+				},
+				[](const Import::MemoryBuffer& memoryBuffer) -> std::expected<std::vector<uint8_t>, Utils::Error>
+				{
+					return memoryBuffer.bytes;
+				}
+			}, source.buffers[accessor.buffer].source));
+
+			auto [iterator, inserted] = m_BufferCache.emplace(bufferId, std::move(loadedBuffer));
+			sourceBufferBytes = std::span<uint8_t>{iterator->second};
+		}
+		
+		CORE_TRY_DISCARD_CONTEXT(Import::CopyViewData(destinationBufferBytes, destinationView, sourceBufferBytes, accessor.view), "Failed to copy view data");
+		return {};
+	}
+
+	std::expected<Import::MeshPrimitive, Utils::Error> Manager::ComposeMesh(const Import::MeshAccessor& accessor, const Import::ScenePrefab& source, const MeshCacheAccessors& cacheAccessors)
+	{
+		Import::MeshPrimitive mesh;
+		std::span<uint8_t> meshBufferBytes = std::span<uint8_t>{ reinterpret_cast<uint8_t*>(mesh.vertices.data()), mesh.vertices.size() * sizeof(Graphics::Vertex) };
+
+		if (accessor.indices)
+		{
+			std::span<uint8_t> indexBufferBytes = std::span<uint8_t>{ reinterpret_cast<uint8_t*>(mesh.indices.data()), mesh.indices.size() * sizeof(uint32_t) };
+			CORE_TRY_DISCARD_CONTEXT(
+				ImportMeshBuffer(
+					indexBufferBytes, 
+					Import::IndexView(static_cast<uint32_t>(mesh.indices.size())), 
+					accessor.indices.value(), 
+					source, 
+					cacheAccessors.indicesId.value()), 
+				"Failed to import index buffer");
+		}
+		else
+		{
+			spdlog::warn("Mesh {} has no indices, generating default index buffer", accessor.index);
+			mesh.indices = std::views::iota(std::uint32_t{0}, static_cast<std::uint32_t>(mesh.vertices.size())) | std::ranges::to<std::vector<std::uint32_t>>();
+		}
+		
+		assert(accessor.position && "Mesh must have positions");
+		CORE_TRY_DISCARD_CONTEXT(
+			ImportMeshBuffer(
+				meshBufferBytes, 
+				Import::PositionView(static_cast<uint32_t>(mesh.vertices.size())), 
+				accessor.position.value(), 
+				source, 
+				cacheAccessors.positionsId), 
+			"Failed to import position buffer");
+
+		if (accessor.normal)
+		{
+			CORE_TRY_DISCARD_CONTEXT(
+				ImportMeshBuffer(
+					meshBufferBytes, 
+					Import::NormalView(static_cast<uint32_t>(mesh.vertices.size())), 
+					accessor.normal.value(), 
+					source, 
+					cacheAccessors.normalsId.value()), 
+				"Failed to import normal buffer");
+		}
+		else
+		{
+			spdlog::warn("Mesh {} has no normals, generating geometric normals based on positions", accessor.index);
+			return std::unexpected(Utils::Error("Generation of geometric normals is not implemented yet"));
+		}
+
+		if (accessor.tangent)
+		{
+			CORE_TRY_DISCARD_CONTEXT(
+				ImportMeshBuffer(
+					meshBufferBytes, 
+					Import::TangentView(static_cast<uint32_t>(mesh.vertices.size())), 
+					accessor.tangent.value(), 
+					source, 
+					cacheAccessors.tangentsId.value()), 
+				"Failed to import tangent buffer");
+		}
+		else
+		{
+			spdlog::info("Mesh {} has no dedicated tangent buffer, adding generated tangents", accessor.index);
+			Utils::Math::GenerateTangentSpace(mesh.vertices, mesh.indices);
+		}
+
+		if (accessor.uv)
+		{
+			CORE_TRY_DISCARD_CONTEXT(
+				ImportMeshBuffer(
+					meshBufferBytes, 
+					Import::UVView(static_cast<uint32_t>(mesh.vertices.size())), 
+					accessor.uv.value(), 
+					source, 
+					cacheAccessors.uvsId.value()), 
+				"Failed to import UV buffer");
+		}
+		else
+		{
+			spdlog::warn("Mesh {} has no UVs, generating default UV buffer", accessor.index);
+			return std::unexpected(Utils::Error("UV generation is not implemented yet"));
+		}
+
+		return mesh;
+	}
+
+	std::expected<Handle<Mesh>, Utils::Error> Manager::ImportMesh(const Utils::Path::ResolvedPath& path, const std::filesystem::path& parentPath, const Import::ScenePrefab& prefab, Import::MeshAccessor mesh, uint32_t index)
 	{
 		std::string relativeStr = path.relative.generic_string();
-		Source source = SourcePath{ relativeStr };
-		Subkey subkey = SubkeyName{ material.name };
+		CORE_TRY_CONTEXT(cacheAccessors, MakeMeshCacheAccessors(relativeStr, parentPath, mesh, prefab), "Failed to make mesh key for mesh {}, file path: {}", index, path.absolute.generic_string());
 
-		auto cached = m_Storage.GetHandleByKey<Material>(source, subkey);
-		if (cached)
+		if (auto cached = m_Storage.GetHandleByKey<Mesh>(cacheAccessors.mesh); cached)
+			return cached.value();
+		
+		CORE_TRY_CONTEXT(meshPrimitive, ComposeMesh(mesh, prefab, cacheAccessors), "Failed to compose mesh {}", mesh.index);
+
+		CORE_TRY_CONTEXT(glMesh, Graphics::Gl::Mesh::Create(meshPrimitive), "Failed to create GL mesh");
+		Graphics::Cpu::Mesh cpuMesh = Graphics::Cpu::Mesh::Create(std::move(meshPrimitive));
+
+		Mesh asset(std::move(cpuMesh), std::move(glMesh));
+		return m_Storage.Emplace(cacheAccessors.mesh, std::move(asset));
+	}
+	
+	std::expected<Handle<Texture>, Utils::Error> Manager::ImportFileOrPixelTexture(
+		const std::optional<Utils::Path::ResolvedPath>& path,	
+		const Graphics::PixelFormat& defaultFormat, 
+		std::span<const uint8_t> defaultValue,
+		bool flipVertically)
+	{
+		if (path)
+			return ImportTexture(path.value(), defaultFormat.colorSpace, flipVertically);
+
+		return ImportPixelTexture(defaultFormat, defaultValue);
+	}
+
+	std::expected<Handle<Texture>, Utils::Error> Manager::ImportOrmTexture(const ResolvedMaterial& resolvedMaterial)
+	{
+		Key<Texture> key = MakeOrmTextureKey(resolvedMaterial);
+		if (auto cached = m_Storage.GetHandleByKey<Texture>(key); cached)
+			return cached.value();
+		
+		CORE_TRY_CONTEXT(image, CreateOrmTextureImage(resolvedMaterial), "Failed to create ORM texture image");
+
+		CORE_TRY_CONTEXT(glTexture, Graphics::Gl::Texture::Create2D(image), "Failed to create GL texture for ORM texture");
+		CORE_TRY_CONTEXT(cudaTexture, Graphics::Cuda::Texture::Create2D(Import::Media::ExtractRmTexture(image)), "Failed to create CUDA texture for ORM texture");
+		Graphics::Cpu::Texture cpuTexture = Graphics::Cpu::Texture::Create(std::move(image));
+
+		Texture asset(std::move(cpuTexture), std::move(glTexture), std::move(cudaTexture));
+		return m_Storage.Emplace(key, std::move(asset));
+	}
+	
+	std::expected<Handle<Material>, Utils::Error> Manager::ImportMaterial(const Utils::Path::ResolvedPath& path, const std::filesystem::path& parentPath, const Import::Material& materialSource, uint32_t index)
+	{
+		std::string relativeStr = path.relative.generic_string();
+
+		KeyBuilder<Material> builder = KeyBuilder<Material>();
+		builder.Add(relativeStr);
+		builder.Add(index);
+		Key<Material> key = builder.Finish("imported_material");
+
+		if (auto cached = m_Storage.GetHandleByKey<Material>(key); cached)
 			return cached.value();
 
-		std::array<uint8_t, 3> colorPixel = LinearRgbToSrgbU8(material.color);
-		std::array<uint8_t, 3> specularPixel = LinearRgbToSrgbU8(material.specular);
-		std::array<uint8_t, 1> shininessPixel = { NormalizedFloatToU8(NormalizeFloat(material.shininess, Graphics::MaterialDefaults::MinShininess, Graphics::MaterialDefaults::MaxShininess)) };
-		std::array<uint8_t, 3> rmaPixel = {
-			NormalizedFloatToU8(material.rma[0]),
-			NormalizedFloatToU8(material.rma[1]),
-			NormalizedFloatToU8(material.rma[2])
+		CORE_TRY_CONTEXT(resolvedMaterial, ResolveMaterial(path, parentPath, materialSource), "Failed to resolve material");
+
+		std::array<uint8_t, 3> colorPixel = LinearRgbToSrgbU8(resolvedMaterial.color);
+		std::array<uint8_t, 3> specularPixel = LinearRgbToSrgbU8(resolvedMaterial.specular);
+		std::array<uint8_t, 1> shininessPixel = 
+		{ 
+			Utils::NumberTypes::NormalizedFloatToU8(Utils::NumberTypes::NormalizeFloat(resolvedMaterial.shininess, Graphics::MaterialDefaults::MinShininess, Graphics::MaterialDefaults::MaxShininess))
 		};
 
-		std::span<const uint8_t> emissionPixel = {
-			reinterpret_cast<const uint8_t*>(&material.emission[0]),
-			sizeof(material.emission)
-		};
-		
-		std::optional<std::filesystem::path> root = path.absolute.parent_path();
-
-		auto fileOrPixelTexture = [&](
-			const std::optional<std::filesystem::path>& texturePath, 
-			const Graphics::PixelFormat& defaultFormat, 
-			std::span<const uint8_t> defaultValue,
-			bool flipVertically) -> std::expected<Handle<Texture>, Utils::Error>
+		std::span<const uint8_t> emissionPixel = 
 		{
-			if (texturePath)
-			{
-				
-				return ImportTexture(texturePath.value(), defaultFormat.colorSpace, root, flipVertically).or_else([&](const Utils::Error&)
-				{
-				 	return ImportTexture(texturePath.value(), defaultFormat.colorSpace, std::nullopt, flipVertically);
-				});
-			}
-			else
-			{
-				return ImportPixelTexture(defaultFormat, defaultValue);
-			}
+			reinterpret_cast<const uint8_t*>(&resolvedMaterial.emission[0]),
+			sizeof(resolvedMaterial.emission)
 		};
+
+		bool flipTextures = resolvedMaterial.flipTextures;
+		
 
 		CORE_TRY_CONTEXT(
 			color, 
-			fileOrPixelTexture(material.colorTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB}, colorPixel, material.flipTextures),
+			ImportFileOrPixelTexture(resolvedMaterial.colorTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB}, colorPixel, flipTextures),
 			"Failed to import albedo texture");
 		CORE_TRY_CONTEXT(
 			specular, 
-			fileOrPixelTexture(material.specularTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB}, specularPixel, material.flipTextures),
+			ImportFileOrPixelTexture(resolvedMaterial.specularTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::SRGB}, specularPixel, flipTextures),
 			"Failed to import specular texture");
 		CORE_TRY_CONTEXT(
 			shininess, 
-			fileOrPixelTexture(material.shininessTexture, {Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, shininessPixel, material.flipTextures), 
+			ImportFileOrPixelTexture(resolvedMaterial.shininessTexture, {Graphics::ChannelLayout::R, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, shininessPixel, flipTextures), 
 			"Failed to import shininess texture");
 		CORE_TRY_CONTEXT(
-			rma, 
-			fileOrPixelTexture(material.rmaTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, { Graphics::MaterialDefaults::DefaultRma }, material.flipTextures), 
-			"Failed to import RMA texture");
+			orm, 
+			ImportOrmTexture(resolvedMaterial),
+			"Failed to import ORM texture");
 		CORE_TRY_CONTEXT(
 			emission, 
-			fileOrPixelTexture(material.emissionTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::Float32, Graphics::ColorSpace::Linear}, emissionPixel, material.flipTextures), 
+			ImportFileOrPixelTexture(resolvedMaterial.emissionTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::Float32, Graphics::ColorSpace::Linear}, emissionPixel, flipTextures), 
 			"Failed to import emission texture");
 		CORE_TRY_CONTEXT(
 			normal, 
-			fileOrPixelTexture(material.normalTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, Graphics::MaterialDefaults::DefaultNormal, material.flipTextures), 
+			ImportFileOrPixelTexture(resolvedMaterial.normalTexture, {Graphics::ChannelLayout::RGB, Graphics::ComponentType::UInt8, Graphics::ColorSpace::Linear}, Graphics::MaterialDefaults::DefaultNormal, flipTextures), 
 			"Failed to import normal texture");
 
-		auto localShading = Graphics::Gl::ToLocalShadingChecked(material.surface);
-		if (!localShading.second)
-			spdlog::warn(
-				"Material '{}' uses surface model, which is not supported with local illumination."
-				"It will be treated as Unlit when shading via OpenGL. File path: {}",
-				material.name,
-				path.absolute.generic_string());
-		
-		auto globalShading = Graphics::Cuda::ToGlobalShadingChecked(material.surface);
-		if (!globalShading.second)
-			spdlog::warn(
-				"Material '{}' uses surface model, which is not supported with global illumination."
-				"It will be treated as Diffuse when shading via CUDA. File path: {}",
-				material.name,
-				path.absolute.generic_string());
-
 		Material asset(
-			material.surface,
+			resolvedMaterial.surface,
 			color,
 			specular,
 			shininess,
-			rma,
+			orm,
 			emission,
 			normal,
-			material.ior,
-			material.transmission,
-			material.opacity);
+			resolvedMaterial.ior,
+			resolvedMaterial.transmission,
+			resolvedMaterial.opacity);
 
-		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		return handle.value();
+		return m_Storage.Emplace(key, std::move(asset));
 	}
 
 	std::expected<Handle<Material>, Utils::Error> Manager::ImportDefaultMaterial()
 	{
-		Source source = SourcePath{ DefaultMaterialSource };
-		Subkey subkey = SubkeyNone{};
+		Key<Material> key = MakePathSourcedKey<Material>(DefaultMaterialSource, "default_material");
 
-		auto cached = m_Storage.GetHandleByKey<Material>(source, subkey);
-		if (cached)
+		if (auto cached = m_Storage.GetHandleByKey<Material>(key); cached)
 			return cached.value();
 
 		Graphics::PixelFormat rgbSrgb
@@ -448,10 +886,17 @@ namespace Core::Assets
 			.colorSpace = Graphics::ColorSpace::Linear
 		};
 
+		
+		std::array<uint8_t, 3> ormPixel = {
+			Utils::NumberTypes::NormalizedFloatToU8(Graphics::MaterialDefaults::Occlusion),
+			Utils::NumberTypes::NormalizedFloatToU8(Graphics::MaterialDefaults::Roughness),
+			Utils::NumberTypes::NormalizedFloatToU8(Graphics::MaterialDefaults::Metallic),
+		};
+
 		CORE_TRY_CONTEXT(color, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultColor), "Failed to import default albedo texture");
 		CORE_TRY_CONTEXT(specular, ImportPixelTexture(rgbSrgb, Graphics::MaterialDefaults::DefaultPhongSpecular), "Failed to import default specular texture");
 		CORE_TRY_CONTEXT(shininess, ImportPixelTexture(rLinear, Graphics::MaterialDefaults::DefaultShininess), "Failed to import default shininess texture");
-		CORE_TRY_CONTEXT(rma, ImportPixelTexture(rgbLinear, Graphics::MaterialDefaults::DefaultRma), "Failed to import default RMA texture");
+		CORE_TRY_CONTEXT(orm, ImportPixelTexture(rgbLinear, ormPixel), "Failed to import default RMA texture");
 		
 		const std::array<float, 3>& emissionDefault = Graphics::MaterialDefaults::DefaultEmission;
 		CORE_TRY_CONTEXT(emission, ImportPixelTexture(rgbLinearHdr, { reinterpret_cast<const uint8_t*>(&emissionDefault[0]), sizeof(emissionDefault) }), "Failed to import default emission texture");
@@ -462,32 +907,36 @@ namespace Core::Assets
 			color,
 			specular,
 			shininess,
-			rma,
+			orm,
 			emission,
 			normal,
 			Graphics::MaterialDefaults::DefaultIor,
 			Graphics::MaterialDefaults::DefaultTransmission,
 			Graphics::MaterialDefaults::DefaultOpacity);
 
-		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		return handle.value();
+		return m_Storage.Emplace(key, std::move(asset));
 	}
 
 
 	std::expected<Handle<Texture>, Utils::Error> Manager::ImportPixelTexture(const Graphics::PixelFormat& format, std::span<const uint8_t> value)
 	{
-		Source source = SourcePixel{ format, value };
-		Subkey subkey = SubkeyNone{};
-
-		auto cached = m_Storage.GetHandleByKey<Texture>(source, subkey);
-		if (cached)
+		KeyBuilder<Texture> builder = KeyBuilder<Texture>();
+		builder.Add(format.layout);
+		builder.Add(format.componentType);
+		builder.Add(format.colorSpace);
+		uint64_t length = value.size();
+		builder.Add(length);
+		builder.Add(value);
+		Key<Texture> key = builder.Finish("pixel_texture");
+		
+		if (auto cached = m_Storage.GetHandleByKey<Texture>(key); cached)
 			return cached.value();
 
-		Import::Image image{
+		Import::Media::Image image{
 			.width = 1,
 			.height = 1,
 			.format = format,
-			.data = std::vector<uint8_t>(value.begin(), value.end())
+			.data = { value.begin(), value.end() }
 		};
 
 		CORE_TRY(glTexture, Graphics::Gl::Texture::Create2D(image));
@@ -498,7 +947,98 @@ namespace Core::Assets
 			std::move(glTexture),
 			std::move(cudaTexture));
 
-		auto handle = m_Storage.Emplace(source, subkey, std::move(asset));
-		return handle.value();
+		return m_Storage.Emplace(key, std::move(asset));
+	}
+	
+
+	std::expected<std::optional<Utils::Path::ResolvedPath>, Utils::Error> Manager::ResolveTexturePath(
+		const std::optional<std::filesystem::path>& texturePath,
+		const std::filesystem::path& root)
+	{
+		if (!texturePath)
+			return std::nullopt;
+
+		CORE_TRY_CONTEXT(resolved, ResolveFilePath(texturePath.value(), root), "Failed to resolve texture path: {}", texturePath.value().string());
+		return resolved;
+	}
+	
+	std::expected<ResolvedMaterial, Utils::Error> Manager::ResolveMaterial(const Utils::Path::ResolvedPath& path, const std::filesystem::path& parentPath, const Import::Material& materialSource)
+	{
+		Graphics::SurfaceModel surface = ResolveSurfaceModel(materialSource);
+
+		auto localShading = Graphics::Gl::ToLocalShadingChecked(surface);
+		if (!localShading.second)
+			spdlog::warn(
+				"Material '{}' uses surface model, which is not supported with local illumination."
+				"It will be treated as Unlit when shading via OpenGL. File path: {}",
+				materialSource.name,
+				path.absolute.generic_string());
+		
+		auto globalShading = Graphics::Cuda::ToGlobalShadingChecked(surface);
+		if (!globalShading.second)
+			spdlog::warn(
+				"Material '{}' uses surface model, which is not supported with global illumination."
+				"It will be treated as Diffuse when shading via CUDA. File path: {}",
+				materialSource.name,
+				path.absolute.generic_string());
+
+		bool flipTextures = materialSource.flipTextures.value_or(false);
+		
+		ResolvedMaterial resolved;
+
+		resolved.surface = surface;
+		resolved.flipTextures = flipTextures;
+		resolved.color = materialSource.color;
+		resolved.specular = materialSource.specular;
+		resolved.shininess = materialSource.shininess;
+		resolved.roughness = materialSource.roughness;
+		resolved.metallic = materialSource.metallic;
+		resolved.emission = materialSource.emission;
+		resolved.ior = materialSource.ior;
+		resolved.transmission = materialSource.transmission;
+		resolved.opacity = materialSource.opacity;
+		
+		CORE_TRY_ASSIGN(resolved.colorTexture, ResolveTexturePath(materialSource.colorTexture, parentPath));
+		CORE_TRY_ASSIGN(resolved.specularTexture, ResolveTexturePath(materialSource.specularTexture, parentPath));
+		CORE_TRY_ASSIGN(resolved.shininessTexture, ResolveTexturePath(materialSource.shininessTexture, parentPath));
+		CORE_TRY_ASSIGN(resolved.occlusionTexture, ResolveTexturePath(materialSource.occlusionTexture, parentPath));
+		CORE_TRY_ASSIGN(resolved.roughnessTexture, ResolveTexturePath(materialSource.roughnessTexture, parentPath));
+		CORE_TRY_ASSIGN(resolved.metallicTexture, ResolveTexturePath(materialSource.metallicTexture, parentPath));
+		CORE_TRY_ASSIGN(resolved.rmTexture, ResolveTexturePath(materialSource.rmTexture, parentPath));
+		CORE_TRY_ASSIGN(resolved.ormTexture, ResolveTexturePath(materialSource.ormTexture, parentPath));
+		CORE_TRY_ASSIGN(resolved.rmoTexture, ResolveTexturePath(materialSource.rmoTexture, parentPath));
+		CORE_TRY_ASSIGN(resolved.emissionTexture, ResolveTexturePath(materialSource.emissionTexture, parentPath));
+		CORE_TRY_ASSIGN(resolved.normalTexture, ResolveTexturePath(materialSource.normalTexture, parentPath));
+
+		return resolved;
+	}
+	
+	std::expected<Utils::Path::ResolvedPath, Utils::Error> Manager::ResolveFilePath(const std::filesystem::path& path, const std::optional<std::filesystem::path>& root)
+	{
+		Utils::Path::ResolvedPath resolvedPath;
+
+		if (root)
+		{
+			CORE_TRY_ASSIGN(resolvedPath, Utils::Path::ResolvePath(path, root.value()));
+			
+			if (!std::filesystem::exists(resolvedPath.absolute))
+			{
+				CORE_TRY_ASSIGN(resolvedPath, Utils::Path::ResolvePath(path, m_Root));
+				if (!std::filesystem::exists(resolvedPath.absolute))
+					return std::unexpected(Utils::Error("Resolved file path does not exist: {}", resolvedPath.absolute.generic_string()));
+			}
+		}
+		else
+		{
+			CORE_TRY_ASSIGN(resolvedPath, Utils::Path::ResolvePath(path, m_Root));
+		}
+		
+		if (!Utils::Path::IsSubpath(m_Root, resolvedPath.absolute))
+			return std::unexpected(Utils::Error("Resolved file path is not a subpath of the asset root: {}", resolvedPath.absolute.generic_string()));
+
+		if (root)
+			resolvedPath.relative = std::filesystem::relative(resolvedPath.absolute, m_Root);
+
+		return resolvedPath;
 	}
 }

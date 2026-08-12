@@ -1,7 +1,7 @@
 #pragma once
 #include <expected>
 #include <Core/Utils/Error.hpp>
-#include <Core/Import/Image.hpp>
+#include <Core/Import/Media/Image.hpp>
 
 namespace Core::Graphics::Gl
 {
@@ -14,10 +14,10 @@ namespace Core::Graphics::Gl
 		Texture(Texture&& other) noexcept;
 		Texture& operator=(Texture&& other) noexcept;
 
-		static std::expected<Texture, Utils::Error> Create2D(const Import::Image& image);
-		static std::expected<Texture, Utils::Error> Create2DFromMipmaps(const Import::ImageMipChain& mipMaps);
-		static std::expected<Texture, Utils::Error> CreateCubemap(const Import::Cubemap& cubemap);
-		static std::expected<Texture, Utils::Error> CreateCubemapFromMipmaps(const Import::CubemapMipChain& mipMaps);
+		static std::expected<Texture, Utils::Error> Create2D(const Import::Media::Image& image);
+		static std::expected<Texture, Utils::Error> Create2DFromMipmaps(const Import::Media::ImageMipChain& mipMaps);
+		static std::expected<Texture, Utils::Error> CreateCubemap(const Import::Media::Cubemap& cubemap);
+		static std::expected<Texture, Utils::Error> CreateCubemapFromMipmaps(const Import::Media::CubemapMipChain& mipMaps);
 
 		~Texture();
 		uint32_t GetId() const { return m_Id; }

@@ -17,8 +17,8 @@
 #include <Core/Graphics/Cuda/PathTracing/Memory/MaterialEvalQueueViewsProvider.hpp>
 #include <Core/Graphics/Cuda/Runtime/Global.hpp>
 #include <Core/Graphics/Cuda/Runtime/Sync/Profiler.hpp>
-#include <Core/Import/ImageIO.hpp>
-#include <Core/Import/ImageUtils.hpp>
+#include <Core/Import/Media/ImageIO.hpp>
+#include <Core/Import/Media/ImageUtils.hpp>
 #include <Core/Utils/Path.hpp>
 
 namespace Core::Graphics::Cuda
@@ -94,7 +94,7 @@ namespace Core::Graphics::Cuda
                         .color = storage.Get(materialAsset.color).value().get().cuda.GetView<float4>(),
                         .specular = storage.Get(materialAsset.specular).value().get().cuda.GetView<float4>(),
                         .shininess = storage.Get(materialAsset.shininess).value().get().cuda.GetView<float>(),
-                        .rma = storage.Get(materialAsset.rma).value().get().cuda.GetView<float4>(),
+                        .rm = storage.Get(materialAsset.orm).value().get().cuda.GetView<float2>(),
                         .emission = storage.Get(materialAsset.emission).value().get().cuda.GetView<float4>(),
                         .normal = storage.Get(materialAsset.normal).value().get().cuda.GetView<float4>(),
                         .ior = materialAsset.ior,
@@ -658,7 +658,7 @@ namespace Core::Graphics::Cuda
             frameData.assign(frameDataHostBegin, frameDataHostBegin + m_Framebuffer.GetSize() * m_Framebuffer.GetElementSize());
         }
         
-        Import::Image image{
+        Import::Media::Image image{
             .width = m_PixelGrid.width,
             .height = m_PixelGrid.height,
             .format = {
@@ -669,7 +669,7 @@ namespace Core::Graphics::Cuda
             .data = std::move(frameData)
         };
 
-        CORE_TRY_DISCARD_CONTEXT(Import::SaveImage(path, Import::FlipVertically(image)), "Failed to save rendered image");
+        CORE_TRY_DISCARD_CONTEXT(Import::Media::SaveImage(path, Import::Media::FlipVertically(image)), "Failed to save rendered image");
         spdlog::info("Saved rendered frame {} to '{}'", m_DoneFrames.load(), path.string());
         return {};
     }

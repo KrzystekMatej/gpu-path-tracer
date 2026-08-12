@@ -8,6 +8,8 @@
     "entt",
     "xxhash",
     "tinyobjloader",
+    "fastgltf",
+    "simdjson",
     "opengl",
     "glfw3",
     "openimageio"

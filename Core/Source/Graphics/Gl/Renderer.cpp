@@ -2,8 +2,8 @@
 #include <Core/Graphics/Gl/Renderer.hpp>
 #include <spdlog/spdlog.h>
 #include <Core/Graphics/Gl/Shader.hpp>
-#include <Core/Import/ImageIO.hpp>
-#include <Core/Import/ObjLoader.hpp>
+#include <Core/Import/Media/ImageIO.hpp>
+#include <Core/Import/Prefabs/ObjLoader.hpp>
 
 namespace Core::Graphics::Gl
 {
@@ -77,11 +77,13 @@ namespace Core::Graphics::Gl
 		CORE_TRY_CONTEXT(emissive, assetManager.ImportShaderProgram(emissivePaths), "Failed to load emissive shader program");
 		CORE_TRY_CONTEXT(background, assetManager.ImportShaderProgram(backgroundPaths), "Failed to load background shader program");
 
-		CORE_TRY_CONTEXT(brdfMap, Import::LoadImage(assetManager.GetRootPath() / brdfMapPath, ColorSpace::Linear), "Failed to load BRDF map image");
+		CORE_TRY_CONTEXT(brdfMap, Import::Media::LoadImage(assetManager.GetRootPath() / brdfMapPath, ColorSpace::Linear), "Failed to load BRDF map image");
 		CORE_TRY_CONTEXT(brdfMapTexture, Texture::Create2D(brdfMap), "Failed to create BRDF map texture");
 
 		CORE_TRY_CONTEXT(skyboxObj, Import::LoadObj(assetManager.GetRootPath() / skyboxPath), "Failed to load skybox mesh");
-		CORE_TRY_CONTEXT(skyboxMesh, Mesh::Create(skyboxObj.meshes[0]), "Failed to create skybox mesh");
+		// CORE_TRY_CONTEXT(skyboxMesh, Mesh::Create(skyboxObj.primitives[0]), "Failed to create skybox mesh");
+		Import::MeshPrimitive skyboxPrimitive; // add skybox mesh loading here
+		CORE_TRY_CONTEXT(skyboxMesh, Mesh::Create(std::move(skyboxPrimitive)), "Failed to create skybox mesh");
 
 		return Renderer(
 			nullptr, 
@@ -226,7 +228,7 @@ namespace Core::Graphics::Gl
 				}
 
 				program->SetTexture("color_texture", context.material.color);
-				program->SetTexture("rma_texture", context.material.rma);
+				program->SetTexture("orm_texture", context.material.orm);
 				program->SetTexture("normal_texture", context.material.normal);
 
 				program->SetMatrix4x4("pvm_matrix", pvm);

@@ -3,7 +3,7 @@
 #include <vector>
 #include <Core/Graphics/Common/Formats.hpp>
 
-namespace Core::Import
+namespace Core::Import::Media
 {
 	struct Image
 	{

@@ -2,7 +2,7 @@
 #include <vector>
 #include <expected>
 #include <Core/Graphics/Common/Vertex.hpp>
-#include <Core/Import/Model.hpp>
+#include <Core/Import/Prefabs/ScenePrefab.hpp>
 
 namespace Core::Graphics::Cpu
 {
@@ -14,7 +14,7 @@ namespace Core::Graphics::Cpu
 		Mesh(Mesh&&) noexcept = default;
 		Mesh& operator=(Mesh&&) noexcept = default;
 
-		static Mesh Create(Import::ParsedMesh parsedMesh)
+		static Mesh Create(Import::MeshPrimitive parsedMesh)
 		{
 			Mesh mesh(std::move(parsedMesh.vertices), std::move(parsedMesh.indices));
 			return mesh;

@@ -1,7 +1,7 @@
 #include <Core/Graphics/Cuda/Resources/Texture.hpp>
 #include <Core/Graphics/Cuda/Utils/Error.hpp>
 #include <cuda_runtime.h>
-#include <Core/Import/ImageUtils.hpp>
+#include <Core/Import/Media/ImageUtils.hpp>
 
 namespace Core::Graphics::Cuda
 {
@@ -10,7 +10,7 @@ namespace Core::Graphics::Cuda
         using Core::Graphics::ChannelLayout;
         using Core::Graphics::ComponentType;
 
-        std::expected<cudaChannelFormatDesc, Core::Utils::Error> CreateChannelDescription(const Import::Image& image)
+        std::expected<cudaChannelFormatDesc, Core::Utils::Error> CreateChannelDescription(const Import::Media::Image& image)
         {
             switch (image.format.componentType)
             {
@@ -20,6 +20,8 @@ namespace Core::Graphics::Cuda
                     {
                         case ChannelLayout::R:
                             return cudaCreateChannelDesc<uchar1>();
+                        case ChannelLayout::RG:
+                            return cudaCreateChannelDesc<uchar2>();
                         case ChannelLayout::RGBA:
                             return cudaCreateChannelDesc<uchar4>();
                         case ChannelLayout::RGB:
@@ -34,10 +36,10 @@ namespace Core::Graphics::Cuda
                     {
                         case ChannelLayout::R:
                             return cudaCreateChannelDescHalf();
-
+                        case ChannelLayout::RG:
+                            return cudaCreateChannelDescHalf2();
                         case ChannelLayout::RGBA:
                             return cudaCreateChannelDescHalf4();
-
                         case ChannelLayout::RGB:
                             break;
                     }
@@ -50,6 +52,8 @@ namespace Core::Graphics::Cuda
                     {
                         case ChannelLayout::R:
                             return cudaCreateChannelDesc<float1>();
+                        case ChannelLayout::RG:
+                            return cudaCreateChannelDesc<float2>();
                         case ChannelLayout::RGBA:
                             return cudaCreateChannelDesc<float4>();
                         case ChannelLayout::RGB:
@@ -62,7 +66,7 @@ namespace Core::Graphics::Cuda
             return std::unexpected(Core::Utils::Error("Unsupported CUDA texture format"));
         }
 
-        cudaTextureDesc CreateTextureDescription(const Import::Image& image)
+        cudaTextureDesc CreateTextureDescription(const Import::Media::Image& image)
         {
             cudaTextureDesc textureDescription{};
             textureDescription.addressMode[0] = cudaAddressModeClamp;
@@ -124,14 +128,14 @@ namespace Core::Graphics::Cuda
         return *this;
     }
 
-    std::expected<Texture, Core::Utils::Error> Texture::Create2D(const Import::Image& image)
+    std::expected<Texture, Core::Utils::Error> Texture::Create2D(const Import::Media::Image& image)
     {
-        const Import::Image* sourceImage = &image;
-		std::optional<Import::Image> convertedImage;
+        const Import::Media::Image* sourceImage = &image;
+		std::optional<Import::Media::Image> convertedImage;
 
 		if (image.format.layout == Graphics::ChannelLayout::RGB)
 		{
-			convertedImage = std::move(Import::ConvertRgbToRgba(image));
+			convertedImage = std::move(Import::Media::ConvertRgbToRgba(image));
             assert(convertedImage.has_value());
 			sourceImage = &convertedImage.value();
 		}

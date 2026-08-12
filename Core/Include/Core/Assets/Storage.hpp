@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include <unordered_map>
+#include <utility>
 
 #include <Core/Utils/Guid.hpp>
 #include <Core/Assets/Asset.hpp>
@@ -28,19 +29,18 @@ namespace Core::Assets
         }
 
         template<Asset T>
-        std::expected<Handle<T>, Utils::Error> GetHandleByKey(const Source& source, const Subkey& subkey) const
+        std::expected<Handle<T>, Utils::Error> GetHandleByKey(const Key<T>& key) const
         {
-            const Utils::Guid id = MakeAssetId(Key{ source, subkey, T::Type });
-            if (!m_Storage.contains(id))
+            if (!m_Storage.contains(key.GetId()))
                 return std::unexpected(Utils::Error("Asset not found"));
 
-            return Handle<T>(id);
+            return Handle<T>(key.GetId());
         }
 
         template<Asset T>
         std::expected<std::reference_wrapper<T>, Utils::Error> Get(Handle<T> handle) const
         {
-            auto it = m_Storage.find(handle.m_Id);
+            auto it = m_Storage.find(handle.GetId());
             if (it == m_Storage.end())
                 return std::unexpected(Utils::Error("Asset not found"));
 
@@ -48,32 +48,29 @@ namespace Core::Assets
         }
 
         template<Asset T>
-        std::expected<std::reference_wrapper<T>, Utils::Error> GetByKey(const Source& source, const Subkey& subkey) const
+        std::expected<std::reference_wrapper<T>, Utils::Error> GetByKey(const Key<T>& key) const
         {
-            const Utils::Guid id = MakeAssetId(Key{ source, subkey, T::Type });
-            return Get<T>(Handle<T>(id));
+            return Get<T>(Handle<T>(key.GetId()));
         }
 
         template<Asset T>
-        std::expected<Handle<T>, Utils::Error> Emplace(const Source& source, const Subkey& subkey, T&& asset)
+        std::expected<Handle<T>, Utils::Error> Emplace(const Key<T>& key, T&& asset)
         {
-            Key key = { source, subkey, T::Type };
-            spdlog::trace("Emplacing asset with key: {}", key.ToString());
-            const Utils::Guid id = MakeAssetId(key);
+            spdlog::trace("Emplacing {} asset with id: {} (type: {})", key.GetDebugName(), key.GetId(), ToString<T::Type>());
 
-            if (m_Storage.contains(id))
+            if (m_Storage.contains(key.GetId()))
                 return std::unexpected(Utils::Error("Asset already exists"));
 
-			Entry entry(std::make_unique<T>(std::forward<T>(asset)));
+			Entry entry{ std::make_unique<T>(std::move(asset)) };
 
-            m_Storage.emplace(id, std::move(entry));
-            return Handle<T>(id);
+            m_Storage.emplace(key.GetId(), std::move(entry));
+            return Handle<T>(key.GetId());
         }
 
         template<Asset T>
         bool Remove(Handle<T> handle)
         {
-            return m_Storage.erase(handle.m_Id) > 0;
+            return m_Storage.erase(handle.GetId()) > 0;
         }
 
         void Clear()

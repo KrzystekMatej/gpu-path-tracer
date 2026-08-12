@@ -75,11 +75,12 @@ namespace Core::Graphics::Cuda
 		TextureView<float4> color;
 		TextureView<float4> specular;
 		TextureView<float> shininess;
-		TextureView<float4> rma;
+		TextureView<float2> rm;
 		TextureView<float4> emission;
 		TextureView<float4> normal;
 		
 		float ior;
+		//transmittance??
 		float transmission;
 	};
 

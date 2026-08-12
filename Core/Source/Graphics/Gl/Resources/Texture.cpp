@@ -104,7 +104,7 @@ namespace Core::Graphics::Gl
 		}
 	}
 
-	std::expected<Texture, Utils::Error> Texture::Create2D(const Import::Image& image)
+	std::expected<Texture, Utils::Error> Texture::Create2D(const Import::Media::Image& image)
 	{
 		CORE_TRY(internalFormat, GetInternalFormat(image.format));
 		uint32_t externalFormat = GetExternalFormat(image.format);
@@ -133,7 +133,7 @@ namespace Core::Graphics::Gl
 		return texture;
 	}
 
-	std::expected<Texture, Utils::Error> Texture::Create2DFromMipmaps(const Import::ImageMipChain& mipChain)
+	std::expected<Texture, Utils::Error> Texture::Create2DFromMipmaps(const Import::Media::ImageMipChain& mipChain)
 	{
 		const auto& mipMaps = mipChain.mipMaps;
 		if (mipMaps.empty())
@@ -178,7 +178,7 @@ namespace Core::Graphics::Gl
 		return texture;
 	}
 
-	std::expected<Texture, Utils::Error> Texture::CreateCubemap(const Import::Cubemap& cubemap)
+	std::expected<Texture, Utils::Error> Texture::CreateCubemap(const Import::Media::Cubemap& cubemap)
 	{
 		CORE_TRY(internalFormat, GetInternalFormat(cubemap.format));
 		uint32_t externalFormat = GetExternalFormat(cubemap.format);
@@ -221,7 +221,7 @@ namespace Core::Graphics::Gl
 		return texture;
 	}
 
-	std::expected<Texture, Utils::Error> Texture::CreateCubemapFromMipmaps(const Import::CubemapMipChain& mipChain)
+	std::expected<Texture, Utils::Error> Texture::CreateCubemapFromMipmaps(const Import::Media::CubemapMipChain& mipChain)
 	{
 		const auto& mipMaps = mipChain.mipMaps;
 		if (mipMaps.empty())

@@ -78,26 +78,32 @@ namespace Core::Utils
 	}                                                                       \
 	auto name = std::move(name##_expected).value()
 
-#define CORE_TRY_ASSIGN(variable, expression)                                			\
-	auto variable##_expected = (expression);                           			\
-	if (!variable##_expected) {                                        			\
-		return std::unexpected(std::move(variable##_expected).error()); 		\
-	}                                                             			\
-	variable = std::move(variable##_expected).value()
+#define CORE_TRY_ASSIGN(variable, expression)                         \
+    do                                                                \
+    {                                                                 \
+        auto coreExpectedResult = (expression);                       \
+        if (!coreExpectedResult)                                      \
+        {                                                             \
+            return std::unexpected(                                   \
+                std::move(coreExpectedResult).error());               \
+        }                                                             \
+        (variable) = std::move(coreExpectedResult).value();           \
+    } while (false)
 
-#define CORE_TRY_ASSIGN_CONTEXT(variable, expression, ...)                             \
-	auto variable##_expected = (expression);                                    \
-	if (!variable##_expected) {                                                 \
-		return std::unexpected(                                             \
-			Core::Utils::Error(                                             \
-				std::make_shared<Core::Utils::Error>(                       \
-					std::move(variable##_expected).error()                      \
-				),                                                          \
-				__VA_ARGS__                                                 \
-			)                                                               \
-		);                                                                  \
-	}                                                                       \
-	variable = std::move(variable##_expected).value()
+#define CORE_TRY_ASSIGN_CONTEXT(variable, expression, ...)             \
+    do                                                                 \
+    {                                                                  \
+        auto coreExpectedResult = (expression);                        \
+        if (!coreExpectedResult)                                       \
+        {                                                              \
+            return std::unexpected(                                    \
+                Core::Utils::Error(                                    \
+                    std::make_shared<Core::Utils::Error>(               \
+                        std::move(coreExpectedResult).error()),         \
+                    __VA_ARGS__));                                     \
+        }                                                              \
+        (variable) = std::move(coreExpectedResult).value();            \
+    } while (false)
 
 #define CORE_TRY_DISCARD(expression)                                 			\
 	do {                                                          			\

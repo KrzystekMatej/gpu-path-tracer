@@ -1,6 +1,6 @@
 #pragma once
 #include <concepts>
-#include <Core/Assets/Key.hpp>
+#include <Core/Assets/AssetType.hpp>
 
 namespace Core::Assets
 {
@@ -16,7 +16,5 @@ namespace Core::Assets
     };
 
     template<class T>
-    concept Asset =
-        std::derived_from<T, IAsset> &&
-        requires { { T::Type } -> std::convertible_to<AssetType>; };
+    concept Asset = std::derived_from<T, IAsset> && requires { { T::Type } -> std::convertible_to<AssetType>; };
 }

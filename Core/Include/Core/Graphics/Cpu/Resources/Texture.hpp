@@ -3,7 +3,7 @@
 #include <vector>
 #include <span>
 #include <expected>
-#include <Core/Import/Image.hpp>
+#include <Core/Import/Media/Image.hpp>
 
 namespace Core::Graphics::Cpu
 {
@@ -15,7 +15,7 @@ namespace Core::Graphics::Cpu
 		Texture(Texture&&) noexcept = default;
 		Texture& operator=(Texture&&) noexcept = default;
 
-		static Texture Create(Import::Image image)
+		static Texture Create(Import::Media::Image image)
 		{
 			return Texture(image.width, image.height, image.format, std::move(image.data));
 		}
@@ -25,7 +25,7 @@ namespace Core::Graphics::Cpu
 		const PixelFormat& GetFormat() const { return m_Format; }
 
 		template<typename T>
-		const std::span<const T>& GetPixelView() const
+		std::span<const T> GetPixelView() const
 		{
 			assert(sizeof(T) == m_Format.GetBytesPerPixel() && "Pixel type does not match texture format");
 			return std::span<const T>(reinterpret_cast<const T*>(m_Data.data()), m_Data.size() / sizeof(T));

@@ -11,7 +11,7 @@ uniform vec3 camera_position;
 uniform float dielectric_F0;
 
 uniform sampler2D color_texture;
-uniform sampler2D rma_texture;
+uniform sampler2D orm_texture;
 uniform sampler2D normal_texture;
 
 const int LIGHT_LIMIT = 10;
@@ -106,11 +106,11 @@ void main()
     vec3 V = normalize(camera_position - world_position);
 
     vec3 base_color = texture(color_texture, fragment_uv).rgb;
-    vec3 rma = texture(rma_texture, fragment_uv).rgb;
-    float roughness = rma.r;
-    float metallic = rma.g;
-    float ao = rma.b;
-    
+    vec3 orm = texture(orm_texture, fragment_uv).rgb;
+    float occlusion = orm.r;
+    float roughness = orm.g;
+    float metallic = orm.b;
+
     vec3 F0 = mix(vec3(dielectric_F0), base_color, metallic);
 
     vec3 Lo = vec3(0.0);
@@ -140,7 +140,7 @@ void main()
         Lo += (kD * base_color / PI + specular) * radiance * NdotL;
     }
 
-    vec3 ambient = vec3(0.03) * base_color * ao;
+    vec3 ambient = vec3(0.03) * base_color * occlusion;
     vec3 color = ambient + Lo;
 
     fragment_color = vec4(postprocess(color), 1.0);

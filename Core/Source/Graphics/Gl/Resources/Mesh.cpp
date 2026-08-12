@@ -56,7 +56,7 @@ namespace Core::Graphics::Gl
 		}
 	}
 
-	std::expected<Mesh, Utils::Error> Mesh::Create(const Import::ParsedMesh& parsedMesh)
+	std::expected<Mesh, Utils::Error> Mesh::Create(const Import::MeshPrimitive& parsedMesh)
 	{
 		Mesh mesh(static_cast<uint32_t>(parsedMesh.indices.size()));
 		mesh.BindVertexArray();

@@ -9,6 +9,7 @@ namespace Core::Graphics
 	enum class ChannelLayout : uint8_t
 	{
 		R = 1,
+		RG = 2,
 		RGB = 3,
 		RGBA = 4,
 	};
@@ -60,6 +61,31 @@ namespace Core::Graphics
 
 		return "Unknown";
 	}
+	
+	constexpr uint32_t ToChannelCount(ChannelLayout layout)
+	{
+		return static_cast<uint32_t>(layout);
+	}
+	
+	constexpr uint32_t ToComponentSize(ComponentType componentType)
+	{
+		switch (componentType)
+		{
+			case ComponentType::UInt8:
+				return 1;
+			case ComponentType::Float16:
+				return 2;
+			case ComponentType::Float32:
+				return 4;
+		}
+
+		return 0;
+	}
+	
+	constexpr ComponentType GetBiggestComponentType()
+	{
+		return ComponentType::Float32;
+	}
 
 	struct PixelFormat
 	{
@@ -70,27 +96,17 @@ namespace Core::Graphics
 
 		uint32_t GetChannelCount() const
 		{
-			return static_cast<uint32_t>(layout);
+			return ToChannelCount(layout);
 		}
 
 		uint32_t GetComponentSize() const
 		{
-			switch (componentType)
-			{
-				case ComponentType::UInt8:
-					return 1;
-				case ComponentType::Float16:
-					return 2;
-				case ComponentType::Float32:
-					return 4;
-			}
-
-			return 0;
+			return ToComponentSize(componentType);
 		}
 
 		uint32_t GetBytesPerPixel() const
 		{
-			return static_cast<uint32_t>(layout) * GetComponentSize();
+			return GetChannelCount() * GetComponentSize();
 		}
 
 		bool operator==(const PixelFormat&) const = default;

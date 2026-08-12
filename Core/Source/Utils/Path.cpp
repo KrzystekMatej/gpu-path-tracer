@@ -2,6 +2,23 @@
 
 namespace Core::Utils::Path
 {
+	bool IsSubpath(const std::filesystem::path& base, const std::filesystem::path& path)
+	{
+		std::filesystem::path normalizedBase = base.lexically_normal();
+		std::filesystem::path normalizedPath = path.lexically_normal();
+
+		auto baseIt = normalizedBase.begin();
+		auto pathIt = normalizedPath.begin();
+
+		for (; baseIt != normalizedBase.end() && pathIt != normalizedPath.end(); ++baseIt, ++pathIt)
+		{
+			if (*baseIt != *pathIt)
+				return false;
+		}
+
+		return baseIt == normalizedBase.end();
+	}
+
 	std::expected<std::filesystem::path, Error> NormalizeRelativePath(const std::filesystem::path& path)
 	{
 		if (path.empty() || path.is_absolute())

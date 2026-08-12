@@ -54,7 +54,7 @@ namespace Core::Graphics::Ecs
 				.color = storage.Get(materialAsset.color).value().get().gl,
 				.specular = storage.Get(materialAsset.specular).value().get().gl,
 				.shininess = storage.Get(materialAsset.shininess).value().get().gl,
-				.rma = storage.Get(materialAsset.rma).value().get().gl,
+				.orm = storage.Get(materialAsset.orm).value().get().gl,
 				.normal = storage.Get(materialAsset.normal).value().get().gl,
 				.emission = storage.Get(materialAsset.emission).value().get().gl,
 				.ior = materialAsset.ior

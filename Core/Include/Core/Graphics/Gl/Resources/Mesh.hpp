@@ -1,7 +1,7 @@
 #pragma once
 #include <expected>
 #include <Core/Utils/Error.hpp>
-#include <Core/Import/Model.hpp>
+#include <Core/Import/Prefabs/ScenePrefab.hpp>
 
 namespace Core::Graphics::Gl
 {
@@ -14,7 +14,7 @@ namespace Core::Graphics::Gl
 		Mesh& operator=(Mesh&& other) noexcept;
 		~Mesh();
 
-		static std::expected<Mesh, Utils::Error> Create(const Import::ParsedMesh& parsedMesh);
+		static std::expected<Mesh, Utils::Error> Create(const Import::MeshPrimitive& parsedMesh);
 
 		uint32_t GetVertexCount() const { return m_VertexCount; }
 		void BindVertexArray() const;

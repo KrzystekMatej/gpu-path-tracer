@@ -2,10 +2,10 @@
 #include <filesystem>
 #include <expected>
 #include <Core/Utils/Error.hpp>
-#include <Core/Import/Image.hpp>
+#include <Core/Import/Media/Image.hpp>
 
 
-namespace Core::Import
+namespace Core::Import::Media
 {
 	std::expected<Image, Utils::Error> LoadImage(const std::filesystem::path& path, Graphics::ColorSpace colorSpace);
 	std::expected<void, Utils::Error> SaveImage(const std::filesystem::path& path, const Image& image);

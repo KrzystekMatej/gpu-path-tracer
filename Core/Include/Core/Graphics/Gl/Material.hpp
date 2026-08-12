@@ -78,7 +78,7 @@ namespace Core::Graphics::Gl
 		const Texture& color;
 		const Texture& specular;
 		const Texture& shininess;
-		const Texture& rma;
+		const Texture& orm;
 		const Texture& normal;
 		const Texture& emission;
 		float ior;

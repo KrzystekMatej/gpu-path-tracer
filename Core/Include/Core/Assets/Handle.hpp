@@ -1,6 +1,7 @@
 #pragma once
 #include <compare>
-#include <Core/Assets/Key.hpp>
+#include <Core/Assets/Asset.hpp>
+#include <Core/Utils/Guid.hpp>
 
 namespace Core::Assets
 {

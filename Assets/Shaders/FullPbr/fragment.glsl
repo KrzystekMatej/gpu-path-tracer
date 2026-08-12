@@ -11,7 +11,7 @@ uniform vec3 camera_position;
 uniform float dielectric_F0;
 
 uniform sampler2D color_texture;
-uniform sampler2D rma_texture;
+uniform sampler2D orm_texture;
 uniform sampler2D normal_texture;
 
 uniform samplerCube irradiance_map;
@@ -116,10 +116,10 @@ void main()
     vec3 R = reflect(-V, N);
 
     vec3 base_color = texture(color_texture, fragment_uv).rgb;
-    vec3 rma = texture(rma_texture, fragment_uv).rgb;
-    float roughness = rma.r;
-    float metallic = rma.g;
-    float ao = rma.b;
+    vec3 orm = texture(orm_texture, fragment_uv).rgb;
+    float occlusion = orm.r;
+    float roughness = orm.g;
+    float metallic = orm.b;
 
     vec3 F0 = mix(vec3(dielectric_F0), base_color, metallic);
 
@@ -164,7 +164,7 @@ void main()
     vec2 brdf = texture(brdf_map, vec2(max(dot(N, V), 0.0), roughness)).rg;
     vec3 specular = prefiltered_color * (F * brdf.x + brdf.y);
 
-    vec3 ambient = (kD * diffuse + specular) * ao;
+    vec3 ambient = (kD * diffuse + specular) * occlusion;
 
     vec3 color = ambient + Lo;
     

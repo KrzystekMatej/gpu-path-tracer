@@ -25,7 +25,6 @@ set_target_properties(core_cuda_kernels PROPERTIES
 add_library(core STATIC)
 
 target_sources(core PRIVATE
-    "Source/Assets/Key.cpp"
     "Source/Assets/Manager.cpp"
     
     "Source/Capture/MotionRecorder.cpp"
@@ -76,9 +75,12 @@ target_sources(core PRIVATE
     "Source/Graphics/Gl/VertexLayout.cpp" 
     "Source/Graphics/Services/SceneRenderer.cpp"
 
-    "Source/Import/ImageIO.cpp"
-    "Source/Import/ImageUtils.cpp"
-    "Source/Import/ObjLoader.cpp"
+    "Source/Import/Buffers/BufferUtils.cpp"
+    "Source/Import/Media/ImageIO.cpp"
+    "Source/Import/Media/ImageUtils.cpp"
+    "Source/Import/Media/OrmHelpers.cpp"
+    "Source/Import/Prefabs/GlTFLoader.cpp"
+    "Source/Import/Prefabs/ObjLoader.cpp"
     "Source/Import/SceneLoader.cpp" 
     "Source/Import/ShaderLoader.cpp" 
 
@@ -98,6 +100,7 @@ target_sources(core PRIVATE
     "Source/Scripts/Catalog.cpp"
 
     "Source/Utils/Math/TangentSpace.cpp" 
+    "Source/Utils/NumberTypes.cpp"
     "Source/Utils/Path.cpp"
     "Source/Utils/Yaml.cpp" 
     "Source/Utils/Text.cpp"

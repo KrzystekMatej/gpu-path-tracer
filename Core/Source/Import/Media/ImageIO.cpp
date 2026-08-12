@@ -1,11 +1,11 @@
-#include <Core/Import/ImageIO.hpp>
+#include <Core/Import/Media/ImageIO.hpp>
 #include <string_view>
 #include <algorithm>
 #include <ranges>
 #include <OpenImageIO/imageio.h>
 #include <Core/Utils/Text.hpp>
 
-namespace Core::Import
+namespace Core::Import::Media
 {
 	namespace 
 	{
@@ -48,6 +48,9 @@ namespace Core::Import
 			{
 				case 1:
 					format.layout = Graphics::ChannelLayout::R;
+					break;
+				case 2:
+					format.layout = Graphics::ChannelLayout::RG;
 					break;
 				case 3:
 					format.layout = Graphics::ChannelLayout::RGB;

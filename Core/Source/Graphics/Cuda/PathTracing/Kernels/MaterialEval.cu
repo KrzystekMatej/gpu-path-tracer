@@ -856,9 +856,9 @@ namespace Core::Graphics::Cuda::Kernels
 
 		const Material material = materials.At(hit.material);
 		const float3 baseColor = make_float3(material.color.Sample(hit.uv));
-		const float3 rma = make_float3(material.rma.Sample(hit.uv));
-		float alpha = fmaxf(rma.x * rma.x, 0.001f); // in the future we should treat alpha=0 as a special case - effectively smooth surface
-		float metallic = rma.y;
+		const float3 rm = make_float3(material.rm.Sample(hit.uv));
+		float alpha = fmaxf(rm.x * rm.x, 0.001f); // in the future we should treat alpha=0 as a special case - effectively smooth surface
+		float metallic = rm.y;
 
 		const Math::Frame shadingFrame = GetShadingFrame(hit, material.normal);
 
