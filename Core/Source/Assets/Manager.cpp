@@ -23,13 +23,14 @@
 #include <Core/Import/Media/OrmHelpers.hpp>
 #include <Core/Utils/NumberTypes.hpp>
 #include <Core/Import/Buffers/BufferUtils.hpp>
+#include <Core/Utils/Math/Normal.hpp>
+#include <Core/Utils/Math/TextureCoordinates.hpp>
 #include <Core/Utils/Math/TangentSpace.hpp>
 
 namespace Core::Assets
 {
 	namespace
 	{
-		
 		std::array<uint8_t, 3> RgbToU8(const float color[3])
 		{
 			return {
@@ -68,6 +69,103 @@ namespace Core::Assets
 		{
 			return format.componentType == Graphics::ComponentType::Float16 || format.componentType == Graphics::ComponentType::Float32;
 		}
+		
+		std::expected<void, Utils::Error> ValidateScenePrefab(const Import::ScenePrefab& prefab)
+		{
+			for (uint32_t root : prefab.roots)
+			{
+				if (root >= prefab.nodes.size())
+				{
+					return std::unexpected(Utils::Error(
+						"Scene prefab root node {} is out of range; node count is {}",
+						root,
+						prefab.nodes.size()));
+				}
+			}
+
+			for (size_t nodeIndex = 0; nodeIndex < prefab.nodes.size(); nodeIndex++)
+			{
+				const Import::SceneNode& node = prefab.nodes[nodeIndex];
+
+				if (node.mesh.has_value() && node.mesh.value() >= prefab.meshes.size())
+				{
+					return std::unexpected(Utils::Error(
+						"Scene prefab node {} references mesh {}, but mesh count is {}",
+						nodeIndex,
+						node.mesh.value(),
+						prefab.meshes.size()));
+				}
+
+				for (uint32_t child : node.children)
+				{
+					if (child >= prefab.nodes.size())
+					{
+						return std::unexpected(Utils::Error(
+							"Scene prefab node {} references child node {}, but node count is {}",
+							nodeIndex,
+							child,
+							prefab.nodes.size()));
+					}
+				}
+			}
+
+			for (size_t meshIndex = 0; meshIndex < prefab.meshes.size(); meshIndex++)
+			{
+				const Import::Mesh& mesh = prefab.meshes[meshIndex];
+
+				for (uint32_t primitive : mesh.primitives)
+				{
+					if (primitive >= prefab.meshPrimitivesAccessors.size())
+					{
+						return std::unexpected(Utils::Error(
+							"Scene prefab mesh {} references primitive {}, but primitive count is {}",
+							meshIndex,
+							primitive,
+							prefab.meshPrimitivesAccessors.size()));
+					}
+				}
+			}
+
+			for (size_t primitiveIndex = 0; primitiveIndex < prefab.meshPrimitivesAccessors.size(); primitiveIndex++)
+			{
+				const Import::MeshAccessor& primitive = prefab.meshPrimitivesAccessors[primitiveIndex];
+
+				if (primitive.material.has_value() && primitive.material.value() >= prefab.materials.size())
+				{
+					return std::unexpected(Utils::Error(
+						"Scene prefab primitive {} references material {}, but material count is {}",
+						primitiveIndex,
+						primitive.material.value(),
+						prefab.materials.size()));
+				}
+
+				auto validateAccessor = [&](const std::optional<Import::BufferAccessor>& accessor, std::string_view name) -> std::expected<void, Utils::Error>
+				{
+					if (!accessor.has_value())
+						return {};
+
+					if (accessor->buffer >= prefab.buffers.size())
+					{
+						return std::unexpected(Utils::Error(
+							"Scene prefab primitive {} {} accessor references buffer {}, but buffer count is {}",
+							primitiveIndex,
+							name,
+							accessor->buffer,
+							prefab.buffers.size()));
+					}
+
+					return {};
+				};
+
+				CORE_TRY_DISCARD(validateAccessor(primitive.indices, "index"));
+				CORE_TRY_DISCARD(validateAccessor(primitive.position, "position"));
+				CORE_TRY_DISCARD(validateAccessor(primitive.normal, "normal"));
+				CORE_TRY_DISCARD(validateAccessor(primitive.tangent, "tangent"));
+				CORE_TRY_DISCARD(validateAccessor(primitive.uv, "uv"));
+			}
+
+			return {};
+		}
 
 		Key<Texture> MakePixelTextureKey(const Graphics::PixelFormat& format, std::span<const uint8_t> value)
 		{
@@ -75,8 +173,6 @@ namespace Core::Assets
 			builder.Add(format.layout);
 			builder.Add(format.componentType);
 			builder.Add(format.colorSpace);
-			uint64_t length = value.size();
-			builder.Add(length);
 			builder.Add(value);
 			return builder.Finish("pixel_texture");
 		}
@@ -176,39 +272,70 @@ namespace Core::Assets
 			
 			if (material.ormTexture)
 			{
+				builder.Add("orm_texture");
 				builder.Add(material.ormTexture.value().relative.generic_string());
 			}
 			else if (material.rmoTexture)
 			{
+				builder.Add("rmo_texture");
 				builder.Add(material.rmoTexture.value().relative.generic_string());
 			}
 			else if (material.rmTexture)
 			{
+				builder.Add("rm_texture");
 				builder.Add(material.rmTexture.value().relative.generic_string());
 				if (material.occlusionTexture)
+				{
+					builder.Add("occlusion_texture");
 					builder.Add(material.occlusionTexture.value().relative.generic_string());
+				}
 				else
+				{
+					builder.Add("occlusion_fallback");
 					builder.Add(Utils::NumberTypes::NormalizedFloatToU8(Graphics::MaterialDefaults::Occlusion));
+				}
 			}
 			else if (material.occlusionTexture || material.roughnessTexture || material.metallicTexture)
 			{
+				builder.Add("separate_channels");
+
 				if (material.occlusionTexture)
+				{
+					builder.Add("occlusion_texture");
 					builder.Add(material.occlusionTexture.value().relative.generic_string());
+				}
 				else
+				{
+					builder.Add("occlusion_fallback");
 					builder.Add(Utils::NumberTypes::NormalizedFloatToU8(Graphics::MaterialDefaults::Occlusion));
+				}
 
 				if (material.roughnessTexture)
+				{
+					builder.Add("roughness_texture");
 					builder.Add(material.roughnessTexture.value().relative.generic_string());
+				}
 				else
+				{
+					builder.Add("roughness_fallback");
 					builder.Add(Utils::NumberTypes::NormalizedFloatToU8(material.roughness));
+				}
 
 				if (material.metallicTexture)
+				{
+					builder.Add("metallic_texture");
 					builder.Add(material.metallicTexture.value().relative.generic_string());
+				}
 				else
+				{
+					builder.Add("metallic_fallback");
 					builder.Add(Utils::NumberTypes::NormalizedFloatToU8(material.metallic));
+				}
 			}
 			else
 			{
+				builder.Add("orm_fallback");
+
 				std::array<uint8_t, 3> ormPixel = {
 					Utils::NumberTypes::NormalizedFloatToU8(Graphics::MaterialDefaults::Occlusion),
 					Utils::NumberTypes::NormalizedFloatToU8(material.roughness),
@@ -223,8 +350,9 @@ namespace Core::Assets
 				
 				return MakePixelTextureKey(pixelFormat, ormPixel);
 			}
-
-			return builder.Finish("orm_texture");
+			
+			builder.Add(material.flipTextures);
+			return builder.Finish("composed_orm_texture");
 		}
 
 		Graphics::SurfaceModel ResolveSurfaceModel(const Import::Material& material)
@@ -289,7 +417,7 @@ namespace Core::Assets
 	
 	Handle<Material> Manager::GetDefaultMaterial() const
 	{
-		Key<Material> key = MakePathSourcedKey<Material>("default_material", DefaultMaterialSource);
+		Key<Material> key = MakePathSourcedKey<Material>(DefaultMaterialSource, "default_material");
 		auto cached = m_Storage.GetHandleByKey<Material>(key);
 		assert(cached.has_value() && "Default material not present in storage");
 		return cached.value();
@@ -320,8 +448,8 @@ namespace Core::Assets
 		{
 			return std::unexpected(Utils::Error("Unsupported scene prefab file extension: {}", extension));
 		}
-
-		Handle<Material> defaultMaterial = GetDefaultMaterial();
+		
+		CORE_TRY_DISCARD_CONTEXT(ValidateScenePrefab(parsed), "Imported scene prefab failed validation, file path: {}", absoluteStr);
 
 		ScenePrefab prefab;
 		prefab.name = resolvedPath.absolute.stem().string();
@@ -343,6 +471,8 @@ namespace Core::Assets
 		
 		std::filesystem::path parentPath = resolvedPath.absolute.parent_path();
 
+		Handle<Material> defaultMaterial = GetDefaultMaterial();
+
 		for (auto& mesh : parsed.meshes)
 		{
 			Model model;
@@ -350,14 +480,12 @@ namespace Core::Assets
 
 			for (uint32_t primitiveIndex : mesh.primitives)
 			{
-				assert(primitiveIndex < parsed.meshPrimitivesAccessors.size());
 				auto& primitive = parsed.meshPrimitivesAccessors[primitiveIndex];
 				
 				Handle<Material> materialHandle = defaultMaterial;
 
 				if (primitive.material)
 				{
-					assert(*primitive.material < parsed.materials.size());// importer thing?
 					uint32_t materialIndex = primitive.material.value();
 
 					CORE_TRY_ASSIGN_CONTEXT(
@@ -375,7 +503,7 @@ namespace Core::Assets
 			prefab.models.push_back(std::move(model));
 		}
 
-		return m_Storage.Emplace(key, std::move(prefab)).value();
+		return m_Storage.Emplace(key, std::move(prefab));
 	}
 	
 	std::expected<Handle<Texture>, Utils::Error> Manager::ImportTexture(
@@ -386,13 +514,18 @@ namespace Core::Assets
 		std::string absoluteStr = resolvedPath.absolute.generic_string();
 		std::string relativeStr = resolvedPath.relative.generic_string();
 
-		Key<Texture> key = MakePathSourcedKey<Texture>(relativeStr, "2d_image_texture");
+		KeyBuilder<Texture> builder = KeyBuilder<Texture>();
+		builder.Add(relativeStr);
+		builder.Add(colorSpace);
+		builder.Add(flipVertically);
+		Key<Texture> key = builder.Finish("2d_image_texture");
+
 		if (auto cached = m_Storage.GetHandleByKey<Texture>(key); cached)
 			return cached.value();
 
 		CORE_TRY_CONTEXT(image, Import::Media::LoadImage(resolvedPath.absolute, colorSpace), "Failed to load texture image, file path: {}", absoluteStr);
 		if (flipVertically)
-			image = Import::Media::FlipVertically(std::move(image));
+			image = Import::Media::FlipVertically(image);
 
 		CORE_TRY_CONTEXT(glTexture, Graphics::Gl::Texture::Create2D(image), "Failed to create GL texture, file path: {}", absoluteStr);
 		CORE_TRY_CONTEXT(cudaTexture, Graphics::Cuda::Texture::Create2D(image), "Failed to create CUDA texture, file path: {}", absoluteStr);
@@ -408,7 +541,10 @@ namespace Core::Assets
 		std::string absoluteStr = resolvedPath.absolute.generic_string();
 		std::string relativeStr = resolvedPath.relative.generic_string();
 
-		Key<EnvironmentMap> key = MakePathSourcedKey<EnvironmentMap>(relativeStr, "environment_map");
+		KeyBuilder<EnvironmentMap> builder;
+		builder.Add(relativeStr);
+		builder.Add(colorSpace);
+		Key<EnvironmentMap> key = builder.Finish("environment_map");
 
 		if (auto cached = m_Storage.GetHandleByKey<EnvironmentMap>(key); cached)
 			return cached.value();
@@ -453,6 +589,7 @@ namespace Core::Assets
 		for (const auto& [path, shaderType] : shaderPaths)
 		{
 			CORE_TRY(resolvedPath, ResolveFilePath(path, std::nullopt));
+			builder.Add(shaderType);
 			builder.Add(resolvedPath.relative.generic_string());
 			resolvedShaderPaths.emplace_back(std::move(resolvedPath), shaderType);
 		}
@@ -473,12 +610,11 @@ namespace Core::Assets
 		CORE_TRY_CONTEXT(program, Graphics::Gl::ShaderProgram::Create(shaders), "Failed to create shader program");
 
 		ShaderProgram programAsset(std::move(program));
-		return m_Storage.Emplace(key, std::move(programAsset)).value();
+		return m_Storage.Emplace(key, std::move(programAsset));
 	}
 
 	std::expected<Utils::Guid, Utils::Error> Manager::MakeMeshBufferId(std::string_view path, const std::filesystem::path& parentPath, const Import::BufferAccessor& accessor, const Import::ScenePrefab& source)
 	{
-		assert(accessor.buffer < source.buffers.size() && "Buffer accessor view references a buffer index that is out of bounds");
 		const Import::Buffer& buffer = source.buffers[accessor.buffer];
 		Utils::Hasher hasher = Utils::Hasher();
 		
@@ -570,7 +706,7 @@ namespace Core::Assets
 		}
 		else
 		{
-			builder.Add("generated_normals");
+			builder.Add("generated_geometric_normals");
 		}
 
 		std::optional<Utils::Guid> tangentsId;
@@ -587,7 +723,7 @@ namespace Core::Assets
 		}
 		else
 		{
-			builder.Add("generated_tangents");
+			builder.Add("generated_mikktspace_tangents");
 		}
 
 		std::optional<Utils::Guid> uvsId;
@@ -596,15 +732,20 @@ namespace Core::Assets
 			Import::BufferAccessor uvs = accessor.uv.value();
 			if (uvs.view.elementType != Import::ElementType::Vec2)
 				return std::unexpected(Utils::Error("Mesh UVs must be 2D vectors"));
-			if (uvs.view.componentType != Import::ComponentType::Float)
-				return std::unexpected(Utils::Error("Mesh UVs must be floating-point numbers"));
+
+			bool validUvComponent = uvs.view.componentType == Import::ComponentType::Float ||
+				(uvs.view.componentType == Import::ComponentType::UnsignedByte && uvs.view.normalized) ||
+				(uvs.view.componentType == Import::ComponentType::UnsignedShort && uvs.view.normalized);
+			if (!validUvComponent)
+				return std::unexpected(Utils::Error("Mesh UVs must be float, normalized uint8, or normalized uint16"));
+
 			CORE_TRY_ASSIGN_CONTEXT(uvsId, MakeMeshBufferId(path, parentPath, uvs, source), "Failed to make mesh buffer ID for UVs");
 			builder.Add(uvsId.value());
 			AddBufferViewToMeshKey(builder, uvs);
 		}
 		else
 		{
-			builder.Add("generated_uvs");
+			builder.Add("generated_uvs_planar_bbox");
 		}
 
 		return MeshCacheAccessors {
@@ -617,54 +758,80 @@ namespace Core::Assets
 		};
 	}
 	
-	std::expected<void, Utils::Error> Manager::ImportMeshBuffer(std::span<uint8_t> destinationBufferBytes, const Import::BufferView& destinationView, const Import::BufferAccessor& accessor, const Import::ScenePrefab& source, Utils::Guid bufferId)
+	std::expected<void, Utils::Error> Manager::ImportMeshBuffer(
+		const std::filesystem::path& parentPath, 
+		std::span<uint8_t> destinationBufferBytes, 
+		const Import::BufferView& destinationView, 
+		const Import::BufferAccessor& accessor, 
+		const Import::ScenePrefab& source, 
+		Utils::Guid bufferId)
 	{
-		std::span<uint8_t> sourceBufferBytes;
+		std::span<const uint8_t> sourceBufferBytes;
+
 		if (m_BufferCache.contains(bufferId))
 		{
-			sourceBufferBytes = std::span<uint8_t>{ m_BufferCache.at(bufferId) };
+			sourceBufferBytes = std::span<const uint8_t>{ m_BufferCache.at(bufferId) };
 		}
 		else
 		{
-			const Import::Buffer& bufferSource = source.buffers[accessor.buffer];
+			const Import::Buffer& buffer = source.buffers[accessor.buffer];
 			
-			CORE_TRY(loadedBuffer, std::visit(Utils::Types::Overloaded{
-				[byteLength = bufferSource.byteLength, this](const Import::FileBuffer& fileBuffer) -> std::expected<std::vector<uint8_t>, Utils::Error>
+			CORE_TRY_ASSIGN(sourceBufferBytes, std::visit(Utils::Types::Overloaded{
+				[this, &parentPath, byteLength = buffer.byteLength, bufferId](const Import::FileBuffer& fileBuffer) -> std::expected<std::span<const uint8_t>, Utils::Error>
 				{
-					CORE_TRY_CONTEXT(resolvedPath, this->ResolveFilePath(fileBuffer.file, std::nullopt), "Failed to resolve buffer file path: {}", fileBuffer.file.generic_string());
-					CORE_TRY_CONTEXT(buffer, Import::ReadFileBytes(resolvedPath.absolute, byteLength, fileBuffer.byteOffset), "Failed to read buffer from file: {}", resolvedPath.absolute.generic_string());
-					return buffer;
+					CORE_TRY_CONTEXT(resolvedPath, this->ResolveFilePath(fileBuffer.file, parentPath), "Failed to resolve buffer file path: {}", fileBuffer.file.generic_string());
+					CORE_TRY_CONTEXT(loadedBuffer, Import::ReadFileBytes(resolvedPath.absolute, fileBuffer.byteOffset, byteLength), "Failed to read buffer from file: {}", resolvedPath.absolute.generic_string());
+					auto [iterator, _] = m_BufferCache.emplace(bufferId, std::move(loadedBuffer));
+					return std::span<const uint8_t>{iterator->second.data(), iterator->second.size()};
 				},
-				[](const Import::MemoryBuffer& memoryBuffer) -> std::expected<std::vector<uint8_t>, Utils::Error>
+				[](const Import::MemoryBuffer& memoryBuffer) -> std::expected<std::span<const uint8_t>, Utils::Error>
 				{
-					return memoryBuffer.bytes;
+					return std::span<const uint8_t>{memoryBuffer.bytes.data(), memoryBuffer.bytes.size()};
 				}
-			}, source.buffers[accessor.buffer].source));
-
-			auto [iterator, inserted] = m_BufferCache.emplace(bufferId, std::move(loadedBuffer));
-			sourceBufferBytes = std::span<uint8_t>{iterator->second};
+			}, buffer.source));
 		}
+
+		CORE_TRY_DISCARD_CONTEXT(
+			Import::CopyViewData(
+				destinationBufferBytes, 
+				destinationView, 
+				sourceBufferBytes, 
+				accessor.view), 
+			"Failed to copy buffer view for mesh buffer");
 		
-		CORE_TRY_DISCARD_CONTEXT(Import::CopyViewData(destinationBufferBytes, destinationView, sourceBufferBytes, accessor.view), "Failed to copy view data");
 		return {};
 	}
 
-	std::expected<Import::MeshPrimitive, Utils::Error> Manager::ComposeMesh(const Import::MeshAccessor& accessor, const Import::ScenePrefab& source, const MeshCacheAccessors& cacheAccessors)
+	std::expected<Import::MeshPrimitive, Utils::Error> Manager::ComposeMesh(const std::filesystem::path& parentPath, const Import::MeshAccessor& accessor, const Import::ScenePrefab& source, const MeshCacheAccessors& cacheAccessors)
 	{
 		Import::MeshPrimitive mesh;
-		std::span<uint8_t> meshBufferBytes = std::span<uint8_t>{ reinterpret_cast<uint8_t*>(mesh.vertices.data()), mesh.vertices.size() * sizeof(Graphics::Vertex) };
+		mesh.vertices.resize(accessor.vertexCount);
 
 		if (accessor.indices)
 		{
+			mesh.indices.resize(accessor.indexCount);
 			std::span<uint8_t> indexBufferBytes = std::span<uint8_t>{ reinterpret_cast<uint8_t*>(mesh.indices.data()), mesh.indices.size() * sizeof(uint32_t) };
 			CORE_TRY_DISCARD_CONTEXT(
 				ImportMeshBuffer(
+					parentPath,
 					indexBufferBytes, 
 					Import::IndexView(static_cast<uint32_t>(mesh.indices.size())), 
 					accessor.indices.value(), 
 					source, 
 					cacheAccessors.indicesId.value()), 
 				"Failed to import index buffer");
+			
+			for (uint32_t indexValue : mesh.indices)
+			{
+				if (indexValue >= mesh.vertices.size())
+				{
+					return std::unexpected(Utils::Error(
+						"Mesh {} contains index {} but has only {} vertices",
+						accessor.index,
+						indexValue,
+						mesh.vertices.size()));
+				}
+			}
 		}
 		else
 		{
@@ -672,9 +839,12 @@ namespace Core::Assets
 			mesh.indices = std::views::iota(std::uint32_t{0}, static_cast<std::uint32_t>(mesh.vertices.size())) | std::ranges::to<std::vector<std::uint32_t>>();
 		}
 		
+		std::span<uint8_t> meshBufferBytes = std::span<uint8_t>{ reinterpret_cast<uint8_t*>(mesh.vertices.data()), mesh.vertices.size() * sizeof(Graphics::Vertex) };
+		
 		assert(accessor.position && "Mesh must have positions");
 		CORE_TRY_DISCARD_CONTEXT(
 			ImportMeshBuffer(
+				parentPath,
 				meshBufferBytes, 
 				Import::PositionView(static_cast<uint32_t>(mesh.vertices.size())), 
 				accessor.position.value(), 
@@ -686,6 +856,7 @@ namespace Core::Assets
 		{
 			CORE_TRY_DISCARD_CONTEXT(
 				ImportMeshBuffer(
+					parentPath,
 					meshBufferBytes, 
 					Import::NormalView(static_cast<uint32_t>(mesh.vertices.size())), 
 					accessor.normal.value(), 
@@ -696,13 +867,32 @@ namespace Core::Assets
 		else
 		{
 			spdlog::warn("Mesh {} has no normals, generating geometric normals based on positions", accessor.index);
-			return std::unexpected(Utils::Error("Generation of geometric normals is not implemented yet"));
+			Utils::Math::GenerateGeometricNormals(mesh.vertices, mesh.indices);
+		}
+
+		if (accessor.uv)
+		{
+			CORE_TRY_DISCARD_CONTEXT(
+				ImportMeshBuffer(
+					parentPath,
+					meshBufferBytes, 
+					Import::UVView(static_cast<uint32_t>(mesh.vertices.size())), 
+					accessor.uv.value(), 
+					source, 
+					cacheAccessors.uvsId.value()), 
+				"Failed to import UV buffer");
+		}
+		else
+		{
+			spdlog::warn("Mesh {} has no UVs, generating default UV buffer", accessor.index);
+			Utils::Math::GeneratePlanarUVs(mesh.vertices);
 		}
 
 		if (accessor.tangent)
 		{
 			CORE_TRY_DISCARD_CONTEXT(
 				ImportMeshBuffer(
+					parentPath,
 					meshBufferBytes, 
 					Import::TangentView(static_cast<uint32_t>(mesh.vertices.size())), 
 					accessor.tangent.value(), 
@@ -716,23 +906,6 @@ namespace Core::Assets
 			Utils::Math::GenerateTangentSpace(mesh.vertices, mesh.indices);
 		}
 
-		if (accessor.uv)
-		{
-			CORE_TRY_DISCARD_CONTEXT(
-				ImportMeshBuffer(
-					meshBufferBytes, 
-					Import::UVView(static_cast<uint32_t>(mesh.vertices.size())), 
-					accessor.uv.value(), 
-					source, 
-					cacheAccessors.uvsId.value()), 
-				"Failed to import UV buffer");
-		}
-		else
-		{
-			spdlog::warn("Mesh {} has no UVs, generating default UV buffer", accessor.index);
-			return std::unexpected(Utils::Error("UV generation is not implemented yet"));
-		}
-
 		return mesh;
 	}
 
@@ -744,7 +917,7 @@ namespace Core::Assets
 		if (auto cached = m_Storage.GetHandleByKey<Mesh>(cacheAccessors.mesh); cached)
 			return cached.value();
 		
-		CORE_TRY_CONTEXT(meshPrimitive, ComposeMesh(mesh, prefab, cacheAccessors), "Failed to compose mesh {}", mesh.index);
+		CORE_TRY_CONTEXT(meshPrimitive, ComposeMesh(parentPath, mesh, prefab, cacheAccessors), "Failed to compose mesh {}", mesh.index);
 
 		CORE_TRY_CONTEXT(glMesh, Graphics::Gl::Mesh::Create(meshPrimitive), "Failed to create GL mesh");
 		Graphics::Cpu::Mesh cpuMesh = Graphics::Cpu::Mesh::Create(std::move(meshPrimitive));
@@ -920,14 +1093,7 @@ namespace Core::Assets
 
 	std::expected<Handle<Texture>, Utils::Error> Manager::ImportPixelTexture(const Graphics::PixelFormat& format, std::span<const uint8_t> value)
 	{
-		KeyBuilder<Texture> builder = KeyBuilder<Texture>();
-		builder.Add(format.layout);
-		builder.Add(format.componentType);
-		builder.Add(format.colorSpace);
-		uint64_t length = value.size();
-		builder.Add(length);
-		builder.Add(value);
-		Key<Texture> key = builder.Finish("pixel_texture");
+		Key<Texture> key = MakePixelTextureKey(format, value);
 		
 		if (auto cached = m_Storage.GetHandleByKey<Texture>(key); cached)
 			return cached.value();
@@ -1013,6 +1179,15 @@ namespace Core::Assets
 		return resolved;
 	}
 	
+	std::expected<Utils::Path::ResolvedPath, Utils::Error> Manager::ResolveFilePathFromProjectRoot(const std::filesystem::path& path)
+	{
+		CORE_TRY(resolvedPath, Utils::Path::ResolvePath(path, m_Root));
+		if (!std::filesystem::exists(resolvedPath.absolute))
+			return std::unexpected(Utils::Error("Resolved file path does not exist: {}", resolvedPath.absolute.generic_string()));
+		
+		return resolvedPath;
+	}
+	
 	std::expected<Utils::Path::ResolvedPath, Utils::Error> Manager::ResolveFilePath(const std::filesystem::path& path, const std::optional<std::filesystem::path>& root)
 	{
 		Utils::Path::ResolvedPath resolvedPath;
@@ -1022,15 +1197,11 @@ namespace Core::Assets
 			CORE_TRY_ASSIGN(resolvedPath, Utils::Path::ResolvePath(path, root.value()));
 			
 			if (!std::filesystem::exists(resolvedPath.absolute))
-			{
-				CORE_TRY_ASSIGN(resolvedPath, Utils::Path::ResolvePath(path, m_Root));
-				if (!std::filesystem::exists(resolvedPath.absolute))
-					return std::unexpected(Utils::Error("Resolved file path does not exist: {}", resolvedPath.absolute.generic_string()));
-			}
+				return ResolveFilePathFromProjectRoot(path);
 		}
 		else
 		{
-			CORE_TRY_ASSIGN(resolvedPath, Utils::Path::ResolvePath(path, m_Root));
+			return ResolveFilePathFromProjectRoot(path);
 		}
 		
 		if (!Utils::Path::IsSubpath(m_Root, resolvedPath.absolute))

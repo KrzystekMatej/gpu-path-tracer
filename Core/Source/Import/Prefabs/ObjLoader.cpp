@@ -17,7 +17,6 @@
 
 #include <Core/Utils/Math/TangentSpace.hpp>
 #include <Core/Import/Prefabs/Extras.hpp>
-#include <Core/Graphics/Common/Material.hpp>
 #include <Core/Graphics/Common/Vertex.hpp>
 
 namespace Core::Import
@@ -116,7 +115,7 @@ namespace Core::Import
 			std::map<std::string, std::string>::const_iterator iterator = source.unknown_parameter.find(SurfaceModelKey);
 
 			if (iterator == source.unknown_parameter.end())
-				return Graphics::MaterialDefaults::DefaultSurfaceModel;
+				return std::nullopt;
 
 			return ParseSurfaceModel(iterator->second);
 		}
@@ -182,33 +181,81 @@ namespace Core::Import
 
 			return static_cast<uint32_t>(materialId);
 		}
+		
+		std::expected<void, Utils::Error> ValidateObjIndex(
+			const tinyobj::attrib_t& attrib,
+			const tinyobj::index_t& index,
+			const std::filesystem::path& path)
+		{
+			if (index.vertex_index < 0)
+				return std::unexpected(Utils::Error("OBJ face vertex is missing a position index. File path: {}", path.string()));
+
+			const size_t positionIndex = static_cast<size_t>(index.vertex_index);
+			if (positionIndex >= attrib.vertices.size() / 3)
+			{
+				return std::unexpected(Utils::Error(
+					"OBJ position index {} is out of bounds. Position float count: {}, file path: {}",
+					index.vertex_index,
+					attrib.vertices.size(),
+					path.string()));
+			}
+
+			if (index.normal_index >= 0)
+			{
+				const size_t normalIndex = static_cast<size_t>(index.normal_index);
+				if (normalIndex >= attrib.normals.size() / 3)
+				{
+					return std::unexpected(Utils::Error(
+						"OBJ normal index {} is out of bounds. Normal float count: {}, file path: {}",
+						index.normal_index,
+						attrib.normals.size(),
+						path.string()));
+				}
+			}
+
+			if (index.texcoord_index >= 0)
+			{
+				const size_t texcoordIndex = static_cast<size_t>(index.texcoord_index);
+				if (texcoordIndex >= attrib.texcoords.size() / 2)
+				{
+					return std::unexpected(Utils::Error(
+						"OBJ texcoord index {} is out of bounds. Texcoord float count: {}, file path: {}",
+						index.texcoord_index,
+						attrib.texcoords.size(),
+						path.string()));
+				}
+			}
+
+			return {};
+		}
 
 		std::expected<void, Utils::Error> AppendFaceVertex(SubmeshBuilder& builder, const tinyobj::attrib_t& attrib, const tinyobj::index_t& index, const std::filesystem::path& path)
 		{
+			CORE_TRY_DISCARD(ValidateObjIndex(attrib, index, path));
+			
+
 			Graphics::Vertex vertex{};
 
-			if (index.vertex_index < 0)
-			{
-				builder.hasPositions = true;
-				vertex.position.x = attrib.vertices[3 * size_t(index.vertex_index) + 0];
-				vertex.position.y = attrib.vertices[3 * size_t(index.vertex_index) + 1];
-				vertex.position.z = attrib.vertices[3 * size_t(index.vertex_index) + 2];
-			}
+			builder.hasPositions = true;
+			vertex.position.x = attrib.vertices[3 * static_cast<size_t>(index.vertex_index) + 0];
+			vertex.position.y = attrib.vertices[3 * static_cast<size_t>(index.vertex_index) + 1];
+			vertex.position.z = attrib.vertices[3 * static_cast<size_t>(index.vertex_index) + 2];
 
-			if (index.normal_index < 0)
+			bool firstVertex = builder.vertices.empty();
+			builder.hasNormals = index.normal_index >= 0 && (firstVertex || builder.hasNormals);
+			if (builder.hasNormals)
 			{
-				builder.hasNormals = true;
-				vertex.normal.x = attrib.normals[3 * size_t(index.normal_index) + 0];
-				vertex.normal.y = attrib.normals[3 * size_t(index.normal_index) + 1];
-				vertex.normal.z = attrib.normals[3 * size_t(index.normal_index) + 2];
+				vertex.normal.x = attrib.normals[3 * static_cast<size_t>(index.normal_index) + 0];
+				vertex.normal.y = attrib.normals[3 * static_cast<size_t>(index.normal_index) + 1];
+				vertex.normal.z = attrib.normals[3 * static_cast<size_t>(index.normal_index) + 2];
 				vertex.normal = glm::normalize(vertex.normal);
 			}
 			
-			if (index.texcoord_index < 0)
+			builder.hasUvs = index.texcoord_index >= 0 && (firstVertex || builder.hasUvs);
+			if (builder.hasUvs)
 			{		
-				builder.hasUvs = true;
-				vertex.uv.x = attrib.texcoords[2 * size_t(index.texcoord_index) + 0];
-				vertex.uv.y = attrib.texcoords[2 * size_t(index.texcoord_index) + 1];
+				vertex.uv.x = attrib.texcoords[2 * static_cast<size_t>(index.texcoord_index) + 0];
+				vertex.uv.y = attrib.texcoords[2 * static_cast<size_t>(index.texcoord_index) + 1];
 			}
 
 			ObjIndexKey key
@@ -235,7 +282,7 @@ namespace Core::Import
 			const std::vector<tinyobj::material_t>& materialSources,
 			const std::filesystem::path& path)
 		{
-			constexpr size_t FaceVertexCount = 3;
+			constexpr size_t triangleVertexCount = 3;
 
 			size_t indexOffset = 0;
 			std::map<int, SubmeshBuilder> submeshes;
@@ -244,20 +291,20 @@ namespace Core::Import
 			{
 				size_t faceVertexCount = static_cast<size_t>(shape.mesh.num_face_vertices[faceIndex]);
 
-				if (faceVertexCount != FaceVertexCount)
+				if (faceVertexCount != triangleVertexCount)
 					return std::unexpected(Utils::Error("OBJ triangulation failed, face {} has {} vertices. File path: {}", faceIndex, faceVertexCount, path.string()));
 
 				int materialId = shape.mesh.material_ids.empty() ? -1 : shape.mesh.material_ids[faceIndex];
 
 				SubmeshBuilder& builder = submeshes[materialId];
 
-				for (size_t faceVertexIndex = 0; faceVertexIndex < FaceVertexCount; faceVertexIndex++)
+				for (size_t faceVertexIndex = 0; faceVertexIndex < faceVertexCount; faceVertexIndex++)
 				{
 					const tinyobj::index_t& index = shape.mesh.indices[indexOffset + faceVertexIndex];
 					CORE_TRY_DISCARD(AppendFaceVertex(builder, attrib, index, path));
 				}
 
-				indexOffset += FaceVertexCount;
+				indexOffset += faceVertexCount;
 			}
 
 			Mesh mesh{};

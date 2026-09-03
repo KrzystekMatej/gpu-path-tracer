@@ -2,8 +2,14 @@
 #include <entt/entt.hpp>
 #include <vector>
 
+namespace Core::Graphics::Ecs
+{
+	class ModelBuilder;
+}
+
 namespace Core::Ecs
 {
+	
 	struct Parent
 	{
 		Parent() = default;
@@ -22,8 +28,8 @@ namespace Core::Ecs
 		Children(std::vector<entt::entity> entities)
 			: entities(std::move(entities)) {}
 
-		const std::vector<entt::entity>& Get() { return entities; }
-
+		const std::vector<entt::entity>& Get() const { return entities; }
+		std::vector<entt::entity>& Get() { return entities; }
 	private:
 		std::vector<entt::entity> entities;
 	};

@@ -21,7 +21,6 @@ namespace Core::Import
 
 	struct Buffer
 	{
-		// why is there bytelength + why byteoffset is only for filebuffer?
 		std::string name;
 		uint64_t byteLength = 0;
 		std::variant<FileBuffer, MemoryBuffer> source;

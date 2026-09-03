@@ -10,12 +10,7 @@ int main()
 {
 	std::filesystem::path projectConfigPath = "project-config.yaml";
 
-	auto appResult = Core::Runtime::Application::Create
-	(
-		Core::Window::Attributes::DefaultAttributes(),
-		projectConfigPath
-	);
-
+	auto appResult = Core::Runtime::Application::Create(Core::Window::Attributes::DefaultAttributes(), projectConfigPath);
 	if (!appResult)
 	{
 		spdlog::error("Failed to create application: {}", appResult.error().FullMessage());

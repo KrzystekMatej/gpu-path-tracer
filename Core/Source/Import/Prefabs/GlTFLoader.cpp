@@ -128,7 +128,7 @@ namespace Core::Import
 			std::memcpy(destination.data(), source.data(), source.size());
 		}
 
-		std::expected<Buffer, Utils::Error> ConvertBuffer(const fastgltf::Buffer& source, const std::filesystem::path& path)
+		std::expected<Buffer, Utils::Error> ConvertBuffer(const fastgltf::Buffer& source, const std::filesystem::path& basePath)
 		{
 			Buffer buffer{};
 			buffer.name = std::string(source.name);
@@ -136,17 +136,17 @@ namespace Core::Import
 
 			if (const fastgltf::sources::URI* uri = std::get_if<fastgltf::sources::URI>(&source.data))
 			{
-				if (uri->uri.isDataUri())
-					return std::unexpected(Utils::Error("Unresolved glTF data URI buffer"));
+				if (uri->uri.isDataUri()) // needs custom decoder (maybe later), add if needed
+					return std::unexpected(Utils::Error("glTF data URI buffer was left as URI by fastgltf. This importer supports embedded buffers only when fastgltf exposes them as Array, Vector, or ByteView."));
 
-				if (!uri->uri.isLocalPath())
+				if (!uri->uri.isLocalPath()) // non-local paths - meaning needs to be downloaded, those are not supported
 					return std::unexpected(Utils::Error("Non-local glTF buffer URI is not supported"));
 
 				std::filesystem::path sourceFile = uri->uri.fspath();
 
 				buffer.source = FileBuffer
 				{
-					.file = sourceFile.empty() ? path : path.parent_path() / sourceFile,
+					.file = sourceFile.empty() ? basePath.filename() : sourceFile,
 					.byteOffset = static_cast<uint64_t>(uri->fileByteOffset)
 				};
 
@@ -308,27 +308,29 @@ namespace Core::Import
 
 			const fastgltf::Texture& texture = asset.textures[textureIndex];
 
-			if (texture.imageIndex.has_value())
+			if (!texture.imageIndex.has_value())
+				return std::nullopt;
+
+			size_t imageIndex = texture.imageIndex.value();
+
+			if (imageIndex >= asset.images.size())
+				return std::nullopt;
+
+			const fastgltf::Image& image = asset.images[imageIndex];
+
+			if (const fastgltf::sources::URI* uri = std::get_if<fastgltf::sources::URI>(&image.data))
 			{
-				size_t imageIndex = texture.imageIndex.value();
-
-				if (imageIndex < asset.images.size())
-				{
-					const fastgltf::Image& image = asset.images[imageIndex];
-
-					if (const fastgltf::sources::URI* uri = std::get_if<fastgltf::sources::URI>(&image.data))
-					{
-						if (!uri->uri.isDataUri() && uri->uri.isLocalPath())
-							return uri->uri.fspath().generic_string();
-					}
-
-					if (!image.name.empty())
-						return std::string(image.name);
-				}
+				if (!uri->uri.isDataUri() && uri->uri.isLocalPath())
+					return uri->uri.fspath().generic_string();
 			}
 
-			if (!texture.name.empty())
-				return std::string(texture.name);
+			// Add solution for embedded and buffer view textures
+			// if (!image.name.empty())
+			// 	return std::string(image.name);
+
+			// if (!texture.name.empty())
+			// 	return std::string(texture.name);
+			spdlog::warn("glTF texture '{}' is embedded or non-file-backed and is currently ignored", std::string(texture.name));
 
 			return std::nullopt;
 		}
@@ -351,12 +353,19 @@ namespace Core::Import
 			}
 
 			float transmission = source.transmission ? static_cast<float>(source.transmission->transmissionFactor) : 0.0f;
+			
+			std::optional<Graphics::SurfaceModel> surface;
+
+			if (extras != nullptr && extras->surface.has_value())
+				surface = extras->surface.value();
+			else if (source.unlit)
+				surface = Graphics::SurfaceModel::Unlit;
 
 			return Material
 			{
 				.name = std::string(source.name),
-				.surface = extras->surface ? extras->surface : std::nullopt,
-				.flipTextures = extras->flipTextures ? extras->flipTextures : std::nullopt,
+				.surface = surface,
+				.flipTextures = extras != nullptr ? extras->flipTextures : std::nullopt,
 				.color =
 				{
 					static_cast<float>(source.pbrData.baseColorFactor[0]),

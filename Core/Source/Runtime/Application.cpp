@@ -84,6 +84,8 @@ namespace Core::Runtime
 
 	std::expected<void, Utils::Error> Application::SetScene(const std::filesystem::path& path)
 	{
+		Assets::ManagerCacheScope cacheScope(m_AssetManager);
+		
 		CORE_TRY_CONTEXT(sceneSource, Import::LoadScene(path), "Failed to load scene");
 		CORE_TRY_CONTEXT(scene, Ecs::Scene::Create(std::move(sceneSource), m_BuilderRegistry, m_AssetManager), "Failed to create scene");
 		m_Scene = std::move(scene);

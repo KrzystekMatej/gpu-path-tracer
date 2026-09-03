@@ -3,17 +3,17 @@
 
 namespace Core::Utils::Math
 {
-    glm::vec3 ExtractTranslation(const glm::mat4& transform)
+    inline glm::vec3 ExtractTranslation(const glm::mat4& transform)
     {
         return glm::vec3(transform[3]);
     }
 
-    glm::quat ExtractRotationPure(const glm::mat4& transform)
+    inline glm::quat ExtractRotationPure(const glm::mat4& transform)
     {
         return glm::normalize(glm::quat_cast(glm::mat3(transform)));
     }
 
-    glm::quat ExtractRotationUniformScale(const glm::mat4& transform)
+    inline glm::quat ExtractRotationUniformScale(const glm::mat4& transform)
     {
         glm::mat3 rotation(transform);
 
@@ -32,7 +32,7 @@ namespace Core::Utils::Math
         return glm::normalize(glm::quat_cast(rotation));
     }
     
-    glm::vec3 ExtractScale(const glm::mat4& transform)
+    inline glm::vec3 ExtractScale(const glm::mat4& transform)
     {
         glm::vec3 scale;
         scale.x = glm::length(glm::vec3(transform[0]));

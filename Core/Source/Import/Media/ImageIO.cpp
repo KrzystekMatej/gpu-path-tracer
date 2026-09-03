@@ -231,8 +231,8 @@ namespace Core::Import::Media
 			if (!entry.is_regular_file())
 				continue;
 
-			const std::string filename = entry.path().filename().string();
-			if (filename[0] != 'm')
+			const std::string stem = entry.path().stem().string();
+			if (stem[0] != 'm')
 				continue;
 
 			std::filesystem::path fileExtension = entry.path().extension();
@@ -262,7 +262,7 @@ namespace Core::Import::Media
 						folderPath.string()));
 			}
 
-			std::string_view index = std::string_view(filename).substr(1, filename.size() - 1);
+			std::string_view index = std::string_view(stem).substr(1, stem.size() - 1);
 
 			if (!Utils::Text::IsNumeric(index)) continue;
 			mipPaths.emplace_back(std::stoul(std::string(index)), entry.path());

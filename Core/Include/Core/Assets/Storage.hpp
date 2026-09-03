@@ -32,7 +32,9 @@ namespace Core::Assets
         std::expected<Handle<T>, Utils::Error> GetHandleByKey(const Key<T>& key) const
         {
             if (!m_Storage.contains(key.GetId()))
+            {
                 return std::unexpected(Utils::Error("Asset not found"));
+            }
 
             return Handle<T>(key.GetId());
         }

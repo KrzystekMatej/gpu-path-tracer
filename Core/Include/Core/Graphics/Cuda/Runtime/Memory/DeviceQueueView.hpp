@@ -1,7 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <cuda_runtime.h>
-#include "CounterView.hpp"
+#include <Core/Graphics/Cuda/Runtime/Memory/CounterView.hpp>
 
 namespace Core::Graphics::Cuda::Runtime
 {

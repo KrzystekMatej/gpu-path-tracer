@@ -157,12 +157,10 @@ namespace Core::Import::Media
         if (texture.width != templateImage.width || texture.height != templateImage.height)
             return std::unexpected(Utils::Error("Dimensions of {} texture must match packed ORM texture dimensions", textureName));
 
-        if (texture.format.layout != templateImage.format.layout)
-            return std::unexpected(Utils::Error("Channel layout of {} texture must match packed ORM texture channel layout", textureName));
-
         if (texture.format.componentType != templateImage.format.componentType)
             return std::unexpected(Utils::Error("Component type of {} texture must match packed ORM texture component type", textureName));
 
+        assert(texture.format.GetChannelCount() >= 1 && "Packed ORM texture must have at least one channel");
         assert(templateImage.format.colorSpace == Graphics::ColorSpace::Linear && "Packed ORM texture must be in linear color space");
         return {};
     }

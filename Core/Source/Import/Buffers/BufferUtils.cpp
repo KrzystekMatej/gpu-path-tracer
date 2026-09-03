@@ -25,7 +25,7 @@ namespace Core::Import
 			return std::max(value / maximum, -1.0f);
 		}
 
-		std::expected<void, Utils::Error> ValidateView(std::span<uint8_t> buffer, const BufferView& view, std::string_view name)
+		std::expected<void, Utils::Error> ValidateView(std::span<const uint8_t> buffer, const BufferView& view, std::string_view name)
 		{
 			if (view.count == 0)
 				return {};
@@ -303,7 +303,7 @@ namespace Core::Import
         return bytes;
     }
     
-    std::expected<void, Utils::Error> CopyViewData(std::span<uint8_t> sourceBuffer, const BufferView& sourceView, std::span<uint8_t> destinationBuffer, const BufferView& destinationView)
+    std::expected<void, Utils::Error> CopyViewData(std::span<uint8_t> destinationBuffer, const BufferView& destinationView, std::span<const uint8_t> sourceBuffer, const BufferView& sourceView)
 	{
 		if (sourceView.count != destinationView.count)
 			return std::unexpected(Utils::Error("View count mismatch. Source: {}, destination: {}", sourceView.count, destinationView.count));

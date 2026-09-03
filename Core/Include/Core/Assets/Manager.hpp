@@ -84,15 +84,16 @@ namespace Core::Assets
 			std::span<const uint8_t> defaultValue,
 			bool flipVertically);
 		std::expected<void, Utils::Error> ImportMeshBuffer(
+			const std::filesystem::path& parentPath,
 			std::span<uint8_t> destinationBufferBytes,
-			const Import::BufferView& destinationView, 
+			const Import::BufferView& destinationView,
 			const Import::BufferAccessor& accessor, 
 			const Import::ScenePrefab& source, 
 			Utils::Guid bufferId);
 		std::expected<Utils::Guid, Utils::Error> MakeMeshBufferId(std::string_view path, const std::filesystem::path& parentPath, const Import::BufferAccessor& accessor, const Import::ScenePrefab& source);
 		void AddBufferViewToMeshKey(KeyBuilder<Mesh>& builder, const Import::BufferAccessor& accessor);
 		std::expected<MeshCacheAccessors, Utils::Error> MakeMeshCacheAccessors(std::string_view path, const std::filesystem::path& parentPath, const Import::MeshAccessor& accessor, const Import::ScenePrefab& source);
-		std::expected<Import::MeshPrimitive, Utils::Error> ComposeMesh(const Import::MeshAccessor& accessor, const Import::ScenePrefab& source, const MeshCacheAccessors& cacheAccessors);
+		std::expected<Import::MeshPrimitive, Utils::Error> ComposeMesh(const std::filesystem::path& parentPath, const Import::MeshAccessor& accessor, const Import::ScenePrefab& source, const MeshCacheAccessors& cacheAccessors);
 		std::expected<Handle<Mesh>, Utils::Error> ImportMesh(const Utils::Path::ResolvedPath& path, const std::filesystem::path& parentPath, const Import::ScenePrefab& prefab, Import::MeshAccessor mesh, uint32_t index);
 		std::expected<Handle<Material>, Utils::Error> ImportMaterial(const Utils::Path::ResolvedPath& path, const std::filesystem::path& parentPath, const Import::Material& material, uint32_t index);
 		std::expected<Handle<Material>, Utils::Error> ImportDefaultMaterial();
@@ -102,9 +103,30 @@ namespace Core::Assets
 		std::expected<std::optional<Utils::Path::ResolvedPath>, Utils::Error> ResolveTexturePath(const std::optional<std::filesystem::path>& texturePath, const std::filesystem::path& root);
 		std::expected<ResolvedMaterial, Utils::Error> ResolveMaterial(const Utils::Path::ResolvedPath& path, const std::filesystem::path& parentPath, const Import::Material& materialSource);
 		std::expected<Utils::Path::ResolvedPath, Utils::Error> ResolveFilePath(const std::filesystem::path& path, const std::optional<std::filesystem::path>& root = std::nullopt);
+		std::expected<Utils::Path::ResolvedPath, Utils::Error> ResolveFilePathFromProjectRoot(const std::filesystem::path& path);
 
 		Storage m_Storage;
 		std::filesystem::path m_Root;
 		std::unordered_map<Core::Utils::Guid, std::vector<uint8_t>> m_BufferCache;
+	};
+
+	struct ManagerCacheScope
+	{
+		explicit ManagerCacheScope(Manager& manager)
+			: manager(manager)
+		{
+			manager.ClearBufferCache();
+		}
+
+		ManagerCacheScope(const ManagerCacheScope&) = delete;
+		ManagerCacheScope& operator=(const ManagerCacheScope&) = delete;
+
+		~ManagerCacheScope()
+		{
+			manager.ClearBufferCache();
+		}
+
+	private:
+		Manager& manager;
 	};
 }

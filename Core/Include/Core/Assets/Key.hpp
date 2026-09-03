@@ -41,18 +41,8 @@ namespace Core::Assets
             Add(static_cast<uint32_t>(T::Type));
         }
 
-		void Add(std::string_view str)
-		{
-            m_Hasher.Add(str);
-		}
-
-        void Add(const std::span<const std::byte>& data)
-        {
-            m_Hasher.Add(data);
-        }
-
-		template <typename T>
-		void Add(const T& value)
+		template <typename U>
+		void Add(const U& value)
 		{
 			m_Hasher.Add(value);
 		}

@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string_view>
-#include "Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp"
+#include <Core/Graphics/Cuda/PathTracing/PathTracerDefaults.hpp>
 
 namespace App::PathTracer
 {

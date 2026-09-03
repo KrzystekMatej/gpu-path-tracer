@@ -8,6 +8,16 @@
 
 namespace Core::Utils
 {
+    template <typename T>
+    struct IsSpan : std::false_type {};
+
+    template <typename T, std::size_t Extent>
+    struct IsSpan<std::span<T, Extent>> : std::true_type {};
+
+    template <typename T>
+    concept Span = IsSpan<std::remove_cvref_t<T>>::value;
+
+
     class Hasher
     {
     public:
@@ -23,16 +33,28 @@ namespace Core::Utils
 
 		void Add(std::string_view str)
 		{
+            uint64_t length = static_cast<uint64_t>(str.size());
+            Add(length);
 			Add(std::as_bytes(std::span(str.data(), str.size())));
 		}
 
-        void Add(const std::span<const std::byte>& data)
+        template <typename T, std::size_t Extent>
+        requires std::is_trivially_copyable_v<T>
+        void Add(std::span<T, Extent> data)
         {
-            XXH3_64bits_update(&m_State, data.data(), data.size());
+            const uint64_t size = static_cast<uint64_t>(data.size());
+            Add(size);
+
+            auto bytes = std::as_bytes(data);
+            XXH3_64bits_update(&m_State, bytes.data(), bytes.size());
         }
 
-		template <typename T>
-		requires (std::is_trivially_copyable_v<T> && std::has_unique_object_representations_v<T>)
+        template <typename T>
+        requires (
+            std::is_trivially_copyable_v<T> &&
+            std::has_unique_object_representations_v<T> &&
+            !Span<T>
+        )
 		void Add(const T& value)
 		{
             static_assert(!std::is_pointer_v<T>);

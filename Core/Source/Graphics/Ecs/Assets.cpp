@@ -5,6 +5,7 @@
 #include <Core/Graphics/Ecs/Light.hpp>
 #include <execution>
 #include <numeric>
+#include <stack>	
 
 namespace Core::Graphics::Ecs
 {
@@ -31,6 +32,7 @@ namespace Core::Graphics::Ecs
 		
 		glm::vec3 GetAverageEmission(const Cpu::Texture& emissionTexture)
 		{
+			//emission texture does not have to be hdr (can be u8) - so this should be fixed
 			std::span<const glm::vec3> pixelView = emissionTexture.GetPixelView<glm::vec3>();
 			if (pixelView.empty())
 				return glm::vec3(0.0f);
@@ -62,6 +64,13 @@ namespace Core::Graphics::Ecs
 			return std::max({ color.r, color.g, color.b });
 		}
 	}
+	
+	struct SceneNode
+	{
+		entt::entity entity;
+		entt::entity parent;
+		uint32_t nodeIndex;
+	};
 
 	std::expected<void, Utils::Error> ModelBuilder::Build(
 		const Core::Ecs::BuildContext& context,
@@ -74,40 +83,110 @@ namespace Core::Graphics::Ecs
 		const Assets::Storage& storage = assetManager.GetStorage();
 
 		const Assets::ScenePrefab& prefab = storage.Get(prefabHandle).value();
+
+		if (prefab.roots.empty())
+		{
+			spdlog::warn("Scene prefab '{}' has no root nodes.", prefab.name);
+			return {};
+		}
+
+		entt::entity prefabEntity = registry.create();
+		registry.emplace<Core::Ecs::Parent>(prefabEntity, context.entity);
+		registry.emplace<Core::Ecs::Transform>(prefabEntity);
+		registry.emplace<Core::Ecs::WorldTransform>(prefabEntity);
 		
-		// std::vector<entt::entity> children;
-		// children.reserve(model.primitives.size());
+	    if (Core::Ecs::Children* existing = registry.try_get<Core::Ecs::Children>(context.entity))
+		{
+			existing->Get().push_back(prefabEntity);
+		}
+		else
+		{
+			registry.emplace<Core::Ecs::Children>(context.entity, std::vector<entt::entity> { prefabEntity });
+		}
 
-		// for (const auto& part : model.primitives)
-		// {
-		// 	const entt::entity child = registry.create();
+		std::stack<SceneNode> nodeStack;
+		std::vector<entt::entity> roots;
+		roots.reserve(prefab.roots.size());
 
-		// 	children.emplace_back(child);
-		// 	registry.emplace<Core::Ecs::Parent>(child, context.entity);
-		// 	registry.emplace<Core::Ecs::Transform>(child);
-		// 	registry.emplace<Core::Ecs::WorldTransform>(child);
-		// 	registry.emplace<Mesh>(child, part.mesh);
-		// 	registry.emplace<Material>(child, part.material);
+		for (uint32_t node : prefab.roots)
+		{
+			roots.push_back(registry.create());
+			nodeStack.push({ roots.back(), prefabEntity, node });
+		}
+		
+		registry.emplace<Core::Ecs::Children>(prefabEntity, std::move(roots));
 
-		// 	if (storage.Get(part.material).value().get().surface == Graphics::SurfaceModel::Emissive)
-		// 	{
-		// 		entt::entity lightEntity = registry.create();
-		// 		registry.emplace<Core::Ecs::Children>(child, std::vector<entt::entity>{ lightEntity });
-		// 		registry.emplace<Core::Ecs::Parent>(lightEntity, child);
-		// 		glm::vec3 centroid = GetMeshCentroid(storage.Get(part.mesh).value().get().cpu);
-		// 		registry.emplace<Core::Ecs::Transform>(lightEntity, GetMeshCentroid(storage.Get(part.mesh).value().get().cpu));
-		// 		registry.emplace<Core::Ecs::WorldTransform>(lightEntity);
+		while (!nodeStack.empty())
+		{
+			SceneNode current = nodeStack.top();
+			nodeStack.pop();
 
-		// 		const Cpu::Texture& emissionTexture = storage.Get(storage.Get(part.material).value().get().emission).value().get().cpu;
-		// 		glm::vec3 rgbIntensity = GetAverageEmission(emissionTexture) * GetSurfaceArea(storage.Get(part.mesh).value().get().cpu);
-		// 		float intensity = MaxChannel(rgbIntensity);
-		// 		glm::vec3 color = intensity > 0.0f ? rgbIntensity / intensity : glm::vec3(1.0f);
-		// 		registry.emplace<Light>(lightEntity, color, intensity);
-		// 	}
-		// }
+			const Assets::SceneNode& node = prefab.nodes[current.nodeIndex];
 
-		// if (!children.empty())
-		// 	registry.emplace<Core::Ecs::Children>(context.entity, std::move(children));
+			registry.emplace<Core::Ecs::Parent>(current.entity, current.parent);
+			registry.emplace<Core::Ecs::Transform>(current.entity, node.translation, node.rotation, node.scale);
+			registry.emplace<Core::Ecs::WorldTransform>(current.entity);
+
+			std::vector<entt::entity> children;
+			
+			if (node.model.has_value())
+			{
+				const Assets::Model& model = prefab.models[node.model.value()];
+				
+				const entt::entity modelEntity = registry.create();
+				children.push_back(modelEntity);
+				registry.emplace<Core::Ecs::Parent>(modelEntity, current.entity);
+				registry.emplace<Core::Ecs::Transform>(modelEntity);
+				registry.emplace<Core::Ecs::WorldTransform>(modelEntity);
+				
+				std::vector<entt::entity> modelChildren;
+				modelChildren.reserve(model.primitives.size());
+				
+				for (const Assets::ModelPrimitive& part : model.primitives)
+				{
+					const entt::entity modelChild = registry.create();
+					modelChildren.push_back(modelChild);
+					registry.emplace<Core::Ecs::Parent>(modelChild, modelEntity);
+					registry.emplace<Core::Ecs::Transform>(modelChild);
+					registry.emplace<Core::Ecs::WorldTransform>(modelChild);
+					registry.emplace<Mesh>(modelChild, part.mesh);
+					registry.emplace<Material>(modelChild, part.material);
+
+					if (storage.Get(part.material).value().get().surface == Graphics::SurfaceModel::Emissive)
+					{
+						entt::entity lightEntity = registry.create();
+						registry.emplace<Core::Ecs::Children>(modelChild, std::vector<entt::entity>{ lightEntity });
+						registry.emplace<Core::Ecs::Parent>(lightEntity, modelChild);
+						glm::vec3 centroid = GetMeshCentroid(storage.Get(part.mesh).value().get().cpu);
+						registry.emplace<Core::Ecs::Transform>(lightEntity, centroid);
+						registry.emplace<Core::Ecs::WorldTransform>(lightEntity);
+
+						const Cpu::Texture& emissionTexture = storage.Get(storage.Get(part.material).value().get().emission).value().get().cpu;
+						glm::vec3 rgbIntensity = GetAverageEmission(emissionTexture) * GetSurfaceArea(storage.Get(part.mesh).value().get().cpu);
+						float intensity = MaxChannel(rgbIntensity);
+						glm::vec3 color = intensity > 0.0f ? rgbIntensity / intensity : glm::vec3(1.0f);
+						registry.emplace<Light>(lightEntity, color, intensity);
+					}
+				}
+				
+				registry.emplace<Core::Ecs::Children>(modelEntity, std::move(modelChildren));
+			}
+
+			if (!node.children.empty())
+			{
+				children.reserve(node.children.size());
+
+				for (uint32_t childIndex : node.children)
+				{
+					children.push_back(registry.create());
+					nodeStack.push({ children.back(), current.entity, childIndex });
+				}
+
+			}
+			
+			if (!children.empty())
+				registry.emplace<Core::Ecs::Children>(current.entity, std::move(children));
+		}
 
 		return {};
 	}

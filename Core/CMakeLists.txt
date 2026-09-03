@@ -99,7 +99,9 @@ target_sources(core PRIVATE
     "Source/Scripts/Runner.cpp"
     "Source/Scripts/Catalog.cpp"
 
+    "Source/Utils/Math/Normal.cpp"
     "Source/Utils/Math/TangentSpace.cpp" 
+    "Source/Utils/Math/TextureCoordinates.cpp"
     "Source/Utils/NumberTypes.cpp"
     "Source/Utils/Path.cpp"
     "Source/Utils/Yaml.cpp" 

@@ -108,9 +108,9 @@ namespace Core::Import
 	{
 		std::string name;
 
-		std::array<float, 3> translation;
-		std::array<float, 4> rotation;
-		std::array<float, 3> scale;
+		std::array<float, 3> translation{ 0.0f, 0.0f, 0.0f };
+		std::array<float, 4> rotation{ 0.0f, 0.0f, 0.0f, 1.0f };
+		std::array<float, 3> scale{ 1.0f, 1.0f, 1.0f };
 
 		std::optional<uint32_t> mesh;
 		std::vector<uint32_t> children;
